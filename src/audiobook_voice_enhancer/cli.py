@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from .pipeline import Pipeline
+from .preview import generate_preview
 
 
 def parser() -> argparse.ArgumentParser:
@@ -23,7 +24,16 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--characters", type=Path, default=Path("config/characters.json"))
         command.add_argument("--output", type=Path, default=Path("output"))
         command.add_argument("--cache", type=Path, default=Path("cache"))
+        command.add_argument("--include", action="append", help="Nome de arquivo a incluir (pode ser repetido)")
         command.add_argument("--dry-run", action="store_true", help="Não modifica áudio; gera analysis.json")
+    preview = sub.add_parser("preview", help="Gera amostras original e convertida para comparação")
+    preview.add_argument("source", type=Path)
+    preview.add_argument("character")
+    preview.add_argument("--start", type=float, default=0)
+    preview.add_argument("--duration", type=float, default=20)
+    preview.add_argument("--config", type=Path, default=Path("config/config.yaml"))
+    preview.add_argument("--characters", type=Path, default=Path("config/characters.json"))
+    preview.add_argument("--output", type=Path, default=Path("output/previews"))
     character = sub.add_parser("character", help="Gerencia config/characters.json")
     character_sub = character.add_subparsers(dest="character_command", required=True)
     listing = character_sub.add_parser("list", help="Lista personagens")
@@ -45,13 +55,25 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if args.command == "character":
         return _character(args)
+    if args.command == "preview":
+        try:
+            generated = generate_preview(Path.cwd(), args.source, args.character, args.config, args.characters,
+                                         args.output, args.start, args.duration)
+            print(f"Original preview: {generated['original']}")
+            print(f"Converted preview: {generated['converted']}")
+            return 0
+        except Exception as exc:
+            logging.getLogger(__name__).exception("Falha ao gerar prévia")
+            print(f"ERRO: {exc}", file=sys.stderr)
+            return 1
     try:
         pipeline = Pipeline(Path.cwd(), args.config, args.characters, args.output, args.cache)
         if args.model:
             pipeline.config.setdefault("transcription", {})["model"] = args.model
         if args.device:
             pipeline.config["device"] = args.device
-        report = pipeline.run(args.source, command=args.command, language=args.language, book_text=args.book_text, dry_run=args.dry_run)
+        report = pipeline.run(args.source, command=args.command, language=args.language, book_text=args.book_text,
+                              dry_run=args.dry_run, include=args.include)
     except KeyboardInterrupt:
         print("Interrompido; caches concluídos foram preservados.", file=sys.stderr)
         return 130

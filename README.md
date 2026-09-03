@@ -52,7 +52,9 @@ Interface gráfica no Windows (dê dois cliques):
 ABRIR_INTERFACE.bat
 ```
 
-Ela permite escolher capítulos/livro/saída, editar personagens, importar referências, alterar configurações e acompanhar logs sem digitar comandos.
+Ela permite escolher capítulos/livro/saída, importar automaticamente os personagens encontrados, escolher suas vozes, alterar configurações e acompanhar capítulo, tempo e porcentagem sem digitar comandos.
+
+Também inclui seleção individual de capítulos, aliases de personagens, estimativa de tempo/espaço, checkpoints retomáveis e prévias original/convertida para comparação A/B.
 
 ```bat
 .venv\Scripts\activate

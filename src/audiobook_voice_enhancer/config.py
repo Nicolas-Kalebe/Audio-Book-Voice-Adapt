@@ -45,6 +45,8 @@ def load_characters(path: Path = DEFAULT_CHARACTERS, *, project_root: Path | Non
         raise ConfigurationError("characters.json deve ser um objeto nome -> configuração")
     root = project_root or Path.cwd()
     references: dict[Path, list[str]] = {}
+    canonical_names = {name.casefold(): name for name in data}
+    aliases: dict[str, str] = {}
     valid_modes = {"original", "convert", "auto", "ignore"}
     for name, item in data.items():
         if not isinstance(item, dict):
@@ -67,6 +69,19 @@ def load_characters(path: Path = DEFAULT_CHARACTERS, *, project_root: Path | Non
             resolved = Path(item["_resolved_voice_reference"])
             if require_references and not resolved.is_file():
                 raise ConfigurationError(f'Character "{name}" is configured for conversion, but voice_reference was not found: {resolved}')
+        configured_aliases = item.get("aliases", [])
+        if isinstance(configured_aliases, str):
+            configured_aliases = [configured_aliases]
+            item["aliases"] = configured_aliases
+        if not isinstance(configured_aliases, list):
+            raise ConfigurationError(f"Aliases inválidos para {name!r}; use uma lista de nomes")
+        for alias in configured_aliases:
+            normalized = " ".join(str(alias).split()).casefold()
+            owner = canonical_names.get(normalized) or aliases.get(normalized)
+            if owner and owner != name:
+                raise ConfigurationError(f'Alias "{alias}" está associado a {owner} e não pode ser usado também por {name}.')
+            if normalized:
+                aliases[normalized] = name
     for ref, names in references.items():
         if len(names) > 1:
             message = f"Referência compartilhada por {', '.join(names)}: {ref}"

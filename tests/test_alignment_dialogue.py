@@ -30,6 +30,33 @@ def test_explicit_dialogue_uses_only_dialogue_words():
     assert found[0]["start"] > 0
 
 
+def test_lowercase_pronoun_is_not_treated_as_character_name():
+    text = "Não faça isso disse ele"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": text, "words": words(text)}]}
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 4,
+                  "alignment_confidence": 0.95, "book_text": '“Não faça isso”, disse ele.'}]
+    found = detect(transcript, alignment)
+    assert found[0]["speaker"] is None
+
+
+def test_configured_alias_maps_to_canonical_character():
+    text = "Não faça isso disse o bruxo"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": text, "words": words(text)}]}
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 4,
+                  "alignment_confidence": 0.95, "book_text": '“Não faça isso”, disse o bruxo.'}]
+    found = detect(transcript, alignment, {"bruxo": "Geralt", "lobo branco": "Geralt"})
+    assert found[0]["speaker"] == "Geralt"
+    assert found[0]["speaker_confidence"] == 0.98
+
+
+def test_multiword_alias_maps_to_canonical_character():
+    text = "Vamos disse Lobo Branco"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 3, "text": text, "words": words(text)}]}
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 3,
+                  "alignment_confidence": 0.95, "book_text": '“Vamos”, disse Lobo Branco.'}]
+    assert detect(transcript, alignment, {"lobo branco": "Geralt"})[0]["speaker"] == "Geralt"
+
+
 def test_alignment_is_monotonic_and_fuzzy():
     transcript = {"segments": [{"id": 0, "start": 1, "end": 2, "text": "Era uma vez uma menina", "words": []}]}
     aligned = align_blocks(["Capítulo Primeiro", "Era uma vez, uma pequena menina."], transcript)
