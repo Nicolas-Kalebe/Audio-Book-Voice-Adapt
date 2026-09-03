@@ -200,7 +200,7 @@ Use a aba **Prévia A/B** para escolher capítulo, personagem, ponto inicial e d
 
 Na aba **BANCO DE VOZ**, selecione um áudio com uma ou mais pessoas, escolha o intervalo e deixe a quantidade de vozes em `Automático` ou informe o total esperado. Depois da análise, ouça cada grupo, informe o nome e use **Cortar e salvar voz**. O aplicativo combina até 25 segundos dos trechos mais limpos, grava a referência em `voices/` e configura o personagem em modo `convert`. Execute `setup_seedvc.bat` antes do primeiro uso e evite música, eco ou falas simultâneas.
 
-Mantenha **Limpeza leve de ruído** ativada para reduzir chiado, ruído constante e frequências fora da faixa da fala. Essa opção é conservadora e não remove completamente música nem consegue recuperar duas pessoas falando ao mesmo tempo.
+Mantenha **Limpeza leve de ruído** ativada para ajudar o reconhecimento. O filtro age somente na cópia interna de 16 kHz: os previews e a referência final são cortados de uma cópia mestre não filtrada em 44,1/48 kHz, preservando a qualidade original. Música forte e duas pessoas falando ao mesmo tempo ainda devem ser excluídas durante a revisão.
 
 Cada voz encontrada pode ser expandida para mostrar cortes individuais de até quatro segundos. Dê dois cliques para ouvir cada corte e use **Incluir/excluir trecho** quando ouvir outra pessoa, música forte ou ruído. Somente os cortes marcados como `Incluir` entram no WAV final; trechos curtos ou com baixa pureza são excluídos automaticamente.
 
