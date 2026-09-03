@@ -34,3 +34,14 @@ A seleção é opt-in por `mode`, sem distinção de gênero, idade, espécie ou
 - Fala sem aspas/travessão e sem atribuição explícita é deliberadamente subdetectada sem LLM.
 - OpenVoice não tem execução automática neste release porque sua API oficial não expõe uma CLI genérica de VC fonte→referência equivalente à do Seed-VC.
 - A primeira execução baixa vários gigabytes de modelos. Testes unitários não validam qualidade perceptual dos pesos; uma referência e um audiobook reais continuam necessários para essa avaliação.
+
+## Fontes primárias consultadas
+
+- [Seed-VC — repositório e CLI oficial](https://github.com/Plachtaa/seed-vc)
+- [faster-whisper — requisitos CUDA/cuDNN e timestamps](https://github.com/SYSTRAN/faster-whisper)
+- [WhisperX — alinhamento fonêmico e timestamps por palavra](https://github.com/m-bain/whisperX)
+- [OpenVoice — repositório oficial](https://github.com/myshell-ai/OpenVoice)
+- [RVC — CLI oficial](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/main/docs/en/cli.md)
+- [PyTorch — instalação local](https://pytorch.org/get-started/locally/) e [release 2.7 com suporte Blackwell](https://pytorch.org/blog/pytorch-2-7/)
+- [NVIDIA — compatibilidade entre driver e runtime CUDA](https://docs.nvidia.com/deploy/cuda-compatibility/)
+- [webrtcvad-wheels — wheels Windows compatíveis](https://pypi.org/project/webrtcvad-wheels/)
