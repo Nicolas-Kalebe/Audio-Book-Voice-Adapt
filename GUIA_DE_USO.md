@@ -189,6 +189,7 @@ A interface gráfica é iniciada por `ABRIR_INTERFACE.bat` e possui tema preto c
 - importação de uma referência de áudio, convertida automaticamente para WAV;
 - indicador de referência existente ou ausente;
 - edição das principais configurações de transcrição, confiança, voice conversion, saída e LLM;
+- banco local de vozes com diarização, amostras por falante e corte automático da referência;
 - diagnóstico da GPU.
 
 Durante a análise, a barra e o log mostram o capítulo atual, a porcentagem geral e quanto tempo de áudio daquele capítulo já foi transcrito. Ao importar uma voz para um personagem, a interface salva a referência e muda seu modo para `convert` automaticamente.
@@ -196,6 +197,8 @@ Durante a análise, a barra e o log mostram o capítulo atual, a porcentagem ger
 Na lista de capítulos, dê dois cliques em um arquivo para incluí-lo ou ignorá-lo. O botão **Estimativa** calcula duração, espaço de saída e uma faixa aproximada de tempo. Cada capítulo concluído recebe um checkpoint; se houver interrupção, uma nova execução com os mesmos arquivos e configurações retoma do capítulo seguinte.
 
 Use a aba **Prévia A/B** para escolher capítulo, personagem, ponto inicial e duração. **Gerar prévia** cria duas amostras de mesma duração; use **Ouvir original** e **Ouvir convertido** para comparar. Na aba de personagens, **Ouvir** reproduz diretamente a referência escolhida.
+
+Na aba **BANCO DE VOZ**, selecione um áudio com uma ou mais pessoas, escolha o intervalo e deixe a quantidade de vozes em `Automático` ou informe o total esperado. Depois da análise, ouça cada grupo, informe o nome e use **Cortar e salvar voz**. O aplicativo combina até 25 segundos dos trechos mais limpos, grava a referência em `voices/` e configura o personagem em modo `convert`. Execute `setup_seedvc.bat` antes do primeiro uso e evite música, eco ou falas simultâneas.
 
 O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, bruxo`. Quando o livro usar um desses nomes em uma atribuição de fala, ele será associado ao personagem principal.
 

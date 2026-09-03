@@ -56,6 +56,21 @@ Ela permite escolher capítulos/livro/saída, importar automaticamente os person
 
 Também inclui seleção individual de capítulos, aliases de personagens, estimativa de tempo/espaço, checkpoints retomáveis e prévias original/convertida para comparação A/B.
 
+### Banco de voz
+
+A aba **BANCO DE VOZ** recebe WAV, MP3, M4A, FLAC, Opus, OGG ou AAC e faz diarização local:
+
+1. selecione o áudio e o intervalo a analisar (10 segundos a 1 hora);
+2. deixe a quantidade de vozes em `Automático` ou informe quantas pessoas existem;
+3. clique em **Reconhecer e separar vozes**;
+4. ouça a amostra de cada grupo e informe o nome do personagem;
+5. clique em **Cortar e salvar voz**.
+
+O app escolhe os trechos mais limpos, monta até 25 segundos de referência em `voices/`, atualiza
+`config/characters.json` e habilita o personagem para conversão. A diarização usa Resemblyzer no
+ambiente local do Seed-VC; execute `setup_seedvc.bat` antes do primeiro uso. Falas simultâneas e música
+de fundo não podem ser isoladas perfeitamente e devem ser evitadas.
+
 ```bat
 .venv\Scripts\activate
 python main.py analyze input --book-text livro.txt
