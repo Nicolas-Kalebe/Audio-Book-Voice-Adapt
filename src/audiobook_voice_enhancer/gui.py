@@ -15,6 +15,7 @@ from typing import Any
 
 import yaml
 
+from .character_discovery import merge_detected_characters
 from .config import ConfigurationError, load_characters, load_config
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +33,7 @@ MUTED = "#91a4bd"
 SUCCESS = "#39d98a"
 DANGER = "#ff5b69"
 BORDER = "#173552"
+PROGRESS_PATTERN = re.compile(r"\[PROGRESS\]\s+([\d.]+)%")
 
 
 def atomic_json(path: Path, data: dict[str, Any]) -> None:
@@ -62,12 +64,17 @@ class App(Tk):
         self.configure(bg=BG)
         self.option_add("*Font", ("Segoe UI", 10))
         self.process: subprocess.Popen[str] | None = None
+        self.task_kind = "idle"
+        self.last_command = ""
         self.events: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.config_data = load_config(CONFIG_PATH)
+        self.startup_import = self._sync_detected_characters(ROOT / "output" / "analysis.json")
         self.characters = self._read_characters()
         self._style()
         self._header()
         self._tabs()
+        if self.startup_import["added"]:
+            self._log(f"{len(self.startup_import['added'])} personagem(ns) da última análise foram adicionados automaticamente.\n")
         self.after(100, self._drain_events)
         self.protocol("WM_DELETE_WINDOW", self._close)
 
@@ -146,7 +153,7 @@ class App(Tk):
         self._button(actions, "Abrir saída", lambda: self._open_path(Path(self.output_var.get()))).pack(side="right")
         self._button(actions, "Abrir relatório", self._open_report).pack(side="right", padx=(0, 9))
 
-        self.progress = ttk.Progressbar(tab, mode="indeterminate")
+        self.progress = ttk.Progressbar(tab, mode="determinate", maximum=100)
         self.progress.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(0, 12))
         self.log = scrolledtext.ScrolledText(tab, height=16, bg="#02050a", fg="#b9d7ff", insertbackground=TEXT,
                                              relief="flat", borderwidth=0, font=("Cascadia Mono", 9), padx=10, pady=10)
@@ -164,7 +171,7 @@ class App(Tk):
         self.character_tree = ttk.Treeview(tab, columns=columns, show="tree headings", selectmode="browse")
         self.character_tree.heading("#0", text="Nome")
         for column, title, width in (("mode", "Modo", 85), ("gender", "Gênero", 85), ("age", "Idade", 80),
-                                     ("voice", "Referência", 180), ("status", "Arquivo", 85)):
+                                     ("voice", "Referência", 180), ("status", "Estado", 110)):
             self.character_tree.heading(column, text=title)
             self.character_tree.column(column, width=width, anchor="w")
         self.character_tree.column("#0", width=150)
@@ -194,8 +201,9 @@ class App(Tk):
         row += 2
         self._button(editor, "Importar áudio como WAV", self._import_voice, accent=True).grid(row=row, column=0, sticky="ew", pady=(10, 6))
         self._button(editor, "Salvar / adicionar", self._save_character).grid(row=row + 1, column=0, sticky="ew", pady=4)
-        self._button(editor, "Novo", self._clear_character).grid(row=row + 2, column=0, sticky="ew", pady=4)
-        self._button(editor, "Excluir", self._delete_character, danger=True).grid(row=row + 3, column=0, sticky="ew", pady=4)
+        self._button(editor, "Atualizar da análise", self._import_characters_from_analysis).grid(row=row + 2, column=0, sticky="ew", pady=4)
+        self._button(editor, "Novo", self._clear_character).grid(row=row + 3, column=0, sticky="ew", pady=4)
+        self._button(editor, "Excluir", self._delete_character, danger=True).grid(row=row + 4, column=0, sticky="ew", pady=4)
         editor.columnconfigure(0, weight=1)
         self._refresh_characters()
 
@@ -284,12 +292,39 @@ class App(Tk):
     def _read_characters(self) -> dict[str, dict[str, Any]]:
         return json.loads(CHARACTERS_PATH.read_text(encoding="utf-8"))
 
+    def _sync_detected_characters(self, report_path: Path) -> dict[str, list[str]]:
+        if not report_path.is_file():
+            return {"added": [], "updated": []}
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            return merge_detected_characters(CHARACTERS_PATH, report,
+                                             float(self.config_data["speaker_confidence_threshold"]))
+        except (OSError, ValueError, json.JSONDecodeError):
+            return {"added": [], "updated": []}
+
+    def _import_characters_from_analysis(self) -> None:
+        result = self._sync_detected_characters(Path(self.output_var.get()) / "analysis.json")
+        self.characters = self._read_characters()
+        self._refresh_characters()
+        if result["added"]:
+            messagebox.showinfo("Personagens importados", f"Adicionados: {', '.join(result['added'])}")
+        else:
+            messagebox.showinfo("Personagens", "Nenhum personagem novo foi encontrado no relatório.")
+
     def _refresh_characters(self) -> None:
         for item in self.character_tree.get_children(): self.character_tree.delete(item)
         for name, item in self.characters.items():
             reference = item.get("voice_reference", "")
             valid = bool(reference and (ROOT / reference).is_file()) if reference and not Path(reference).is_absolute() else bool(reference and Path(reference).is_file())
-            status = "OK" if valid else "—" if not reference else "Ausente"
+            detection = item.get("detection", {})
+            if detection.get("review_required"):
+                status = "Revisar"
+            elif valid:
+                status = "Pronto"
+            elif item.get("mode", "original") == "original":
+                status = "Original"
+            else:
+                status = "Voz ausente"
             self.character_tree.insert("", "end", iid=name, text=name, values=(item.get("mode", "original"), item.get("gender", ""),
                 item.get("age_group", ""), Path(reference).name if reference else "", status))
 
@@ -310,7 +345,7 @@ class App(Tk):
         self.char_age.set(""); self.char_voice.set(""); self.char_pitch.set(0)
         self.character_tree.selection_remove(self.character_tree.selection())
 
-    def _save_character(self) -> None:
+    def _save_character(self, *, show_message: bool = True) -> None:
         name = self.char_name.get().strip()
         mode = self.char_mode.get()
         if not name:
@@ -322,6 +357,9 @@ class App(Tk):
             return
         current = dict(self.characters.get(name, {}))
         current["mode"] = mode
+        if current.get("detection", {}).get("automatic"):
+            current["detection"]["review_required"] = False
+            current["detection"]["reviewed"] = True
         for key, value in (("gender", self.char_gender.get().strip()), ("age_group", self.char_age.get().strip()),
                            ("voice_reference", reference)):
             if value: current[key] = value
@@ -330,7 +368,8 @@ class App(Tk):
         self.characters[name] = current
         atomic_json(CHARACTERS_PATH, self.characters)
         self._refresh_characters()
-        messagebox.showinfo("Personagem", f"{name} foi salvo.")
+        if show_message:
+            messagebox.showinfo("Personagem", f"{name} foi salvo.")
 
     def _delete_character(self) -> None:
         name = self.char_name.get().strip()
@@ -361,7 +400,9 @@ class App(Tk):
                                       capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 if proc.returncode: raise RuntimeError(proc.stderr.strip())
             self.char_voice.set(relative_to_root(target))
-            messagebox.showinfo("Voz importada", f"Referência salva em {relative_to_root(target)}.\nClique em Salvar / adicionar.")
+            self.char_mode.set("convert")
+            self._save_character(show_message=False)
+            messagebox.showinfo("Voz importada", f"Referência salva para {name}. O modo foi alterado para convert.")
         except Exception as exc:
             messagebox.showerror("Importar voz", str(exc))
 
@@ -418,10 +459,12 @@ class App(Tk):
         if book: args.extend(["--book-text", str(book)])
         if dry_run: args.append("--dry-run")
         self.task_kind = "pipeline"
+        self.last_command = command
+        self.characters_before_task = set(self.characters)
         self.log.delete("1.0", "end")
         self._log("Executando: " + " ".join(f'"{arg}"' if " " in arg else arg for arg in args[2:]) + "\n\n")
         self.status.configure(text="● Processando", foreground=ACCENT)
-        self.progress.start(12)
+        self.progress.configure(mode="determinate", maximum=100, value=0)
         for button in self.run_buttons[:3]: button.configure(state="disabled")
         threading.Thread(target=self._worker, args=(args,), daemon=True).start()
 
@@ -441,7 +484,7 @@ class App(Tk):
         try:
             while True:
                 event, value = self.events.get_nowait()
-                if event == "log": self._log(value)
+                if event == "log": self._handle_log(value)
                 elif event == "done": self._finished(int(value))
                 elif event == "error": self._log(f"ERRO: {value}\n"); self._finished(1)
         except queue.Empty:
@@ -454,8 +497,17 @@ class App(Tk):
         if code == 0:
             self.status.configure(text="● Concluído", foreground=SUCCESS)
             if getattr(self, "task_kind", "pipeline") == "pipeline":
+                self.progress.configure(mode="determinate", value=100)
+                if self.last_command == "analyze":
+                    self._sync_detected_characters(Path(self.output_var.get()) / "analysis.json")
+                    self.characters = self._read_characters()
+                    self._refresh_characters()
+                    added = sorted(set(self.characters) - getattr(self, "characters_before_task", set()))
+                else:
+                    added = []
                 self._log("\nProcessamento concluído. Abra o relatório para revisar.\n")
-                messagebox.showinfo("Concluído", "Tarefa concluída. O relatório está na pasta de saída.")
+                detail = f"\n\n{len(added)} personagem(ns) foram adicionados automaticamente." if added else ""
+                messagebox.showinfo("Concluído", "Tarefa concluída. O relatório está na pasta de saída." + detail)
             else:
                 self._log("\nDiagnóstico concluído.\n")
         else:
@@ -477,6 +529,7 @@ class App(Tk):
         args = [sys.executable, "-u", str(ROOT / "check_gpu.py")]
         threading.Thread(target=self._worker, args=(args,), daemon=True).start()
         self.status.configure(text="● Verificando", foreground=ACCENT)
+        self.progress.configure(mode="indeterminate")
         self.progress.start(12)
 
     def _open_report(self) -> None:
@@ -492,6 +545,14 @@ class App(Tk):
     def _log(self, text: str) -> None:
         self.log.insert("end", text)
         self.log.see("end")
+
+    def _handle_log(self, value: str) -> None:
+        self._log(value)
+        match = PROGRESS_PATTERN.search(value)
+        if match and self.task_kind == "pipeline":
+            percent = min(100.0, max(0.0, float(match.group(1))))
+            self.progress.configure(value=percent)
+            self.status.configure(text=f"● {percent:.1f}%", foreground=ACCENT)
 
     def _close(self) -> None:
         if self.process and self.process.poll() is None:

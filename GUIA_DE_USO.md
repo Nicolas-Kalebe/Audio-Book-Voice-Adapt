@@ -184,10 +184,14 @@ A interface gráfica é iniciada por `ABRIR_INTERFACE.bat` e possui tema preto c
 - botões Analisar, Dry run, Processar e Cancelar;
 - painel de logs e atalhos para saída/relatório;
 - cadastro, alteração e exclusão de personagens;
+- inclusão automática dos personagens encontrados após a análise, sempre em modo `original`;
+- marcação `Revisar` quando nenhuma atribuição do personagem atingir a confiança mínima;
 - importação de uma referência de áudio, convertida automaticamente para WAV;
 - indicador de referência existente ou ausente;
 - edição das principais configurações de transcrição, confiança, voice conversion, saída e LLM;
 - diagnóstico da GPU.
+
+Durante a análise, a barra e o log mostram o capítulo atual, a porcentagem geral e quanto tempo de áudio daquele capítulo já foi transcrito. Ao importar uma voz para um personagem, a interface salva a referência e muda seu modo para `convert` automaticamente.
 
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
 

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import os
 
 from .hardware import detect_hardware
 
 
-def transcribe(path: Path, config: dict[str, Any], language: str = "auto") -> dict[str, Any]:
+def transcribe(path: Path, config: dict[str, Any], language: str = "auto",
+               progress: Callable[[float, float, float], None] | None = None) -> dict[str, Any]:
     # On Windows, expose CUDA/cuDNN DLLs bundled in the PyTorch wheel to CTranslate2.
     if os.name == "nt":
         try:
@@ -38,9 +39,17 @@ def transcribe(path: Path, config: dict[str, Any], language: str = "auto") -> di
                                       beam_size=int(trans_cfg.get("beam_size", 5)),
                                       vad_filter=bool(trans_cfg.get("vad_filter", True)), word_timestamps=True)
     output = []
+    duration = max(float(getattr(info, "duration", 0) or 0), 0.001)
+    next_progress = 5.0
     for index, segment in enumerate(segments):
         words = [{"word": word.word.strip(), "start": word.start, "end": word.end, "probability": word.probability}
                  for word in (segment.words or []) if word.start is not None and word.end is not None]
         output.append({"id": index, "start": segment.start, "end": segment.end, "text": segment.text.strip(), "words": words})
+        percent = min(100.0, float(segment.end) * 100 / duration)
+        if progress and percent >= next_progress:
+            progress(percent, float(segment.end), duration)
+            next_progress = (int(percent // 5) + 1) * 5.0
+    if progress:
+        progress(100.0, duration, duration)
     return {"language": info.language, "language_probability": info.language_probability, "device": device,
             "model": trans_cfg.get("model", "large-v3"), "segments": output}

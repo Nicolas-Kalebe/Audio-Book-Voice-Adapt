@@ -10,6 +10,7 @@ from .alignment import align_blocks
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
 from .cache import Cache
+from .character_discovery import merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import detect
 from .hardware import detect_hardware
@@ -47,23 +48,42 @@ class Pipeline:
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
         results: list[dict[str, Any]] = []
         book_cursor = 0
-        for path in files:
+        total_files = len(files)
+        for file_index, path in enumerate(files, 1):
+            LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | iniciando", (file_index - 1) * 100 / total_files,
+                     file_index, total_files, path.name)
             item = self._one(path, command=command, language=language, book_blocks=book_blocks,
-                             book_fingerprint=book_fingerprint, book_cursor=book_cursor, dry_run=dry_run)
+                             book_fingerprint=book_fingerprint, book_cursor=book_cursor, dry_run=dry_run,
+                             file_index=file_index, total_files=total_files)
             book_cursor = int(item.pop("_book_cursor", book_cursor))
             results.append(item)
+            LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | concluído", file_index * 100 / total_files,
+                     file_index, total_files, path.name)
         report = summarize(results, self.hardware, {"hits": self.cache.hits, "misses": self.cache.misses},
                            time.monotonic() - started, "faster-whisper", self.converter.name)
+        if command == "analyze":
+            imported = merge_detected_characters(self.characters_path, report,
+                                                  float(self.config["speaker_confidence_threshold"]))
+            report["character_import"] = imported
+            if imported["added"]:
+                LOG.info("Personagens adicionados automaticamente: %s", ", ".join(imported["added"]))
         analysis_only = command == "analyze" or dry_run
         write_reports(report, self.output, analysis_only=analysis_only)
         return report
 
     def _one(self, path: Path, *, command: str, language: str, book_blocks: list[str],
-             book_fingerprint: dict[str, Any] | None, book_cursor: int, dry_run: bool) -> dict[str, Any]:
+             book_fingerprint: dict[str, Any] | None, book_cursor: int, dry_run: bool,
+             file_index: int, total_files: int) -> dict[str, Any]:
         info = probe(path)
         fingerprint = self.cache.file_fingerprint(path)
         trans_key = self.cache.digest(fingerprint, self.config.get("transcription", {}), language, self.config.get("device"))
-        transcript = self.cache.json("transcription", trans_key, lambda: transcribe(path, self.config, language))
+        def transcription_progress(percent: float, processed: float, duration: float) -> None:
+            overall = ((file_index - 1) + percent / 100) * 100 / total_files
+            LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | transcrição %.1f%% (%s / %s)", overall,
+                     file_index, total_files, path.name, percent, _clock(processed), _clock(duration))
+
+        transcript = self.cache.json("transcription", trans_key,
+                                     lambda: transcribe(path, self.config, language, transcription_progress))
         alignments: list[dict[str, Any]] = []
         if book_blocks:
             align_key = self.cache.digest(trans_key, book_fingerprint, self.config.get("alignment", {}), book_cursor)
@@ -182,3 +202,10 @@ class Pipeline:
                 dialogue["skip_reason"] = "overlapping conversion window"
             else:
                 previous_end = planned_end
+
+
+def _clock(seconds: float) -> str:
+    seconds = max(0, round(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

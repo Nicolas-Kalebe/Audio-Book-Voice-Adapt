@@ -8,8 +8,8 @@ from .alignment import map_phrase_to_words
 SPEECH_VERBS = r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|said|asked|replied|shouted|whispered|murmured|exclaimed"
 QUOTE = re.compile(r"[“\"]([^”\"]{2,}?)[”\"]")
 DASH = re.compile(r"(?:^|\n)\s*[—–-]\s*([^\n—–]{2,}?)(?=\s+[—–]\s*|$)", re.M)
-ATTR_AFTER = re.compile(rf"\b(?:{SPEECH_VERBS})\s+(?:a|o|the\s+)?([A-ZÀ-Ý][\wÀ-ÿ'-]+)", re.I)
-ATTR_BEFORE = re.compile(rf"\b([A-ZÀ-Ý][\wÀ-ÿ'-]+)\s+(?:{SPEECH_VERBS})\s*:", re.I)
+ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERBS})\s+(?:(?i:a|o|the)\s+)?([A-ZÀ-Ý][\wÀ-ÿ'-]+)")
+ATTR_BEFORE = re.compile(rf"\b([A-ZÀ-Ý][\wÀ-ÿ'-]+)\s+(?i:{SPEECH_VERBS})\s*:")
 UNSAFE_SHORT = re.compile(r"^(?:ah+|oh+|uh+|hm+|ha(?:ha)+|ai+|ei+|suspiro|risos?)[!.…]*$", re.I)
 
 
