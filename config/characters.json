@@ -6,30 +6,478 @@
     "gender": "female",
     "age_group": "adult",
     "voice_model": "female_yennefer",
-    "voice_reference": "voices/yennefer_ref.wav",
+    "voice_reference": "voices/lu_sa_viotti_yennefer_ref.wav",
     "mode": "convert",
-    "pitch_shift": 0
+    "pitch_shift": 0.0
   },
   "Triss": {
     "gender": "female",
     "age_group": "adult",
     "voice_model": "female_triss",
-    "voice_reference": "voices/triss_ref.wav",
+    "voice_reference": "voices/marya_bravo_media_ref.wav",
     "mode": "convert",
-    "pitch_shift": 0
+    "pitch_shift": 0.0
   },
   "Ciri": {
     "gender": "female",
     "age_group": "child",
     "voice_model": "young_female",
-    "voice_reference": "voices/ciri_ref.wav",
+    "voice_reference": "voices/fehdubs_ciri_ref.wav",
     "mode": "convert",
-    "pitch_shift": 0
+    "pitch_shift": 0.0
   },
   "Geralt": {
     "gender": "male",
     "age_group": "adult",
     "mode": "original",
     "pitch_shift": 0
+  },
+  "Artaud": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 10,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Calanthe": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 6,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Demawend": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 30,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Demawend de Aedirn": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 8,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Dijkstra": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 27,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Donimir de Troy": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 24,
+      "high_confidence_mentions": 2,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Eskel": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 10,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Filippa": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 17,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Foltest": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 53,
+      "high_confidence_mentions": 3,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Henselt": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 10,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Iola Segunda": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 11,
+      "high_confidence_mentions": 3,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Jarre": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 71,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Jaskier": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 45,
+      "high_confidence_mentions": 3,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": true
+    },
+    "voice_reference": "voices/manolo_rei_dandelion_ref.wav",
+    "pitch_shift": 0.0
+  },
+  "Lambert": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 62,
+      "high_confidence_mentions": 8,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Linus Pitt": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 5,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Mama Lantieri": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 28,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Nenneke": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 26,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Olsen": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 50,
+      "high_confidence_mentions": 2,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Pitt": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 5,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Pluskolec": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 58,
+      "high_confidence_mentions": 3,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Rience": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 54,
+      "high_confidence_mentions": 2,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Sheldon Skaggs": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 24,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Terranova": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 2,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Tissaia": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 25,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Tissaia de Vries": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 6,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Toublanc": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 13,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Vasemir": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 22,
+      "high_confidence_mentions": 4,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Vera Loewenhaupt": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 12,
+      "high_confidence_mentions": 2,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Vilgeforz": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 23,
+      "high_confidence_mentions": 2,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Vizimir": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 20,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Wenck": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 64,
+      "high_confidence_mentions": 3,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Xavier Moran": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 24,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Yannick Brass": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 7,
+      "high_confidence_mentions": 1,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Yarpen": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 73,
+      "high_confidence_mentions": 3,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "FehDubs - Ciri": {
+    "mode": "convert",
+    "voice_reference": "voices/fehdubs_ciri_ref.wav",
+    "voice_bank": {
+      "source": "FEH DANTAS conta como foi DUBLAR a SOL em DIGITAL CIRCUS - Desfoque Podcast (youtube).mp3",
+      "voice_id": "voice-01",
+      "reference_seconds": 25.0,
+      "cohesion": 0.8266,
+      "sample_rate": 44100,
+      "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\ea13a5c825a4fe03c7e9\\manifest.json"
+    }
+  },
+  "Bulma": {
+    "mode": "convert",
+    "voice_reference": "voices/bulma_ref.wav",
+    "voice_bank": {
+      "source": "Bulma faz roupa Sayajin pra todos os guerreiros - Tio Vegeta (youtube).mp3",
+      "voice_id": "voice-01",
+      "reference_seconds": 17.362,
+      "cohesion": 0.8816,
+      "sample_rate": 44100,
+      "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\747866cbf6128df56f2c\\manifest.json"
+    }
+  },
+  "Manolo Rei - Dandelion": {
+    "mode": "convert",
+    "voice_reference": "voices/manolo_rei_dandelion_ref.wav",
+    "voice_bank": {
+      "source": "MANOLO REY conta como foi DUBLAR o SONIC - Desfoque Podcast (youtube).mp3",
+      "voice_id": "voice-01",
+      "reference_seconds": 25.0,
+      "cohesion": 0.884,
+      "sample_rate": 44100,
+      "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\b8c134a70064015afb09\\manifest.json"
+    }
+  },
+  "LUÍSA VIOTTI - yennefer": {
+    "mode": "convert",
+    "voice_reference": "voices/lu_sa_viotti_yennefer_ref.wav",
+    "voice_bank": {
+      "source": "LUÍSA VIOTTI fala como foi DUBLAR a YENNEFER em THE WITCHER - Desfoque Podcast (youtube).mp3",
+      "voice_id": "voice-01",
+      "reference_seconds": 25.0,
+      "cohesion": 0.8703,
+      "sample_rate": 44100,
+      "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\99353e3fbf6805d13859\\manifest.json"
+    }
+  },
+  "MARYA BRAVO - Media": {
+    "mode": "convert",
+    "voice_reference": "voices/marya_bravo_media_ref.wav",
+    "voice_bank": {
+      "source": "MARYA BRAVO conta como é LEGENDAR uma SERIE - Desfoque Podcast (youtube).mp3",
+      "voice_id": "voice-01",
+      "reference_seconds": 25.0,
+      "cohesion": 0.8754,
+      "sample_rate": 44100,
+      "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\283893752125df8b6944\\manifest.json"
+    }
+  },
+  "megumin - media fina": {
+    "mode": "convert",
+    "voice_reference": "voices/megumin_media_fina_ref.wav",
+    "voice_bank": {
+      "source": "DUBLADORA DA MEGUMIN (KONOSUBA) fala sobre a DUBLAGEM da PERSONAGEM - Desfoque Podcast (youtube).mp3",
+      "voice_id": "voice-02",
+      "reference_seconds": 25.0,
+      "cohesion": 0.867,
+      "sample_rate": 44100,
+      "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\400a48bee3010bd74325\\manifest.json"
+    }
   }
 }

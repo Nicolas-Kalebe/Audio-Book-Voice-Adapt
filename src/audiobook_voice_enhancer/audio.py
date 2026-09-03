@@ -71,7 +71,11 @@ def conform_segment(converted: Path, original: Path, target: Path, duration: flo
     converted_audio, sr = sf.read(converted, always_2d=True, dtype="float32")
     original_audio, original_sr = sf.read(original, always_2d=True, dtype="float32")
     if sr != original_sr:
-        raise AudioToolError("Backend VC retornou sample rate inesperado")
+        import subprocess
+        tmp_path = converted.with_suffix('.resampled.wav')
+        subprocess.run(["ffmpeg", "-y", "-i", str(converted), "-ar", str(original_sr), str(tmp_path)], capture_output=True, check=True)
+        converted_audio, sr = sf.read(tmp_path, always_2d=True, dtype="float32")
+        tmp_path.unlink(missing_ok=True)
     wanted = max(1, round(duration * sr))
     if len(converted_audio) != wanted:
         indices = np.linspace(0, max(0, len(converted_audio) - 1), wanted)

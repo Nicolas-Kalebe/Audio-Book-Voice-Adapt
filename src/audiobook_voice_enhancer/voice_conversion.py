@@ -40,7 +40,7 @@ class SeedVCConverter(VoiceConverter):
         command = [python, str(self.root / "inference.py"), "--source", str(source.resolve()), "--target",
                    str(reference.resolve()), "--output", str(staging.resolve()), "--diffusion-steps", "25",
                    "--length-adjust", "1.0", "--inference-cfg-rate", "0.7", "--f0-condition", "False",
-                   "--auto-f0-adjust", "False", "--semi-tone-shift", str(character.get("pitch_shift", 0)), "--fp16", "True"]
+                   "--auto-f0-adjust", "False", "--semi-tone-shift", str(int(float(character.get("pitch_shift", 0)))), "--fp16", "True"]
         proc = subprocess.run(command, cwd=self.root, capture_output=True, text=True, encoding="utf-8",
                               errors="replace", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if proc.returncode:
