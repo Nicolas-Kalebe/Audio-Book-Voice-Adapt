@@ -106,6 +106,14 @@ O nome pode ser diferente, desde que `voice_reference` aponte para ele. Personag
 
 Abra um novo terminal na pasta do projeto para que o FFmpeg instalado esteja no `PATH`.
 
+Para usar sem comandos, dê dois cliques em:
+
+```text
+ABRIR_INTERFACE.bat
+```
+
+Na aba **Processamento**, escolha a pasta `input`, o EPUB e a saída. Na aba **Personagens e vozes**, configure os modos e importe referências. Na aba **Configurações**, ajuste modelo, GPU, limites, formato e LLM.
+
 ### 1. Conferir o computador
 
 ```bat
@@ -170,9 +178,18 @@ llm:
 
 ## Interface gráfica
 
-Ainda não existe interface gráfica para controlar o processamento. A interface atual é a CLI pelo `run.bat`. O relatório HTML é visual, mas serve apenas para auditoria; ele não inicia tarefas nem edita personagens.
+A interface gráfica é iniciada por `ABRIR_INTERFACE.bat` e possui tema preto com azul-escuro. Ela oferece:
 
-A CLI é retomável e adequada a audiobooks longos. Uma interface gráfica futura poderá chamar os mesmos módulos sem alterar o pipeline.
+- seleção da pasta de capítulos, livro e saída;
+- botões Analisar, Dry run, Processar e Cancelar;
+- painel de logs e atalhos para saída/relatório;
+- cadastro, alteração e exclusão de personagens;
+- importação de uma referência de áudio, convertida automaticamente para WAV;
+- indicador de referência existente ou ausente;
+- edição das principais configurações de transcrição, confiança, voice conversion, saída e LLM;
+- diagnóstico da GPU.
+
+A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
 
 ## Problemas comuns
 

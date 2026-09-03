@@ -46,6 +46,14 @@ Você é responsável por obter consentimento e direitos para as vozes e obras u
 
 Ative o ambiente ou use `run.bat`:
 
+Interface gráfica no Windows (dê dois cliques):
+
+```bat
+ABRIR_INTERFACE.bat
+```
+
+Ela permite escolher capítulos/livro/saída, editar personagens, importar referências, alterar configurações e acompanhar logs sem digitar comandos.
+
 ```bat
 .venv\Scripts\activate
 python main.py analyze input --book-text livro.txt
