@@ -317,6 +317,7 @@ class App(Tk):
         self.bank_start = StringVar(value="0")
         self.bank_duration = StringVar(value="600")
         self.bank_speakers = StringVar(value="Automático")
+        self.bank_cleanup = BooleanVar(value=True)
         self.bank_name = StringVar()
         self.bank_status = StringVar(value="Selecione um áudio com falas claras. O processamento é local.")
         self._path_row(tab, "Áudio", self.bank_source, self._choose_bank_audio, 2)
@@ -332,6 +333,8 @@ class App(Tk):
         ttk.Combobox(options, textvariable=self.bank_speakers,
                      values=("Automático", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
                      state="readonly", width=14).grid(row=0, column=5, sticky="ew", padx=(7, 0))
+        ttk.Checkbutton(options, text="Limpeza leve de ruído (não remove música completamente)",
+                        variable=self.bank_cleanup).grid(row=1, column=0, columnspan=6, sticky="w", pady=(10, 0))
         actions = ttk.Frame(tab, style="Panel.TFrame")
         actions.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(8, 8))
         self.bank_analyze_button = self._button(actions, "Reconhecer e separar vozes", self._analyze_voice_bank, accent=True)
@@ -624,6 +627,8 @@ class App(Tk):
         args = [sys.executable, "-u", str(ROOT / "main.py"), "voice-bank", "analyze", str(source),
                 "--start", str(start), "--duration", str(duration), "--speakers", str(speakers),
                 "--cache", str(ROOT / "cache" / "voice_bank")]
+        if not self.bank_cleanup.get():
+            args.append("--no-cleanup")
         self.task_kind = "voice_bank_analyze"
         self.bank_status.set("Preparando análise das vozes…")
         self.status.configure(text="● Separando vozes", foreground=ACCENT)

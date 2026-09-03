@@ -14,7 +14,7 @@ import soundfile as sf
 from .audio import probe, require_ffmpeg
 
 
-VOICE_BANK_VERSION = "resemblyzer-v1"
+VOICE_BANK_VERSION = "resemblyzer-v2-light-cleanup"
 
 
 class VoiceBankError(RuntimeError):
@@ -29,9 +29,9 @@ def _run(command: list[str], label: str) -> None:
         print(process.stdout.strip(), flush=True)
 
 
-def _session_key(source: Path, start: float, duration: float, speakers: int) -> str:
+def _session_key(source: Path, start: float, duration: float, speakers: int, cleanup: bool) -> str:
     stat = source.stat()
-    value = f"{VOICE_BANK_VERSION}|{source.resolve()}|{stat.st_size}|{stat.st_mtime_ns}|{start}|{duration}|{speakers}"
+    value = f"{VOICE_BANK_VERSION}|{source.resolve()}|{stat.st_size}|{stat.st_mtime_ns}|{start}|{duration}|{speakers}|{cleanup}"
     return hashlib.sha256(value.encode()).hexdigest()[:20]
 
 
@@ -100,7 +100,7 @@ def _montage(source_wav: Path, segments: list[dict[str, Any]], target: Path,
 
 
 def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: float = 0,
-                         duration: float = 600, speakers: int = 0) -> Path:
+                         duration: float = 600, speakers: int = 0, cleanup: bool = True) -> Path:
     root, source, cache_root = root.resolve(), source.resolve(), cache_root.resolve()
     if not source.is_file():
         raise VoiceBankError(f"Áudio não encontrado: {source}")
@@ -109,7 +109,7 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
     info = probe(source)
     start = min(max(0.0, start), max(0.0, info.duration - 0.1))
     duration = min(max(10.0, duration), 3600.0, max(0.1, info.duration - start))
-    session = cache_root / _session_key(source, start, duration, speakers)
+    session = cache_root / _session_key(source, start, duration, speakers, cleanup)
     manifest_path = session / "manifest.json"
     if manifest_path.is_file():
         print(f"[VOICE_BANK] análise restaurada do cache: {manifest_path}", flush=True)
@@ -118,9 +118,14 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
     normalized = session / "source-16k.wav"
     require_ffmpeg()
     print("[VOICE_BANK] preparando áudio...", flush=True)
-    _run(["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.4f}", "-t", f"{duration:.4f}",
-          "-i", str(source), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(normalized)],
-         "Preparação do áudio")
+    command = ["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.4f}", "-t", f"{duration:.4f}",
+               "-i", str(source), "-vn", "-ac", "1", "-ar", "16000"]
+    if cleanup:
+        # Conservative speech-band cleanup: attenuates rumble/hiss and tracks
+        # steady background noise without aggressively changing vocal timbre.
+        command.extend(["-af", "highpass=f=70,lowpass=f=7600,afftdn=nr=8:nf=-45:tn=1"])
+    command.extend(["-c:a", "pcm_s16le", str(normalized)])
+    _run(command, "Preparação do áudio")
     audio, sample_rate = sf.read(normalized, dtype="float32", always_2d=False)
     if audio.ndim > 1:
         audio = audio.mean(axis=1)
@@ -165,7 +170,8 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
                        "cohesion": round(cohesion, 4), "preview": str(preview)})
     manifest = {"version": VOICE_BANK_VERSION, "created_at": datetime.now(timezone.utc).isoformat(),
                 "source": str(source), "source_start": start, "analyzed_duration": duration,
-                "normalized_audio": str(normalized), "requested_speakers": speakers, "voices": voices}
+                "normalized_audio": str(normalized), "requested_speakers": speakers,
+                "light_cleanup": cleanup, "voices": voices}
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[VOICE_BANK] concluído: {len(voices)} vozes encontradas", flush=True)
     return manifest_path
