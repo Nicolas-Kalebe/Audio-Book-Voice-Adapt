@@ -71,6 +71,10 @@ O app escolhe os trechos mais limpos, monta até 25 segundos de referência em `
 ambiente local do Seed-VC; execute `setup_seedvc.bat` antes do primeiro uso. Falas simultâneas e música
 de fundo não podem ser isoladas perfeitamente e devem ser evitadas.
 
+A opção **Limpeza leve de ruído** vem ativada: reduz ruído constante, chiado, graves e agudos fora da
+faixa principal da fala. Ela preserva o timbre melhor que uma separação agressiva, mas apenas atenua —
+não remove completamente — música, eco ou outras vozes sobrepostas.
+
 ```bat
 .venv\Scripts\activate
 python main.py analyze input --book-text livro.txt

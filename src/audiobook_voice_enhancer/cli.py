@@ -42,6 +42,8 @@ def parser() -> argparse.ArgumentParser:
     bank_analyze.add_argument("--start", type=float, default=0)
     bank_analyze.add_argument("--duration", type=float, default=600)
     bank_analyze.add_argument("--speakers", type=int, default=0, help="0 detecta automaticamente")
+    bank_analyze.add_argument("--no-cleanup", action="store_false", dest="cleanup",
+                              help="Desativa a limpeza leve de ruído")
     bank_analyze.add_argument("--cache", type=Path, default=Path("cache/voice_bank"))
     bank_save = voice_bank_sub.add_parser("save", help="Salva uma voz detectada no banco")
     bank_save.add_argument("manifest", type=Path)
@@ -74,7 +76,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if args.voice_bank_command == "analyze":
                 manifest = analyze_voice_source(Path.cwd(), args.source, args.cache, start=args.start,
-                                                duration=args.duration, speakers=args.speakers)
+                                                duration=args.duration, speakers=args.speakers,
+                                                cleanup=args.cleanup)
                 print(f"VOICE_BANK_MANIFEST={manifest}")
             else:
                 target = save_voice(Path.cwd(), args.manifest, args.voice_id, args.name,

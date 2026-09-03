@@ -200,6 +200,8 @@ Use a aba **Prévia A/B** para escolher capítulo, personagem, ponto inicial e d
 
 Na aba **BANCO DE VOZ**, selecione um áudio com uma ou mais pessoas, escolha o intervalo e deixe a quantidade de vozes em `Automático` ou informe o total esperado. Depois da análise, ouça cada grupo, informe o nome e use **Cortar e salvar voz**. O aplicativo combina até 25 segundos dos trechos mais limpos, grava a referência em `voices/` e configura o personagem em modo `convert`. Execute `setup_seedvc.bat` antes do primeiro uso e evite música, eco ou falas simultâneas.
 
+Mantenha **Limpeza leve de ruído** ativada para reduzir chiado, ruído constante e frequências fora da faixa da fala. Essa opção é conservadora e não remove completamente música nem consegue recuperar duas pessoas falando ao mesmo tempo.
+
 O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, bruxo`. Quando o livro usar um desses nomes em uma atribuição de fala, ele será associado ao personagem principal.
 
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
