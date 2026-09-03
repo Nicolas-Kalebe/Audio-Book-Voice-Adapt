@@ -2,7 +2,7 @@ import json
 
 import yaml
 
-from audiobook_voice_enhancer.gui import ROOT, atomic_json, atomic_yaml, relative_to_root
+from audiobook_voice_enhancer.gui import ROOT, atomic_json, atomic_yaml, relative_to_root, resolve_voice_reference
 
 
 def test_gui_atomic_config_writers(tmp_path):
@@ -16,3 +16,9 @@ def test_gui_atomic_config_writers(tmp_path):
 
 def test_gui_relative_path_for_project_file():
     assert relative_to_root(ROOT / "voices" / "test.wav") == "voices/test.wav"
+
+
+def test_gui_resolves_character_voice_from_project_root(tmp_path):
+    assert resolve_voice_reference(tmp_path, {"voice_reference": "voices/test.wav"}) == \
+        (tmp_path / "voices" / "test.wav").resolve()
+    assert resolve_voice_reference(tmp_path, {}) is None
