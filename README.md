@@ -4,6 +4,8 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 > Estado: pipeline funcional e conservador. A qualidade final depende dos modelos Seed-VC, das referências de voz, da fidelidade do texto do livro e do áudio de entrada. Leia [TECHNICAL_DECISIONS.md](TECHNICAL_DECISIONS.md) para escolhas e limitações.
 
+Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
+
 ## Requisitos
 
 - Windows 11, Python 3.11 para a aplicação e Python 3.10 para Seed-VC

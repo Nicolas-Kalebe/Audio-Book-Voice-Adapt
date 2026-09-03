@@ -13,20 +13,23 @@ def normalize(text: str) -> str:
     return " ".join(re.findall(r"[\w']+", "".join(char for char in decomposed if not unicodedata.combining(char))))
 
 
-def align_blocks(book_blocks: list[str], transcript: dict[str, Any], window: int = 8) -> list[dict[str, Any]]:
+def align_blocks(book_blocks: list[str], transcript: dict[str, Any], window: int = 40,
+                 initial_cursor: int = 0) -> list[dict[str, Any]]:
     """Monotonic, windowed fuzzy block alignment; never jumps backwards in the book."""
     segments = transcript.get("segments", [])
     if not book_blocks or not segments:
         return []
     normalized_books = [normalize(block) for block in book_blocks]
-    cursor = 0
+    cursor = min(max(0, initial_cursor), len(book_blocks) - 1)
     result: list[dict[str, Any]] = []
     for segment in segments:
         needle = normalize(segment.get("text", ""))
         if not needle:
             continue
         best_id, best_score = cursor, 0.0
-        upper = min(len(book_blocks), cursor + max(2, window))
+        # The first audio file may omit cover/front matter; allow a wider initial seek.
+        lookahead = max(window, 200) if not result and initial_cursor == 0 else max(2, window)
+        upper = min(len(book_blocks), cursor + lookahead)
         for book_id in range(max(0, cursor - 1), upper):
             candidate = normalized_books[book_id]
             score = max(ratio(needle, candidate[:max(len(needle) * 2, 40)]) / 100,

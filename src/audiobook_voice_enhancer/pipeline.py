@@ -45,8 +45,13 @@ class Pipeline:
         files = discover_audio(source)
         book_blocks = paragraphs(load_book(book_text)) if book_text else []
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
-        results = [self._one(path, command=command, language=language, book_blocks=book_blocks,
-                             book_fingerprint=book_fingerprint, dry_run=dry_run) for path in files]
+        results: list[dict[str, Any]] = []
+        book_cursor = 0
+        for path in files:
+            item = self._one(path, command=command, language=language, book_blocks=book_blocks,
+                             book_fingerprint=book_fingerprint, book_cursor=book_cursor, dry_run=dry_run)
+            book_cursor = int(item.pop("_book_cursor", book_cursor))
+            results.append(item)
         report = summarize(results, self.hardware, {"hits": self.cache.hits, "misses": self.cache.misses},
                            time.monotonic() - started, "faster-whisper", self.converter.name)
         analysis_only = command == "analyze" or dry_run
@@ -54,16 +59,16 @@ class Pipeline:
         return report
 
     def _one(self, path: Path, *, command: str, language: str, book_blocks: list[str],
-             book_fingerprint: dict[str, Any] | None, dry_run: bool) -> dict[str, Any]:
+             book_fingerprint: dict[str, Any] | None, book_cursor: int, dry_run: bool) -> dict[str, Any]:
         info = probe(path)
         fingerprint = self.cache.file_fingerprint(path)
         trans_key = self.cache.digest(fingerprint, self.config.get("transcription", {}), language, self.config.get("device"))
         transcript = self.cache.json("transcription", trans_key, lambda: transcribe(path, self.config, language))
         alignments: list[dict[str, Any]] = []
         if book_blocks:
-            align_key = self.cache.digest(trans_key, book_fingerprint, self.config.get("alignment", {}))
+            align_key = self.cache.digest(trans_key, book_fingerprint, self.config.get("alignment", {}), book_cursor)
             alignments = self.cache.json("alignment", align_key, lambda: align_blocks(
-                book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 8))))
+                book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 40)), book_cursor))
         dialogue_key = self.cache.digest(trans_key, alignments)
         dialogues = self.cache.json("dialogue_detection", dialogue_key, lambda: detect(transcript, alignments))
         self._resolve_ambiguous(dialogues, transcript)
@@ -73,6 +78,8 @@ class Pipeline:
         result: dict[str, Any] = {"input": str(path), "duration": info.duration, "sample_rate": info.sample_rate,
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
             "dialogues": dialogues, "errors": [], "warnings": [], "final_duration": info.duration}
+        confident_ids = [int(item["book_paragraph_id"]) for item in alignments if item.get("alignment_confidence", 0) >= 0.5]
+        result["_book_cursor"] = max(confident_ids, default=book_cursor) + (1 if confident_ids else 0)
         if command == "analyze" or dry_run:
             for dialogue in dialogues:
                 dialogue["action"] = "would_convert" if dialogue["eligible"] else "skipped"

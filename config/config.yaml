@@ -32,7 +32,7 @@ transcription:
 
 alignment:
   enabled: true
-  block_window: 8
+  block_window: 40
 
 voice_conversion:
   enabled: true

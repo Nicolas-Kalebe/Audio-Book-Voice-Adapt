@@ -13,6 +13,7 @@ models/**
 !models/.gitkeep
 voices/**
 !voices/.gitkeep
+books/**
+!books/.gitkeep
 *.egg-info/
 .env
-
