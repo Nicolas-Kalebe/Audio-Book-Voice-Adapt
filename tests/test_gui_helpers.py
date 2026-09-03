@@ -3,7 +3,7 @@ import json
 import yaml
 
 from audiobook_voice_enhancer.gui import (ROOT, atomic_json, atomic_yaml, character_speech_stats,
-                                           relative_to_root, resolve_voice_reference)
+                                           relative_to_root, resolve_voice_reference, voice_file_options)
 
 
 def test_gui_atomic_config_writers(tmp_path):
@@ -30,3 +30,15 @@ def test_character_speech_stats_excludes_unknown_and_calculates_weight():
     assert stats["ciri"] == (30, 0.6)
     assert stats["geralt"] == (20, 0.4)
     assert "unknown" not in stats
+
+
+def test_voice_file_options_lists_supported_files_by_name(tmp_path):
+    voices = tmp_path / "voices"
+    voices.mkdir()
+    (voices / "Yennefer.wav").write_bytes(b"wav")
+    (voices / "ciri.mp3").write_bytes(b"mp3")
+    (voices / "notes.txt").write_text("ignore", encoding="utf-8")
+    assert voice_file_options(tmp_path) == {
+        "ciri.mp3": "voices/ciri.mp3",
+        "Yennefer.wav": "voices/Yennefer.wav",
+    }

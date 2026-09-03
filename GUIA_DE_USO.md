@@ -188,6 +188,7 @@ A interface gráfica é iniciada por `ABRIR_INTERFACE.bat` e possui tema preto c
 - marcação `Revisar` quando nenhuma atribuição do personagem atingir a confiança mínima;
 - importação de uma referência de áudio, convertida automaticamente para WAV;
 - indicador de referência existente ou ausente;
+- seletor de referência preenchido automaticamente com os arquivos encontrados em `voices/`;
 - edição das principais configurações de transcrição, confiança, voice conversion, saída e LLM;
 - banco local de vozes com diarização, amostras por falante e corte automático da referência;
 - diagnóstico da GPU.
