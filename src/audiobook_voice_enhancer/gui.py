@@ -75,6 +75,15 @@ def character_speech_stats(report: dict[str, Any]) -> dict[str, tuple[int, float
     return {name.casefold(): (count, count / total if total else 0.0) for name, count in counts.items()}
 
 
+def voice_file_options(root: Path) -> dict[str, str]:
+    folder = root / "voices"
+    if not folder.is_dir():
+        return {}
+    files = sorted((path for path in folder.iterdir()
+                    if path.is_file() and path.suffix.casefold() in SUPPORTED), key=lambda path: path.name.casefold())
+    return {path.name: str(path.resolve().relative_to(root.resolve())).replace("\\", "/") for path in files}
+
+
 class App(Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -249,11 +258,15 @@ class App(Tk):
             widget = ttk.Combobox(editor, textvariable=variable, values=values, state="readonly") if values else ttk.Entry(editor, textvariable=variable)
             widget.grid(row=pair_row + 1, column=column, sticky="ew", padx=(0, 5) if column == 0 else (5, 0))
         ttk.Label(editor, text="Referência de voz", style="Panel.TLabel").grid(row=8, column=0, columnspan=2, sticky="w", pady=(8, 3))
-        ttk.Entry(editor, textvariable=self.char_voice).grid(row=9, column=0, columnspan=2, sticky="ew")
+        self.char_voice_box = ttk.Combobox(editor, textvariable=self.char_voice, state="readonly")
+        self.char_voice_box.grid(row=9, column=0, columnspan=2, sticky="ew")
+        self.voice_option_paths: dict[str, str] = {}
+        self._refresh_voice_selector()
         voice_actions = ttk.Frame(editor, style="Panel.TFrame")
         voice_actions.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(10, 6))
         self._button(voice_actions, "Importar voz", self._import_voice, accent=True).pack(side="left", fill="x", expand=True)
         self._button(voice_actions, "Ouvir", self._play_reference).pack(side="left", padx=(7, 0))
+        self._button(voice_actions, "Atualizar lista", self._refresh_voice_selector).pack(side="left", padx=(7, 0))
         self._button(editor, "Salvar", self._save_character).grid(row=11, column=0, sticky="ew", padx=(0, 5), pady=4)
         self._button(editor, "Atualizar da análise", self._import_characters_from_analysis).grid(row=11, column=1, sticky="ew", padx=(5, 0), pady=4)
         self._button(editor, "Novo", self._clear_character).grid(row=12, column=0, sticky="ew", padx=(0, 5), pady=4)
@@ -804,6 +817,7 @@ class App(Tk):
             messagebox.showinfo("Personagens", "Nenhum personagem novo foi encontrado no relatório.")
 
     def _refresh_characters(self) -> None:
+        self._refresh_voice_selector()
         for item in self.character_tree.get_children(): self.character_tree.delete(item)
         try:
             report_path = Path(self.output_var.get()) / "analysis.json"
@@ -845,8 +859,32 @@ class App(Tk):
         self.char_mode.set(item.get("mode", "original"))
         self.char_gender.set(item.get("gender", ""))
         self.char_age.set(item.get("age_group", ""))
-        self.char_voice.set(item.get("voice_reference", ""))
+        reference = item.get("voice_reference", "")
+        self.char_voice.set(Path(reference).name if reference else "")
         self.char_pitch.set(float(item.get("pitch_shift", 0)))
+
+    def _refresh_voice_selector(self) -> None:
+        if not hasattr(self, "char_voice_box"):
+            return
+        current = self.char_voice.get()
+        self.voice_option_paths = voice_file_options(ROOT)
+        values = [""] + list(self.voice_option_paths)
+        if current and current not in values:
+            values.append(current)
+        self.char_voice_box.configure(values=values)
+        self.char_voice.set(current if current in values else "")
+
+    def _selected_voice_reference(self, name: str | None = None) -> str:
+        display = self.char_voice.get().strip()
+        if not display:
+            return ""
+        if display in self.voice_option_paths:
+            return self.voice_option_paths[display]
+        character_name = name or self.char_name.get().strip()
+        previous = self.characters.get(character_name, {}).get("voice_reference", "")
+        if previous and Path(previous).name == display:
+            return str(previous)
+        return display
 
     def _clear_character(self) -> None:
         self.char_name.set(""); self.char_aliases.set(""); self.char_mode.set("original"); self.char_gender.set("")
@@ -859,7 +897,7 @@ class App(Tk):
         if not name:
             messagebox.showerror("Personagem", "Informe o nome do personagem.")
             return
-        reference = self.char_voice.get().strip()
+        reference = self._selected_voice_reference(name)
         if mode == "convert" and not reference:
             messagebox.showerror("Referência necessária", "O modo convert exige uma referência de voz.")
             return
@@ -923,7 +961,8 @@ class App(Tk):
                 proc = subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", source, "-vn", "-ac", "1", "-ar", "44100", str(target)],
                                       capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 if proc.returncode: raise RuntimeError(proc.stderr.strip())
-            self.char_voice.set(relative_to_root(target))
+            self._refresh_voice_selector()
+            self.char_voice.set(target.name)
             self.char_mode.set("convert")
             self._save_character(show_message=False)
             messagebox.showinfo("Voz importada", f"Referência salva para {name}. O modo foi alterado para convert.")
@@ -931,7 +970,7 @@ class App(Tk):
             messagebox.showerror("Importar voz", str(exc))
 
     def _play_reference(self) -> None:
-        reference = self.char_voice.get().strip()
+        reference = self._selected_voice_reference()
         path = (ROOT / reference).resolve() if reference and not Path(reference).is_absolute() else Path(reference)
         if not reference or not path.is_file():
             messagebox.showwarning("Referência", "Este personagem ainda não possui uma referência de voz válida.")

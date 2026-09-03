@@ -54,6 +54,9 @@ ABRIR_INTERFACE.bat
 
 Ela permite escolher capítulos/livro/saída, importar automaticamente os personagens encontrados, escolher suas vozes, alterar configurações e acompanhar capítulo, tempo e porcentagem sem digitar comandos.
 
+Na edição de personagens, o campo **Referência de voz** é uma lista dos arquivos disponíveis em
+`voices/`; use **Atualizar lista** se copiar um arquivo para a pasta com a interface aberta.
+
 Também inclui seleção individual de capítulos, aliases de personagens, estimativa de tempo/espaço, checkpoints retomáveis e prévias original/convertida para comparação A/B.
 
 ### Banco de voz
