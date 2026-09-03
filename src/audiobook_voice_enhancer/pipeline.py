@@ -6,13 +6,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .alignment import align_blocks
+from .alignment import ALIGNMENT_ALGORITHM_VERSION, align_blocks
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
 from .cache import Cache
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
-from .dialogue import detect
+from .dialogue import DIALOGUE_ALGORITHM_VERSION, detect
 from .hardware import detect_hardware
 from .llm import build_provider, cached_infer
 from .reporting import summarize, write_reports
@@ -50,6 +50,7 @@ class Pipeline:
         book_blocks = paragraphs(load_book(book_text)) if book_text else []
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
         run_key = self.cache.digest(
+            ALIGNMENT_ALGORITHM_VERSION, DIALOGUE_ALGORITHM_VERSION,
             [self.cache.file_fingerprint(path) for path in files], book_fingerprint, self.config,
             self.characters, self.voice_fingerprints, command, dry_run, language,
         )
@@ -102,10 +103,11 @@ class Pipeline:
                                      lambda: transcribe(path, self.config, language, transcription_progress))
         alignments: list[dict[str, Any]] = []
         if book_blocks:
-            align_key = self.cache.digest(trans_key, book_fingerprint, self.config.get("alignment", {}), book_cursor)
+            align_key = self.cache.digest(ALIGNMENT_ALGORITHM_VERSION, trans_key, book_fingerprint,
+                                          self.config.get("alignment", {}), book_cursor)
             alignments = self.cache.json("alignment", align_key, lambda: align_blocks(
                 book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 40)), book_cursor))
-        dialogue_key = self.cache.digest(trans_key, alignments, self.speaker_aliases)
+        dialogue_key = self.cache.digest(DIALOGUE_ALGORITHM_VERSION, trans_key, alignments, self.speaker_aliases)
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
                                     lambda: detect(transcript, alignments, self.speaker_aliases))
         self._resolve_ambiguous(dialogues, transcript)
