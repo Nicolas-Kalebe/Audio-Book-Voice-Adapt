@@ -59,6 +59,14 @@ def relative_to_root(path: Path) -> str:
         return str(path.resolve())
 
 
+def resolve_voice_reference(root: Path, character: dict[str, Any]) -> Path | None:
+    value = character.get("voice_reference")
+    if not value:
+        return None
+    path = Path(str(value))
+    return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
 class App(Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -310,8 +318,12 @@ class App(Tk):
         actions.grid(row=6, column=0, columnspan=3, sticky="w", pady=(18, 10))
         self._button(actions, "Localizar fala", self._locate_preview_dialogue).pack(side="left")
         self._button(actions, "Gerar prévia", self._generate_preview, accent=True).pack(side="left", padx=(8, 0))
-        self._button(actions, "Ouvir original", lambda: self._play_preview("original")).pack(side="left", padx=8)
-        self._button(actions, "Ouvir convertido", lambda: self._play_preview("converted")).pack(side="left")
+        self.preview_original_button = self._button(actions, "Ouvir original", lambda: self._play_preview("original"))
+        self.preview_original_button.pack(side="left", padx=8)
+        self.preview_converted_button = self._button(actions, "Ouvir convertido", lambda: self._play_preview("converted"))
+        self.preview_converted_button.pack(side="left")
+        self.preview_original_button.configure(state="disabled")
+        self.preview_converted_button.configure(state="disabled")
         ttk.Label(tab, text="Dica: escolha um ponto com fala clara do narrador. As duas amostras terão exatamente a mesma duração.",
                   style="Muted.TLabel").grid(row=7, column=0, columnspan=3, sticky="w", pady=(5, 0))
         self.preview_paths: dict[str, Path] = {}
@@ -448,6 +460,19 @@ class App(Tk):
         if not source.is_file() or not character:
             messagebox.showerror("Prévia", "Escolha um capítulo e um personagem.")
             return
+        reference = resolve_voice_reference(ROOT, self.characters.get(character, {}))
+        if not reference or not reference.is_file():
+            self.notebook.select(self.characters_tab)
+            if self.character_tree.exists(character):
+                self.character_tree.selection_set(character)
+                self.character_tree.focus(character)
+                self._select_character()
+            messagebox.showerror(
+                "Voz de referência ausente",
+                f"Importe primeiro um arquivo de voz para {character} na aba PERSONAGENS E VOZES.\n\n"
+                "O caminho configurado atualmente não existe."
+            )
+            return
         try:
             start = float(self.preview_start.get().replace(",", "."))
             duration = int(self.preview_duration.get())
@@ -458,8 +483,11 @@ class App(Tk):
             return
         slug = re.sub(r"[^a-z0-9]+", "_", character.casefold()).strip("_") or "character"
         output = ROOT / "output" / "previews"
-        self.preview_paths = {"original": output / f"{slug}-original.wav",
-                              "converted": output / f"{slug}-converted.wav"}
+        self.preview_paths = {}
+        self.pending_preview_paths = {"original": output / f"{slug}-original.wav",
+                                      "converted": output / f"{slug}-converted.wav"}
+        self.preview_original_button.configure(state="disabled")
+        self.preview_converted_button.configure(state="disabled")
         args = [sys.executable, "-u", str(ROOT / "main.py"), "preview", str(source), character,
                 "--start", str(start), "--duration", str(duration), "--config", str(CONFIG_PATH),
                 "--characters", str(CHARACTERS_PATH), "--output", str(output)]
@@ -775,12 +803,25 @@ class App(Tk):
                 detail = f"\n\n{len(added)} personagem(ns) foram adicionados automaticamente." if added else ""
                 messagebox.showinfo("Concluído", "Tarefa concluída. O relatório está na pasta de saída." + detail)
             elif self.task_kind == "preview":
+                generated = getattr(self, "pending_preview_paths", {})
+                if not generated or not all(path.is_file() for path in generated.values()):
+                    self.status.configure(text="● Erro", foreground=DANGER)
+                    self.preview_paths = {}
+                    messagebox.showerror("Falha na prévia", "A tarefa terminou sem produzir os dois arquivos de áudio.")
+                    return
+                self.preview_paths = generated
+                self.preview_original_button.configure(state="normal")
+                self.preview_converted_button.configure(state="normal")
                 self._log("\nPrévia concluída. Use os botões A/B para comparar.\n")
                 messagebox.showinfo("Prévia pronta", "As amostras original e convertida estão prontas para ouvir.")
             else:
                 self._log("\nDiagnóstico concluído.\n")
         else:
             self.status.configure(text="● Erro", foreground=DANGER)
+            if getattr(self, "task_kind", "") == "preview":
+                self.preview_paths = {}
+                self.preview_original_button.configure(state="disabled")
+                self.preview_converted_button.configure(state="disabled")
             messagebox.showerror("Falha", "A tarefa falhou. Consulte o painel de logs.")
 
     def _cancel(self) -> None:
