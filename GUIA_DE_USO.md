@@ -193,6 +193,12 @@ A interface gráfica é iniciada por `ABRIR_INTERFACE.bat` e possui tema preto c
 
 Durante a análise, a barra e o log mostram o capítulo atual, a porcentagem geral e quanto tempo de áudio daquele capítulo já foi transcrito. Ao importar uma voz para um personagem, a interface salva a referência e muda seu modo para `convert` automaticamente.
 
+Na lista de capítulos, dê dois cliques em um arquivo para incluí-lo ou ignorá-lo. O botão **Estimativa** calcula duração, espaço de saída e uma faixa aproximada de tempo. Cada capítulo concluído recebe um checkpoint; se houver interrupção, uma nova execução com os mesmos arquivos e configurações retoma do capítulo seguinte.
+
+Use a aba **Prévia A/B** para escolher capítulo, personagem, ponto inicial e duração. **Gerar prévia** cria duas amostras de mesma duração; use **Ouvir original** e **Ouvir convertido** para comparar. Na aba de personagens, **Ouvir** reproduz diretamente a referência escolhida.
+
+O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, bruxo`. Quando o livro usar um desses nomes em uma atribuição de fala, ele será associado ao personagem principal.
+
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
 
 ## Problemas comuns

@@ -12,6 +12,22 @@ IGNORED_NAMES = {
 }
 
 
+def build_alias_map(characters: dict[str, dict[str, Any]]) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for name, item in characters.items():
+        if name.startswith("__"):
+            continue
+        aliases[name.casefold()] = name
+        configured_aliases = item.get("aliases", [])
+        if isinstance(configured_aliases, str):
+            configured_aliases = [configured_aliases]
+        for alias in configured_aliases:
+            normalized = " ".join(str(alias).split()).casefold()
+            if normalized:
+                aliases[normalized] = name
+    return aliases
+
+
 def _valid_character_name(value: Any) -> str | None:
     name = " ".join(str(value or "").split()).strip(".,:;!?—–-\"'()[]{}")
     if not name or name.casefold() in IGNORED_NAMES or name.startswith("__"):

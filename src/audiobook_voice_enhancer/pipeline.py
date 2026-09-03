@@ -10,7 +10,7 @@ from .alignment import align_blocks
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
 from .cache import Cache
-from .character_discovery import merge_detected_characters
+from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import detect
 from .hardware import detect_hardware
@@ -29,13 +29,16 @@ class Pipeline:
         self.characters_path = characters_path.resolve()
         self.characters = load_characters(characters_path, project_root=self.root,
             allow_shared=bool(self.config.get("allow_shared_voice_references", True)), require_references=False)
+        self.speaker_aliases = build_alias_map(self.characters)
         self.output = output.resolve()
         self.cache = Cache(cache_root.resolve())
+        self.voice_fingerprints = self._voice_fingerprints()
         self.hardware = detect_hardware()
         self.converter = select_converter(self.config, self.root)
         self.llm = build_provider(self.config.get("llm", {}))
 
-    def run(self, source: Path, *, command: str, language: str, book_text: Path | None, dry_run: bool) -> dict[str, Any]:
+    def run(self, source: Path, *, command: str, language: str, book_text: Path | None, dry_run: bool,
+            include: list[str] | None = None) -> dict[str, Any]:
         started = time.monotonic()
         if command == "process" and not dry_run:
             # Conversion mode is a promise: fail before hours of ASR when a required voice is missing.
@@ -43,13 +46,24 @@ class Pipeline:
                             project_root=self.root,
                             allow_shared=bool(self.config.get("allow_shared_voice_references", True)),
                             require_references=True)
-        files = discover_audio(source)
+        files = discover_audio(source, include)
         book_blocks = paragraphs(load_book(book_text)) if book_text else []
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
-        results: list[dict[str, Any]] = []
-        book_cursor = 0
+        run_key = self.cache.digest(
+            [self.cache.file_fingerprint(path) for path in files], book_fingerprint, self.config,
+            self.characters, self.voice_fingerprints, command, dry_run, language,
+        )
+        checkpoint_path = self.cache.path("checkpoints", run_key)
+        checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)
+        results: list[dict[str, Any]] = checkpoint.get("results", [])
+        book_cursor = int(checkpoint.get("book_cursor", 0))
+        next_index = min(int(checkpoint.get("next_index", 0)), len(files))
         total_files = len(files)
         for file_index, path in enumerate(files, 1):
+            if file_index <= next_index:
+                LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | restaurado do checkpoint",
+                         file_index * 100 / total_files, file_index, total_files, path.name)
+                continue
             LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | iniciando", (file_index - 1) * 100 / total_files,
                      file_index, total_files, path.name)
             item = self._one(path, command=command, language=language, book_blocks=book_blocks,
@@ -57,6 +71,7 @@ class Pipeline:
                              file_index=file_index, total_files=total_files)
             book_cursor = int(item.pop("_book_cursor", book_cursor))
             results.append(item)
+            self._save_checkpoint(checkpoint_path, file_index, book_cursor, results)
             LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | concluído", file_index * 100 / total_files,
                      file_index, total_files, path.name)
         report = summarize(results, self.hardware, {"hits": self.cache.hits, "misses": self.cache.misses},
@@ -78,7 +93,8 @@ class Pipeline:
         fingerprint = self.cache.file_fingerprint(path)
         trans_key = self.cache.digest(fingerprint, self.config.get("transcription", {}), language, self.config.get("device"))
         def transcription_progress(percent: float, processed: float, duration: float) -> None:
-            overall = ((file_index - 1) + percent / 100) * 100 / total_files
+            transcription_share = 0.75 if command == "process" and not dry_run else 0.95
+            overall = ((file_index - 1) + (percent / 100) * transcription_share) * 100 / total_files
             LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | transcrição %.1f%% (%s / %s)", overall,
                      file_index, total_files, path.name, percent, _clock(processed), _clock(duration))
 
@@ -89,8 +105,9 @@ class Pipeline:
             align_key = self.cache.digest(trans_key, book_fingerprint, self.config.get("alignment", {}), book_cursor)
             alignments = self.cache.json("alignment", align_key, lambda: align_blocks(
                 book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 40)), book_cursor))
-        dialogue_key = self.cache.digest(trans_key, alignments)
-        dialogues = self.cache.json("dialogue_detection", dialogue_key, lambda: detect(transcript, alignments))
+        dialogue_key = self.cache.digest(trans_key, alignments, self.speaker_aliases)
+        dialogues = self.cache.json("dialogue_detection", dialogue_key,
+                                    lambda: detect(transcript, alignments, self.speaker_aliases))
         self._resolve_ambiguous(dialogues, transcript)
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
@@ -105,6 +122,8 @@ class Pipeline:
                 dialogue["action"] = "would_convert" if dialogue["eligible"] else "skipped"
             return result
         replacements: list[tuple[float, float, Path]] = []
+        eligible_total = sum(bool(dialogue["eligible"]) for dialogue in dialogues)
+        converted_progress = 0
         for dialogue in dialogues:
             if not dialogue["eligible"]:
                 dialogue["action"] = "skipped"
@@ -118,8 +137,17 @@ class Pipeline:
                 dialogue["skip_reason"] = f"voice conversion failed: {exc}"
                 result["errors"].append(f"{dialogue['id']}: {exc}")
                 LOG.exception("Falha ao converter %s/%s; áudio original será preservado", path.name, dialogue["id"])
+            finally:
+                converted_progress += 1
+                phase = 0.75 + 0.20 * converted_progress / max(1, eligible_total)
+                overall = ((file_index - 1) + phase) * 100 / total_files
+                LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | convertendo falas %d/%d", overall,
+                         file_index, total_files, path.name, converted_progress, eligible_total)
         extension = "." + str(self.config.get("output", {}).get("format", "mp3")).lstrip(".")
         target = self.output / f"{path.stem} Enhanced{extension}"
+        overall = ((file_index - 1) + 0.95) * 100 / total_files
+        LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | reconstruindo capítulo", overall,
+                 file_index, total_files, path.name)
         reconstruct(path, replacements, target, str(self.config.get("output", {}).get("bitrate", "320k")))
         result["output"] = str(target)
         result["final_duration"] = probe(target).duration
@@ -172,7 +200,10 @@ class Pipeline:
         character = self.characters[dialogue["speaker"]]
         padding = float(self.config.get("padding_ms", 150)) / 1000
         start, end = max(0, dialogue["start"] - padding), dialogue["end"] + padding
-        key = self.cache.digest(self.cache.file_fingerprint(source), dialogue, character, self.converter.name)
+        reference = Path(character["_resolved_voice_reference"])
+        reference_fingerprint = self.voice_fingerprints.get(dialogue["speaker"]) or self.cache.file_fingerprint(reference)
+        key = self.cache.digest(self.cache.file_fingerprint(source), dialogue, character,
+                                reference_fingerprint, self.converter.name)
         final = self.cache.path("converted_audio", key, ".wav")
         if final.is_file():
             self.cache.hits += 1
@@ -181,7 +212,7 @@ class Pipeline:
         original = self.cache.path("converted_audio", key + "-original", ".wav")
         raw = self.cache.path("converted_audio", key + "-raw", ".wav")
         extract_segment(source, original, start, end)
-        self.converter.convert(original, Path(character["_resolved_voice_reference"]), raw, character)
+        self.converter.convert(original, reference, raw, character)
         crossfade = self.config.get("crossfade", {})
         duration_ms = max(1, round((end - start) * 1000))
         fade = min(int(crossfade.get("max_ms", 150)), max(int(crossfade.get("min_ms", 30)), duration_ms // 10))
@@ -202,6 +233,39 @@ class Pipeline:
                 dialogue["skip_reason"] = "overlapping conversion window"
             else:
                 previous_end = planned_end
+
+    def _voice_fingerprints(self) -> dict[str, dict[str, Any]]:
+        result: dict[str, dict[str, Any]] = {}
+        for name, item in self.characters.items():
+            reference = item.get("_resolved_voice_reference")
+            if reference and Path(reference).is_file():
+                result[name] = self.cache.file_fingerprint(Path(reference))
+        return result
+
+    @staticmethod
+    def _load_checkpoint(path: Path, command: str, dry_run: bool) -> dict[str, Any]:
+        if not path.is_file():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if int(data.get("next_index", -1)) != len(data.get("results", [])):
+                return {}
+            if command == "process" and not dry_run:
+                outputs = [item.get("output") for item in data.get("results", [])]
+                if any(not output or not Path(output).is_file() for output in outputs):
+                    return {}
+            LOG.info("Retomando checkpoint com %d capítulo(s) concluído(s)", data.get("next_index", 0))
+            return data
+        except (OSError, ValueError, json.JSONDecodeError):
+            return {}
+
+    @staticmethod
+    def _save_checkpoint(path: Path, next_index: int, book_cursor: int, results: list[dict[str, Any]]) -> None:
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"next_index": next_index, "book_cursor": book_cursor, "results": results},
+                                        ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(path)
+        LOG.info("Checkpoint salvo após o capítulo %d", next_index)
 
 
 def _clock(seconds: float) -> str:

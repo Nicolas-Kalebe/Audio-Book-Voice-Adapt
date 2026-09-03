@@ -25,11 +25,16 @@ def natural_key(path: Path) -> list[object]:
     return [int(part) if part.isdigit() else part.casefold() for part in re.split(r"(\d+)", path.name)]
 
 
-def discover_audio(source: Path) -> list[Path]:
+def discover_audio(source: Path, include: list[str] | None = None) -> list[Path]:
     if source.is_file() and source.suffix.lower() in SUPPORTED:
         return [source.resolve()]
     if source.is_dir():
-        return sorted((p.resolve() for p in source.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED), key=natural_key)
+        included = {name.casefold() for name in include} if include else None
+        files = sorted((p.resolve() for p in source.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED
+                        and (included is None or p.name.casefold() in included)), key=natural_key)
+        if not files:
+            raise AudioToolError("Nenhum arquivo de áudio selecionado foi encontrado na entrada.")
+        return files
     raise AudioToolError(f"Entrada de áudio não encontrada ou não suportada: {source}")
 
 

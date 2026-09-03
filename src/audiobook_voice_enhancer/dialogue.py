@@ -6,26 +6,53 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 SPEECH_VERBS = r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|said|asked|replied|shouted|whispered|murmured|exclaimed"
+NAME = r"[A-ZÀ-Ý][\wÀ-ÿ'-]+(?:\s+(?:(?:d[aeo]s?|e)\s+)?[A-ZÀ-Ý][\wÀ-ÿ'-]+){0,3}"
 QUOTE = re.compile(r"[“\"]([^”\"]{2,}?)[”\"]")
 DASH = re.compile(r"(?:^|\n)\s*[—–-]\s*([^\n—–]{2,}?)(?=\s+[—–]\s*|$)", re.M)
-ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERBS})\s+(?:(?i:a|o|the)\s+)?([A-ZÀ-Ý][\wÀ-ÿ'-]+)")
-ATTR_BEFORE = re.compile(rf"\b([A-ZÀ-Ý][\wÀ-ÿ'-]+)\s+(?i:{SPEECH_VERBS})\s*:")
+ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERBS})\s+(?:(?i:a|o|the)\s+)?({NAME})")
+ATTR_BEFORE = re.compile(rf"\b({NAME})\s+(?i:{SPEECH_VERBS})\s*:")
 UNSAFE_SHORT = re.compile(r"^(?:ah+|oh+|uh+|hm+|ha(?:ha)+|ai+|ei+|suspiro|risos?)[!.…]*$", re.I)
 
 
-def _speaker(context: str, start: int, end: int) -> tuple[str | None, float, str]:
+def _canonical(value: str, aliases: dict[str, str]) -> str:
+    return aliases.get(" ".join(value.split()).casefold(), value)
+
+
+def _alias_match(context: str, aliases: dict[str, str], *, before: bool) -> str | None:
+    if not aliases:
+        return None
+    choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+    if before:
+        pattern = re.compile(rf"\b({choices})\s+(?:{SPEECH_VERBS})\s*:", re.I)
+        matches = list(pattern.finditer(context))
+        match = matches[-1] if matches else None
+    else:
+        pattern = re.compile(rf"\b(?:{SPEECH_VERBS})\s+(?:(?:a|o|the)\s+)?({choices})\b", re.I)
+        match = pattern.search(context)
+    return aliases.get(match.group(1).casefold()) if match else None
+
+
+def _speaker(context: str, start: int, end: int, aliases: dict[str, str]) -> tuple[str | None, float, str]:
     after = context[end:end + 100]
     before = context[max(0, start - 100):start]
+    alias = _alias_match(after, aliases, before=False)
+    if alias:
+        return alias, 0.98, "atribuição explícita por nome ou alias após a fala"
     match = ATTR_AFTER.search(after)
     if match:
-        return match.group(1), 0.98, "atribuição explícita após a fala"
+        return _canonical(match.group(1), aliases), 0.98, "atribuição explícita após a fala"
+    alias = _alias_match(before, aliases, before=True)
+    if alias:
+        return alias, 0.98, "atribuição explícita por nome ou alias antes da fala"
     matches = list(ATTR_BEFORE.finditer(before))
     if matches:
-        return matches[-1].group(1), 0.98, "atribuição explícita antes da fala"
+        return _canonical(matches[-1].group(1), aliases), 0.98, "atribuição explícita antes da fala"
     return None, 0.0, "falante não atribuído explicitamente"
 
 
-def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
+           speaker_aliases: dict[str, str] | None = None) -> list[dict[str, Any]]:
+    aliases = speaker_aliases or {}
     by_segment = {item["segment_id"]: item for item in (alignments or [])}
     dialogues: list[dict[str, Any]] = []
     last_explicit: str | None = None
@@ -47,7 +74,7 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
             if not mapped:
                 continue
             start, end, word_score = mapped
-            speaker, speaker_score, reason = _speaker(context, match.start(), match.end())
+            speaker, speaker_score, reason = _speaker(context, match.start(), match.end(), aliases)
             if speaker:
                 last_explicit, previous_speaker = speaker, speaker
             elif last_explicit and previous_speaker and len(matches) == 1:
