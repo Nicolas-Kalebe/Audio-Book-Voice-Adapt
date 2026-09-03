@@ -40,8 +40,9 @@ def discover_audio(source: Path, include: list[str] | None = None) -> list[Path]
 
 def probe(path: Path) -> AudioInfo:
     require_ffmpeg()
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     proc = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format:stream", "-of", "json", str(path)],
-                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=flags)
     if proc.returncode:
         raise AudioToolError(f"ffprobe falhou para {path}: {proc.stderr.strip()}")
     data = json.loads(proc.stdout)
@@ -127,6 +128,8 @@ def _encoder_args(target: Path, bitrate: str) -> list[str]:
 
 
 def _run(command: list[str], operation: str) -> None:
-    proc = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    proc = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          creationflags=flags)
     if proc.returncode:
         raise AudioToolError(f"Falha na {operation}: {proc.stderr.strip()}")

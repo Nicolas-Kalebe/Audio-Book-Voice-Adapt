@@ -64,7 +64,8 @@ A aba **BANCO DE VOZ** recebe WAV, MP3, M4A, FLAC, Opus, OGG ou AAC e faz diariz
 2. deixe a quantidade de vozes em `Automático` ou informe quantas pessoas existem;
 3. clique em **Reconhecer e separar vozes**;
 4. ouça a amostra de cada grupo e informe o nome do personagem;
-5. clique em **Cortar e salvar voz**.
+5. expanda a voz, ouça os trechos individuais e exclua qualquer trecho contaminado;
+6. clique em **Cortar e salvar voz**.
 
 O app escolhe os trechos mais limpos, monta até 25 segundos de referência em `voices/`, atualiza
 `config/characters.json` e habilita o personagem para conversão. A diarização usa Resemblyzer no
@@ -74,6 +75,10 @@ de fundo não podem ser isoladas perfeitamente e devem ser evitadas.
 A opção **Limpeza leve de ruído** vem ativada: reduz ruído constante, chiado, graves e agudos fora da
 faixa principal da fala. Ela preserva o timbre melhor que uma separação agressiva, mas apenas atenua —
 não remove completamente — música, eco ou outras vozes sobrepostas.
+
+O detector faz cortes de no máximo quatro segundos, mede a consistência interna e exclui por padrão
+trechos curtos ou suspeitos. Na árvore de resultados, dê dois cliques para ouvir um trecho e use
+**Incluir/excluir trecho** para controlar exatamente o que entrará na referência final.
 
 ```bat
 .venv\Scripts\activate

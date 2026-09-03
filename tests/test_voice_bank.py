@@ -25,7 +25,9 @@ def test_montage_and_save_voice_reference(tmp_path):
     manifest.write_text(json.dumps({
         "source": str(tmp_path / "source.mp3"),
         "normalized_audio": str(normalized),
-        "voices": [{"id": "voice-01", "segments": segments, "cohesion": .92}],
+        "voices": [{"id": "voice-01", "segments": segments,
+                    "candidates": [{**segments[0], "included": True}, {**segments[1], "included": False}],
+                    "cohesion": .92}],
     }), encoding="utf-8")
     characters = tmp_path / "config" / "characters.json"
     target = save_voice(tmp_path, manifest, "voice-01", "Ana", characters)
@@ -33,4 +35,4 @@ def test_montage_and_save_voice_reference(tmp_path):
     assert target.is_file()
     assert saved["Ana"]["mode"] == "convert"
     assert saved["Ana"]["voice_reference"] == "voices/ana_ref.wav"
-    assert saved["Ana"]["voice_bank"]["reference_seconds"] == 6
+    assert saved["Ana"]["voice_bank"]["reference_seconds"] == 3

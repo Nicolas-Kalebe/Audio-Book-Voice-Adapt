@@ -14,7 +14,7 @@ import soundfile as sf
 from .audio import probe, require_ffmpeg
 
 
-VOICE_BANK_VERSION = "resemblyzer-v2-light-cleanup"
+VOICE_BANK_VERSION = "resemblyzer-v4-reviewed-clips"
 
 
 class VoiceBankError(RuntimeError):
@@ -22,7 +22,9 @@ class VoiceBankError(RuntimeError):
 
 
 def _run(command: list[str], label: str) -> None:
-    process = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    process = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             creationflags=flags)
     if process.returncode:
         raise VoiceBankError(f"{label} falhou: {(process.stderr or process.stdout).strip()[-2000:]}")
     if process.stdout.strip():
@@ -40,20 +42,20 @@ def _speech_chunks(audio: np.ndarray, sample_rate: int) -> list[dict[str, Any]]:
         from faster_whisper.vad import VadOptions, get_speech_timestamps
     except ImportError as exc:
         raise VoiceBankError("faster-whisper não está instalado; execute setup.bat") from exc
-    timestamps = get_speech_timestamps(audio, VadOptions(threshold=0.52, min_speech_duration_ms=1400,
-                                       max_speech_duration_s=8, min_silence_duration_ms=350,
-                                       speech_pad_ms=100), sampling_rate=sample_rate)
+    timestamps = get_speech_timestamps(audio, VadOptions(threshold=0.55, min_speech_duration_ms=950,
+                                       max_speech_duration_s=4, min_silence_duration_ms=180,
+                                       speech_pad_ms=50), sampling_rate=sample_rate)
     chunks: list[dict[str, Any]] = []
     for index, timestamp in enumerate(timestamps):
         start_sample, end_sample = int(timestamp["start"]), int(timestamp["end"])
         duration = (end_sample - start_sample) / sample_rate
-        if duration < 1.2:
+        if duration < 0.9:
             continue
         sample = audio[start_sample:end_sample]
         rms = float(np.sqrt(np.mean(np.square(sample), dtype=np.float64))) if sample.size else 0.0
         clipping = float(np.mean(np.abs(sample) >= 0.985)) if sample.size else 1.0
         # Longer, audible and non-clipped excerpts are better references.
-        duration_score = min(1.0, duration / 4.0)
+        duration_score = min(1.0, duration / 2.5)
         volume_score = min(1.0, rms / 0.045)
         quality = duration_score * 0.55 + volume_score * 0.35 + max(0.0, 1 - clipping * 50) * 0.10
         chunks.append({"id": index, "start": round(start_sample / sample_rate, 4),
@@ -158,14 +160,30 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
     ordered = sorted(grouped.values(), key=lambda values: sum(float(item["duration"]) for item in values), reverse=True)
     voices = []
     for display_index, values in enumerate(ordered, 1):
-        ranked = sorted(values, key=lambda item: (float(item["quality"]) * 0.55 +
-                                                  float(item["similarity"]) * 0.45), reverse=True)
-        preview = session / f"voice-{display_index:02d}-preview.wav"
-        preview_duration = _montage(normalized, ranked[:3], preview, 12)
-        useful_duration = sum(float(item["duration"]) for item in values)
+        ranked = sorted(values, key=lambda item: (float(item["quality"]) * 0.35 +
+                                                  float(item["similarity"]) * 0.30 +
+                                                  float(item.get("purity", 0)) * 0.35), reverse=True)
         cohesion = sum(float(item["similarity"]) for item in values) / len(values)
+        candidates = []
+        for candidate_index, item in enumerate(ranked[:12], 1):
+            candidate = dict(item)
+            candidate["id"] = f"voice-{display_index:02d}-clip-{candidate_index:02d}"
+            purity_limit = 0.68 if candidate.get("purity_verified") else 0.0
+            candidate["included"] = (float(candidate["duration"]) >= 1.5 and
+                                     float(candidate.get("purity", 0)) >= purity_limit and
+                                     float(candidate["similarity"]) >= max(0.70, cohesion - 0.12))
+            clip_preview = session / f"{candidate['id']}.wav"
+            _montage(normalized, [candidate], clip_preview, float(candidate["duration"]))
+            candidate["preview"] = str(clip_preview)
+            candidates.append(candidate)
+        if candidates and not any(item["included"] for item in candidates):
+            candidates[0]["included"] = True
+        preview = session / f"voice-{display_index:02d}-preview.wav"
+        included = [item for item in candidates if item["included"]]
+        preview_duration = _montage(normalized, included[:4], preview, 12)
+        useful_duration = sum(float(item["duration"]) for item in values)
         voices.append({"id": f"voice-{display_index:02d}", "label": f"Voz {display_index}",
-                       "segments": ranked, "segment_count": len(values),
+                       "segments": ranked, "candidates": candidates, "segment_count": len(values),
                        "useful_duration": round(useful_duration, 2), "preview_duration": preview_duration,
                        "cohesion": round(cohesion, 4), "preview": str(preview)})
     manifest = {"version": VOICE_BANK_VERSION, "created_at": datetime.now(timezone.utc).isoformat(),
@@ -191,8 +209,12 @@ def save_voice(root: Path, manifest_path: Path, voice_id: str, name: str,
     target = root / "voices" / f"{slug}_ref.wav"
     if target.exists() and not replace:
         raise VoiceBankError(f"A referência já existe: {target.name}. Confirme a substituição na interface.")
+    candidates = voice.get("candidates", voice.get("segments", []))
+    approved = [item for item in candidates if item.get("included", True)]
+    if not approved:
+        raise VoiceBankError("Todos os trechos dessa voz foram excluídos; inclua pelo menos um")
     temporary_audio = target.with_name(f".{target.stem}.tmp.wav")
-    duration = _montage(Path(manifest["normalized_audio"]), voice["segments"], temporary_audio, 25)
+    duration = _montage(Path(manifest["normalized_audio"]), approved, temporary_audio, 25)
     temporary_audio.replace(target)
     characters = json.loads(characters_path.read_text(encoding="utf-8")) if characters_path.is_file() else {}
     name = next((existing for existing in characters if existing.casefold() == name.casefold()), name)
