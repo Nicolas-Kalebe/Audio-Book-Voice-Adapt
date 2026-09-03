@@ -70,6 +70,51 @@ def test_alignment_can_resume_at_later_chapter():
     assert aligned[0]["book_paragraph_id"] == 2
 
 
+def test_alignment_does_not_jump_from_serie_to_ciri():
+    book = [
+        "O Sangue dos Elfos",
+        "— Ciri!",
+        "A cidade ardia diante deles enquanto a menina observava as torres antigas e os soldados corriam pelas ruas.",
+        "Depois a noite chegou silenciosa sobre os campos e todos procuraram abrigo antes que a tempestade começasse.",
+    ]
+    transcript = {"segments": [
+        {"id": 0, "start": 0, "end": 3, "text": "O terceiro volume da série The Witcher", "words": []},
+        {"id": 1, "start": 3, "end": 8, "text": "A cidade ardia diante deles enquanto a menina observava", "words": []},
+        {"id": 2, "start": 8, "end": 14, "text": "as torres antigas e os soldados corriam pelas ruas", "words": []},
+        {"id": 3, "start": 14, "end": 20, "text": "Depois a noite chegou silenciosa sobre os campos e todos procuraram abrigo", "words": []},
+        {"id": 4, "start": 20, "end": 24, "text": "antes que a tempestade começasse", "words": []},
+    ]}
+    aligned = align_blocks(book, transcript)
+    by_segment = {item["segment_id"]: item for item in aligned}
+    assert 0 not in by_segment
+    assert by_segment[1]["book_paragraph_id"] == 2
+    assert by_segment[3]["book_paragraph_id"] == 3
+    assert all(item["book_paragraph_id"] != 1 for item in aligned)
+
+
+def test_dialogue_can_span_multiple_transcript_segments():
+    first = "Vamos embora"
+    second = "agora disse Geralt"
+    transcript = {"segments": [
+        {"id": 0, "start": 0, "end": 1, "text": first, "words": words(first)},
+        {"id": 1, "start": 1, "end": 3, "text": second,
+         "words": [{"word": word, "start": 1 + index * 0.5, "end": 1.4 + index * 0.5}
+                   for index, word in enumerate(second.split())]},
+    ]}
+    book_text = "— Vamos embora agora — disse Geralt."
+    alignments = [
+        {"segment_id": 0, "book_paragraph_id": 4, "audio_start": 0, "audio_end": 1,
+         "alignment_confidence": 0.99, "book_text": book_text},
+        {"segment_id": 1, "book_paragraph_id": 4, "audio_start": 1, "audio_end": 3,
+         "alignment_confidence": 0.99, "book_text": book_text},
+    ]
+    found = detect(transcript, alignments)
+    assert len(found) == 1
+    assert found[0]["speaker"] == "Geralt"
+    assert found[0]["start"] == 0
+    assert found[0]["end"] >= 1.4
+
+
 def test_book_txt_accepts_windows_1252(tmp_path):
     path = tmp_path / "livro.txt"
     path.write_bytes("Capítulo — não".encode("cp1252"))

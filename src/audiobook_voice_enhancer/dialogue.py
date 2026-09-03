@@ -5,6 +5,8 @@ from typing import Any
 
 from .alignment import map_phrase_to_words
 
+
+DIALOGUE_ALGORITHM_VERSION = "paragraph-groups-v1"
 SPEECH_VERBS = r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|said|asked|replied|shouted|whispered|murmured|exclaimed"
 NAME = r"[A-ZÀ-Ý][\wÀ-ÿ'-]+(?:\s+(?:(?:d[aeo]s?|e)\s+)?[A-ZÀ-Ý][\wÀ-ÿ'-]+){0,3}"
 QUOTE = re.compile(r"[“\"]([^”\"]{2,}?)[”\"]")
@@ -53,38 +55,62 @@ def _speaker(context: str, start: int, end: int, aliases: dict[str, str]) -> tup
 def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
            speaker_aliases: dict[str, str] | None = None) -> list[dict[str, Any]]:
     aliases = speaker_aliases or {}
-    by_segment = {item["segment_id"]: item for item in (alignments or [])}
+    segments = transcript.get("segments", [])
+    segment_by_id = {item["id"]: item for item in segments}
+    aligned_ids = {item["segment_id"] for item in (alignments or [])}
+    paragraph_groups: dict[int, list[dict[str, Any]]] = {}
+    for item in alignments or []:
+        paragraph_groups.setdefault(int(item["book_paragraph_id"]), []).append(item)
+
+    # One EPUB paragraph usually spans several Whisper segments. Treat all of
+    # their timed words as one unit so a long speech is not cut at ASR boundaries.
+    units: list[tuple[float, str, list[dict[str, Any]], float, bool, int]] = []
+    for paragraph_id, group in paragraph_groups.items():
+        group.sort(key=lambda item: float(item["audio_start"]))
+        grouped_segments = [segment_by_id[item["segment_id"]] for item in group
+                            if item["segment_id"] in segment_by_id]
+        if not grouped_segments:
+            continue
+        confidence = min(float(item["alignment_confidence"]) for item in group)
+        units.append((float(group[0]["audio_start"]), group[0]["book_text"], grouped_segments,
+                      confidence, True, paragraph_id))
+    for segment in segments:
+        if segment["id"] not in aligned_ids:
+            units.append((float(segment["start"]), segment.get("text", ""), [segment], 0.0, False,
+                          int(segment["id"])))
+    units.sort(key=lambda item: item[0])
+
     dialogues: list[dict[str, Any]] = []
     last_explicit: str | None = None
     previous_speaker: str | None = None
-    for segment in transcript.get("segments", []):
-        aligned = by_segment.get(segment["id"])
-        context = aligned["book_text"] if aligned else segment["text"]
+    for _, context, grouped_segments, alignment_score, is_aligned, unit_id in units:
         matches = sorted(list(QUOTE.finditer(context)) + list(DASH.finditer(context)), key=lambda match: match.start())
-        # Transcript punctuation often loses quotes. Only infer a clause when a speech verb gives an explicit anchor.
-        if not matches and not aligned:
+        if not matches and not is_aligned:
             attribution = ATTR_BEFORE.search(context)
             if attribution:
                 trailing = context[attribution.end():].strip(" :—–-")
                 if trailing:
                     matches = [SyntheticMatch(trailing, attribution.end(), len(context))]
+        combined_words = sorted((word for segment in grouped_segments for word in segment.get("words", [])),
+                                key=lambda word: float(word.get("start", 0)))
         for local_index, match in enumerate(matches):
             text = match.group(1).strip(" \t\r\n—–-\"")
-            mapped = map_phrase_to_words(text, segment.get("words", []))
+            mapped = map_phrase_to_words(text, combined_words)
             if not mapped:
                 continue
             start, end, word_score = mapped
+            owner = next((segment for segment in grouped_segments
+                          if float(segment["start"]) <= start <= float(segment["end"])), grouped_segments[0])
             speaker, speaker_score, reason = _speaker(context, match.start(), match.end(), aliases)
             if speaker:
                 last_explicit, previous_speaker = speaker, speaker
             elif last_explicit and previous_speaker and len(matches) == 1:
-                # Conservative alternating-turn inference; deliberately below default threshold.
                 speaker, speaker_score, reason = last_explicit, 0.72, "inferência de continuidade conversacional"
-            confidence = min(float(aligned["alignment_confidence"]) if aligned else word_score, word_score)
-            dialogues.append({"id": f"{segment['id']}-{local_index}", "segment_id": segment["id"], "text": text,
+            confidence = min(alignment_score if is_aligned else word_score, word_score)
+            dialogues.append({"id": f"{unit_id}-{local_index}", "segment_id": owner["id"], "text": text,
                               "start": start, "end": end, "speaker": speaker,
                               "speaker_confidence": round(speaker_score, 4), "alignment_confidence": round(confidence, 4),
-                              "source": "book" if aligned else "transcript", "reason": reason,
+                              "source": "book" if is_aligned else "transcript", "reason": reason,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
     return dialogues
 
@@ -92,6 +118,12 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
 class SyntheticMatch:
     def __init__(self, value: str, start: int, end: int):
         self.value, self._start, self._end = value, start, end
-    def group(self, _: int) -> str: return self.value
-    def start(self) -> int: return self._start
-    def end(self) -> int: return self._end
+
+    def group(self, _: int) -> str:
+        return self.value
+
+    def start(self) -> int:
+        return self._start
+
+    def end(self) -> int:
+        return self._end
