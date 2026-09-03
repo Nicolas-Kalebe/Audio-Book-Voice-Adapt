@@ -72,9 +72,10 @@ O app escolhe os trechos mais limpos, monta até 25 segundos de referência em `
 ambiente local do Seed-VC; execute `setup_seedvc.bat` antes do primeiro uso. Falas simultâneas e música
 de fundo não podem ser isoladas perfeitamente e devem ser evitadas.
 
-A opção **Limpeza leve de ruído** vem ativada: reduz ruído constante, chiado, graves e agudos fora da
-faixa principal da fala. Ela preserva o timbre melhor que uma separação agressiva, mas apenas atenua —
-não remove completamente — música, eco ou outras vozes sobrepostas.
+A opção **Limpeza leve de ruído** vem ativada somente na cópia interna usada para reconhecimento. Ela
+reduz ruído constante e ajuda a separar falantes, mas previews e referências são recortados de uma
+cópia mestre não filtrada em 44,1/48 kHz. Assim, a análise pode ser simplificada sem deixar a voz salva
+abafada. Música, eco ou vozes sobrepostas ainda precisam ser evitados ou excluídos na revisão.
 
 O detector faz cortes de no máximo quatro segundos, mede a consistência interna e exclui por padrão
 trechos curtos ou suspeitos. Na árvore de resultados, dê dois cliques para ouvir um trecho e use

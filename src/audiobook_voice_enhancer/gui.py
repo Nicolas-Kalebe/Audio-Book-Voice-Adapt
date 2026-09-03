@@ -335,7 +335,7 @@ class App(Tk):
         ttk.Combobox(options, textvariable=self.bank_speakers,
                      values=("Automático", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
                      state="readonly", width=14).grid(row=0, column=5, sticky="ew", padx=(7, 0))
-        ttk.Checkbutton(options, text="Limpeza leve de ruído (não remove música completamente)",
+        ttk.Checkbutton(options, text="Limpeza leve só para reconhecimento (não altera a voz salva)",
                         variable=self.bank_cleanup).grid(row=1, column=0, columnspan=6, sticky="w", pady=(10, 0))
         actions = ttk.Frame(tab, style="Panel.TFrame")
         actions.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(8, 8))

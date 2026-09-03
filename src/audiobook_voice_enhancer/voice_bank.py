@@ -14,7 +14,7 @@ import soundfile as sf
 from .audio import probe, require_ffmpeg
 
 
-VOICE_BANK_VERSION = "resemblyzer-v4-reviewed-clips"
+VOICE_BANK_VERSION = "resemblyzer-v5-original-quality-reference"
 
 
 class VoiceBankError(RuntimeError):
@@ -118,6 +118,7 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
         return manifest_path
     session.mkdir(parents=True, exist_ok=True)
     normalized = session / "source-16k.wav"
+    render_audio = session / "source-original-quality.wav"
     require_ffmpeg()
     print("[VOICE_BANK] preparando áudio...", flush=True)
     command = ["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.4f}", "-t", f"{duration:.4f}",
@@ -128,6 +129,12 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
         command.extend(["-af", "highpass=f=70,lowpass=f=7600,afftdn=nr=8:nf=-45:tn=1"])
     command.extend(["-c:a", "pcm_s16le", str(normalized)])
     _run(command, "Preparação do áudio")
+    # Keep a separate, unfiltered master for previews and saved references.
+    # The low-resolution copy above exists only for VAD/speaker recognition.
+    master_rate = max(16000, min(int(info.sample_rate or 44100), 48000))
+    _run(["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.4f}", "-t", f"{duration:.4f}",
+          "-i", str(source), "-vn", "-ac", "1", "-ar", str(master_rate),
+          "-c:a", "pcm_s16le", str(render_audio)], "Preparação da cópia de alta qualidade")
     audio, sample_rate = sf.read(normalized, dtype="float32", always_2d=False)
     if audio.ndim > 1:
         audio = audio.mean(axis=1)
@@ -173,14 +180,14 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
                                      float(candidate.get("purity", 0)) >= purity_limit and
                                      float(candidate["similarity"]) >= max(0.70, cohesion - 0.12))
             clip_preview = session / f"{candidate['id']}.wav"
-            _montage(normalized, [candidate], clip_preview, float(candidate["duration"]))
+            _montage(render_audio, [candidate], clip_preview, float(candidate["duration"]))
             candidate["preview"] = str(clip_preview)
             candidates.append(candidate)
         if candidates and not any(item["included"] for item in candidates):
             candidates[0]["included"] = True
         preview = session / f"voice-{display_index:02d}-preview.wav"
         included = [item for item in candidates if item["included"]]
-        preview_duration = _montage(normalized, included[:4], preview, 12)
+        preview_duration = _montage(render_audio, included[:4], preview, 12)
         useful_duration = sum(float(item["duration"]) for item in values)
         voices.append({"id": f"voice-{display_index:02d}", "label": f"Voz {display_index}",
                        "segments": ranked, "candidates": candidates, "segment_count": len(values),
@@ -188,7 +195,8 @@ def analyze_voice_source(root: Path, source: Path, cache_root: Path, *, start: f
                        "cohesion": round(cohesion, 4), "preview": str(preview)})
     manifest = {"version": VOICE_BANK_VERSION, "created_at": datetime.now(timezone.utc).isoformat(),
                 "source": str(source), "source_start": start, "analyzed_duration": duration,
-                "normalized_audio": str(normalized), "requested_speakers": speakers,
+                "normalized_audio": str(normalized), "render_audio": str(render_audio),
+                "render_sample_rate": master_rate, "requested_speakers": speakers,
                 "light_cleanup": cleanup, "voices": voices}
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[VOICE_BANK] concluído: {len(voices)} vozes encontradas", flush=True)
@@ -214,14 +222,17 @@ def save_voice(root: Path, manifest_path: Path, voice_id: str, name: str,
     if not approved:
         raise VoiceBankError("Todos os trechos dessa voz foram excluídos; inclua pelo menos um")
     temporary_audio = target.with_name(f".{target.stem}.tmp.wav")
-    duration = _montage(Path(manifest["normalized_audio"]), approved, temporary_audio, 25)
+    reference_source = Path(manifest.get("render_audio", manifest["normalized_audio"]))
+    duration = _montage(reference_source, approved, temporary_audio, 25)
     temporary_audio.replace(target)
     characters = json.loads(characters_path.read_text(encoding="utf-8")) if characters_path.is_file() else {}
     name = next((existing for existing in characters if existing.casefold() == name.casefold()), name)
     current = dict(characters.get(name, {}))
     current.update({"mode": "convert", "voice_reference": str(target.relative_to(root)).replace("\\", "/"),
                     "voice_bank": {"source": Path(manifest["source"]).name, "voice_id": voice_id,
-                                   "reference_seconds": duration, "cohesion": voice["cohesion"]}})
+                                   "reference_seconds": duration, "cohesion": voice["cohesion"],
+                                   "sample_rate": int(manifest.get("render_sample_rate", 16000)),
+                                   "manifest": str(manifest_path)}})
     characters[name] = current
     characters_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = characters_path.with_suffix(characters_path.suffix + ".tmp")
