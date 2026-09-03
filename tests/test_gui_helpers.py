@@ -2,7 +2,8 @@ import json
 
 import yaml
 
-from audiobook_voice_enhancer.gui import ROOT, atomic_json, atomic_yaml, relative_to_root, resolve_voice_reference
+from audiobook_voice_enhancer.gui import (ROOT, atomic_json, atomic_yaml, character_speech_stats,
+                                           relative_to_root, resolve_voice_reference)
 
 
 def test_gui_atomic_config_writers(tmp_path):
@@ -22,3 +23,10 @@ def test_gui_resolves_character_voice_from_project_root(tmp_path):
     assert resolve_voice_reference(tmp_path, {"voice_reference": "voices/test.wav"}) == \
         (tmp_path / "voices" / "test.wav").resolve()
     assert resolve_voice_reference(tmp_path, {}) is None
+
+
+def test_character_speech_stats_excludes_unknown_and_calculates_weight():
+    stats = character_speech_stats({"characters_detected": {"Ciri": 30, "Geralt": 20, "unknown": 50}})
+    assert stats["ciri"] == (30, 0.6)
+    assert stats["geralt"] == (20, 0.4)
+    assert "unknown" not in stats

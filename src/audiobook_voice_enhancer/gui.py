@@ -67,6 +67,14 @@ def resolve_voice_reference(root: Path, character: dict[str, Any]) -> Path | Non
     return path.resolve() if path.is_absolute() else (root / path).resolve()
 
 
+def character_speech_stats(report: dict[str, Any]) -> dict[str, tuple[int, float]]:
+    detected = report.get("characters_detected", {})
+    counts = {str(name): int(count) for name, count in detected.items()
+              if str(name).casefold() not in {"unknown", "desconhecido"} and int(count) > 0}
+    total = sum(counts.values())
+    return {name.casefold(): (count, count / total if total else 0.0) for name, count in counts.items()}
+
+
 class App(Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -201,15 +209,16 @@ class App(Tk):
         tab.columnconfigure(0, weight=3)
         tab.columnconfigure(1, weight=2)
         tab.rowconfigure(2, weight=1)
-        self._section(tab, "Personagens", "A decisão depende do modo configurado, nunca de gênero ou idade.", 0, span=2)
-        columns = ("mode", "gender", "age", "voice", "status")
+        self._section(tab, "Personagens", "Ordenados pelo número de falas; peso = participação entre as falas com personagem identificado.", 0, span=2)
+        columns = ("speeches", "weight", "mode", "gender", "age", "voice", "status")
         self.character_tree = ttk.Treeview(tab, columns=columns, show="tree headings", selectmode="browse")
         self.character_tree.heading("#0", text="Nome")
-        for column, title, width in (("mode", "Modo", 85), ("gender", "Gênero", 85), ("age", "Idade", 80),
-                                     ("voice", "Referência", 180), ("status", "Estado", 110)):
+        for column, title, width in (("speeches", "Falas", 58), ("weight", "Peso", 65), ("mode", "Modo", 75),
+                                     ("gender", "Gênero", 70), ("age", "Idade", 65),
+                                     ("voice", "Referência", 130), ("status", "Estado", 90)):
             self.character_tree.heading(column, text=title)
             self.character_tree.column(column, width=width, anchor="w")
-        self.character_tree.column("#0", width=150)
+        self.character_tree.column("#0", width=135)
         self.character_tree.grid(row=2, column=0, sticky="nsew", padx=(0, 16), pady=(12, 0))
         self.character_tree.bind("<<TreeviewSelect>>", self._select_character)
 
@@ -566,7 +575,17 @@ class App(Tk):
 
     def _refresh_characters(self) -> None:
         for item in self.character_tree.get_children(): self.character_tree.delete(item)
-        for name, item in self.characters.items():
+        try:
+            report_path = Path(self.output_var.get()) / "analysis.json"
+            report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else {}
+            speech_stats = character_speech_stats(report)
+        except (OSError, ValueError, json.JSONDecodeError):
+            speech_stats = {}
+        ordered = sorted(self.characters.items(),
+                         key=lambda pair: (pair[0] == "__narrator__",
+                                           -speech_stats.get(pair[0].casefold(), (0, 0.0))[0],
+                                           pair[0].casefold()))
+        for name, item in ordered:
             reference = item.get("voice_reference", "")
             valid = bool(reference and (ROOT / reference).is_file()) if reference and not Path(reference).is_absolute() else bool(reference and Path(reference).is_file())
             detection = item.get("detection", {})
@@ -578,7 +597,10 @@ class App(Tk):
                 status = "Original"
             else:
                 status = "Voz ausente"
-            self.character_tree.insert("", "end", iid=name, text=name, values=(item.get("mode", "original"), item.get("gender", ""),
+            speeches, weight = speech_stats.get(name.casefold(), (0, 0.0))
+            weight_text = f"{weight * 100:.1f}%".replace(".", ",")
+            self.character_tree.insert("", "end", iid=name, text=name, values=(speeches, weight_text,
+                item.get("mode", "original"), item.get("gender", ""),
                 item.get("age_group", ""), Path(reference).name if reference else "", status))
         self._refresh_preview_options()
 
