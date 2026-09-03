@@ -320,6 +320,8 @@ class App(Tk):
         self.bank_cleanup = BooleanVar(value=True)
         self.bank_name = StringVar()
         self.bank_status = StringVar(value="Selecione um áudio com falas claras. O processamento é local.")
+        self.bank_spinner = StringVar(value="○")
+        self.bank_loading = False
         self._path_row(tab, "Áudio", self.bank_source, self._choose_bank_audio, 2)
         options = ttk.Frame(tab, style="Panel.TFrame")
         options.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 5))
@@ -340,16 +342,26 @@ class App(Tk):
         self.bank_analyze_button = self._button(actions, "Reconhecer e separar vozes", self._analyze_voice_bank, accent=True)
         self.bank_analyze_button.pack(side="left")
         self._button(actions, "Ouvir voz selecionada", self._play_bank_voice).pack(side="left", padx=8)
+        self._button(actions, "Incluir/excluir trecho", self._toggle_bank_clip).pack(side="left")
         ttk.Label(tab, textvariable=self.bank_status, style="Muted.TLabel").grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 8))
-        self.bank_tree = ttk.Treeview(tab, columns=("duration", "segments", "cohesion"), show="tree headings", height=8)
+        loading = ttk.Frame(tab, style="Panel.TFrame")
+        loading.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        ttk.Label(loading, textvariable=self.bank_spinner, style="Panel.TLabel", font=("Segoe UI", 15)).pack(side="left", padx=(0, 8))
+        self.bank_progress = ttk.Progressbar(loading, mode="indeterminate")
+        self.bank_progress.pack(side="left", fill="x", expand=True)
+        self.bank_tree = ttk.Treeview(tab, columns=("duration", "segments", "cohesion", "purity", "use"), show="tree headings", height=8)
         self.bank_tree.heading("#0", text="Voz detectada")
         self.bank_tree.heading("duration", text="Áudio útil")
         self.bank_tree.heading("segments", text="Trechos")
         self.bank_tree.heading("cohesion", text="Consistência")
-        self.bank_tree.column("#0", width=260)
-        self.bank_tree.column("duration", width=110, anchor="center")
-        self.bank_tree.column("segments", width=90, anchor="center")
-        self.bank_tree.column("cohesion", width=110, anchor="center")
+        self.bank_tree.heading("purity", text="Pureza")
+        self.bank_tree.heading("use", text="Usar no final")
+        self.bank_tree.column("#0", width=220)
+        self.bank_tree.column("duration", width=95, anchor="center")
+        self.bank_tree.column("segments", width=75, anchor="center")
+        self.bank_tree.column("cohesion", width=95, anchor="center")
+        self.bank_tree.column("purity", width=80, anchor="center")
+        self.bank_tree.column("use", width=100, anchor="center")
         self.bank_tree.grid(row=8, column=0, columnspan=3, sticky="nsew", pady=(0, 10))
         self.bank_tree.bind("<Double-1>", lambda _: self._play_bank_voice())
         save = ttk.Frame(tab, style="Panel.TFrame")
@@ -603,6 +615,23 @@ class App(Tk):
         if value:
             self.bank_source.set(value)
 
+    def _start_bank_loading(self) -> None:
+        self.bank_loading = True
+        self.bank_progress.start(10)
+        self._animate_bank_spinner(0)
+
+    def _animate_bank_spinner(self, index: int) -> None:
+        if not self.bank_loading:
+            return
+        frames = ("◐", "◓", "◑", "◒")
+        self.bank_spinner.set(frames[index % len(frames)])
+        self.after(120, self._animate_bank_spinner, index + 1)
+
+    def _stop_bank_loading(self) -> None:
+        self.bank_loading = False
+        self.bank_progress.stop()
+        self.bank_spinner.set("●" if getattr(self, "task_kind", "").startswith("voice_bank") else "○")
+
     def _analyze_voice_bank(self) -> None:
         if self.process and self.process.poll() is None:
             messagebox.showwarning("Em execução", "Aguarde a tarefa atual terminar.")
@@ -634,6 +663,7 @@ class App(Tk):
         self.status.configure(text="● Separando vozes", foreground=ACCENT)
         self.progress.configure(mode="indeterminate")
         self.progress.start(12)
+        self._start_bank_loading()
         self.bank_analyze_button.configure(state="disabled")
         threading.Thread(target=self._worker, args=(args,), daemon=True).start()
 
@@ -646,8 +676,17 @@ class App(Tk):
                 self.bank_tree.delete(item)
             for voice in self.bank_manifest_data.get("voices", []):
                 consistency = f"{float(voice.get('cohesion', 0)) * 100:.1f}%".replace(".", ",")
+                candidates = voice.get("candidates", voice.get("segments", []))
+                included = sum(bool(item.get("included", True)) for item in candidates)
                 self.bank_tree.insert("", "end", iid=voice["id"], text=voice["label"], values=(
-                    clock(float(voice.get("useful_duration", 0))), int(voice.get("segment_count", 0)), consistency))
+                    clock(float(voice.get("useful_duration", 0))), f"{included}/{len(candidates)}", consistency, "—", ""), open=True)
+                for clip_index, clip in enumerate(candidates, 1):
+                    similarity = f"{float(clip.get('similarity', 0)) * 100:.1f}%".replace(".", ",")
+                    purity = (f"{float(clip.get('purity', 0)) * 100:.1f}%".replace(".", ",")
+                              if clip.get("purity_verified") else "trecho curto")
+                    use = "✓ Incluir" if clip.get("included", True) else "— Excluir"
+                    self.bank_tree.insert(voice["id"], "end", iid=clip["id"], text=f"Trecho {clip_index}", values=(
+                        clock(float(clip.get("duration", 0))), "1", similarity, purity, use))
             first = self.bank_tree.get_children()
             if first:
                 self.bank_tree.selection_set(first[0])
@@ -660,16 +699,44 @@ class App(Tk):
         selected = self.bank_tree.selection()
         if not selected:
             return None
+        selected_id = selected[0]
+        parent = self.bank_tree.parent(selected_id)
+        voice_id = parent or selected_id
         return next((voice for voice in self.bank_manifest_data.get("voices", [])
-                     if voice.get("id") == selected[0]), None)
+                     if voice.get("id") == voice_id), None)
+
+    def _selected_bank_clip(self) -> dict[str, Any] | None:
+        selected = self.bank_tree.selection()
+        if not selected or not self.bank_tree.parent(selected[0]):
+            return None
+        voice = self._selected_bank_voice()
+        return next((clip for clip in (voice or {}).get("candidates", []) if clip.get("id") == selected[0]), None)
 
     def _play_bank_voice(self) -> None:
         voice = self._selected_bank_voice()
-        preview = Path(voice["preview"]) if voice and voice.get("preview") else None
+        clip = self._selected_bank_clip()
+        selected = clip or voice
+        preview = Path(selected["preview"]) if selected and selected.get("preview") else None
         if not preview or not preview.is_file():
             messagebox.showwarning("Banco de voz", "Analise o áudio e selecione uma voz primeiro.")
             return
         self._open_path(preview)
+
+    def _toggle_bank_clip(self) -> None:
+        clip = self._selected_bank_clip()
+        if not clip or not self.bank_manifest:
+            messagebox.showwarning("Revisar trechos", "Expanda uma voz e selecione um TRECHO individual.")
+            return
+        clip["included"] = not bool(clip.get("included", True))
+        atomic_json(self.bank_manifest, self.bank_manifest_data)
+        selected_id = clip["id"]
+        self._load_voice_bank_manifest()
+        if self.bank_tree.exists(selected_id):
+            self.bank_tree.selection_set(selected_id)
+            self.bank_tree.focus(selected_id)
+            self.bank_tree.see(selected_id)
+        state = "incluído" if clip["included"] else "excluído"
+        self.bank_status.set(f"Trecho {state}. A referência final usará somente os marcados como Incluir.")
 
     def _save_bank_voice(self) -> None:
         if self.process and self.process.poll() is None:
@@ -696,6 +763,7 @@ class App(Tk):
         self.status.configure(text="● Salvando voz", foreground=ACCENT)
         self.progress.configure(mode="indeterminate")
         self.progress.start(12)
+        self._start_bank_loading()
         self.bank_save_button.configure(state="disabled")
         threading.Thread(target=self._worker, args=(args,), daemon=True).start()
 
@@ -970,6 +1038,8 @@ class App(Tk):
 
     def _finished(self, code: int) -> None:
         self.progress.stop()
+        if getattr(self, "task_kind", "").startswith("voice_bank"):
+            self._stop_bank_loading()
         for button in self.run_buttons[:3]: button.configure(state="normal")
         if code == 0:
             self.status.configure(text="● Concluído", foreground=SUCCESS)

@@ -202,6 +202,8 @@ Na aba **BANCO DE VOZ**, selecione um áudio com uma ou mais pessoas, escolha o 
 
 Mantenha **Limpeza leve de ruído** ativada para reduzir chiado, ruído constante e frequências fora da faixa da fala. Essa opção é conservadora e não remove completamente música nem consegue recuperar duas pessoas falando ao mesmo tempo.
 
+Cada voz encontrada pode ser expandida para mostrar cortes individuais de até quatro segundos. Dê dois cliques para ouvir cada corte e use **Incluir/excluir trecho** quando ouvir outra pessoa, música forte ou ruído. Somente os cortes marcados como `Incluir` entram no WAV final; trechos curtos ou com baixa pureza são excluídos automaticamente.
+
 O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, bruxo`. Quando o livro usar um desses nomes em uma atribuição de fala, ele será associado ao personagem principal.
 
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.

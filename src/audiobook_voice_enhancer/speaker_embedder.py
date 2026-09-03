@@ -24,6 +24,7 @@ def main() -> int:
     device = "cuda" if __import__("torch").cuda.is_available() else "cpu"
     encoder = VoiceEncoder(device)
     embeddings = []
+    purities = []
     kept = []
     for chunk in chunks:
         start = max(0, round(float(chunk["start"]) * 16000))
@@ -31,7 +32,28 @@ def main() -> int:
         sample = preprocess_wav(audio[start:end], source_sr=16000)
         if len(sample) < 16000:
             continue
-        embeddings.append(encoder.embed_utterance(sample))
+        embedding = encoder.embed_utterance(sample)
+        embeddings.append(embedding)
+        # Compare short windows inside the excerpt. A sudden second speaker tends
+        # to lower this value even when the full-excerpt embedding looks plausible.
+        partials = []
+        window = round(1.2 * 16000)
+        if len(sample) >= window * 2:
+            positions = np.linspace(0, len(sample) - window, min(4, max(2, len(sample) // window))).astype(int)
+            for position in positions:
+                partial = sample[position:position + window]
+                partials.append(encoder.embed_utterance(partial))
+        if len(partials) >= 2:
+            partial_matrix = np.asarray(partials, dtype=np.float32)
+            partial_matrix /= np.maximum(np.linalg.norm(partial_matrix, axis=1, keepdims=True), 1e-8)
+            similarities = partial_matrix @ partial_matrix.T
+            purity = float(np.min(similarities[np.triu_indices(len(partial_matrix), 1)]))
+            purity_verified = True
+        else:
+            purity = 0.75  # short excerpts rely more heavily on cluster similarity
+            purity_verified = False
+        purities.append(purity)
+        chunk["purity_verified"] = purity_verified
         kept.append(chunk)
     if not embeddings:
         raise RuntimeError("Nenhum trecho de voz longo o suficiente para gerar embeddings")
@@ -54,10 +76,11 @@ def main() -> int:
         centroid = matrix[labels == label].mean(axis=0)
         centroids[label] = centroid / max(float(np.linalg.norm(centroid)), 1e-8)
     result = []
-    for chunk, label, embedding in zip(kept, labels, matrix):
+    for chunk, label, embedding, purity in zip(kept, labels, matrix, purities):
         item = dict(chunk)
         item["cluster"] = int(label)
         item["similarity"] = round(float(np.dot(embedding, centroids[int(label)])), 4)
+        item["purity"] = round(purity, 4)
         result.append(item)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[VOICE_BANK] {len(result)} trechos agrupados em {len(centroids)} vozes ({device})", flush=True)
