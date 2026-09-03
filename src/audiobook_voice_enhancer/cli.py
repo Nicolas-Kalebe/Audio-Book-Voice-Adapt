@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .pipeline import Pipeline
 from .preview import generate_preview
+from .voice_bank import VoiceBankError, analyze_voice_source, save_voice
 
 
 def parser() -> argparse.ArgumentParser:
@@ -34,6 +35,20 @@ def parser() -> argparse.ArgumentParser:
     preview.add_argument("--config", type=Path, default=Path("config/config.yaml"))
     preview.add_argument("--characters", type=Path, default=Path("config/characters.json"))
     preview.add_argument("--output", type=Path, default=Path("output/previews"))
+    voice_bank = sub.add_parser("voice-bank", help="Detecta vozes e cria referências reutilizáveis")
+    voice_bank_sub = voice_bank.add_subparsers(dest="voice_bank_command", required=True)
+    bank_analyze = voice_bank_sub.add_parser("analyze", help="Separa falantes de um arquivo de áudio")
+    bank_analyze.add_argument("source", type=Path)
+    bank_analyze.add_argument("--start", type=float, default=0)
+    bank_analyze.add_argument("--duration", type=float, default=600)
+    bank_analyze.add_argument("--speakers", type=int, default=0, help="0 detecta automaticamente")
+    bank_analyze.add_argument("--cache", type=Path, default=Path("cache/voice_bank"))
+    bank_save = voice_bank_sub.add_parser("save", help="Salva uma voz detectada no banco")
+    bank_save.add_argument("manifest", type=Path)
+    bank_save.add_argument("voice_id")
+    bank_save.add_argument("name")
+    bank_save.add_argument("--characters", type=Path, default=Path("config/characters.json"))
+    bank_save.add_argument("--replace", action="store_true")
     character = sub.add_parser("character", help="Gerencia config/characters.json")
     character_sub = character.add_subparsers(dest="character_command", required=True)
     listing = character_sub.add_parser("list", help="Lista personagens")
@@ -55,6 +70,21 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if args.command == "character":
         return _character(args)
+    if args.command == "voice-bank":
+        try:
+            if args.voice_bank_command == "analyze":
+                manifest = analyze_voice_source(Path.cwd(), args.source, args.cache, start=args.start,
+                                                duration=args.duration, speakers=args.speakers)
+                print(f"VOICE_BANK_MANIFEST={manifest}")
+            else:
+                target = save_voice(Path.cwd(), args.manifest, args.voice_id, args.name,
+                                    args.characters, replace=args.replace)
+                print(f"VOICE_BANK_SAVED={target}")
+            return 0
+        except (OSError, ValueError, json.JSONDecodeError, VoiceBankError) as exc:
+            logging.getLogger(__name__).exception("Falha no banco de voz")
+            print(f"ERRO: {exc}", file=sys.stderr)
+            return 1
     if args.command == "preview":
         try:
             generated = generate_preview(Path.cwd(), args.source, args.character, args.config, args.characters,

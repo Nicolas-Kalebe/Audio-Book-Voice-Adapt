@@ -132,14 +132,17 @@ class App(Tk):
         self.notebook.pack(fill="both", expand=True, padx=22, pady=(0, 20))
         self.process_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.characters_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
+        self.voice_bank_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.settings_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.preview_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.notebook.add(self.process_tab, text="PROCESSAMENTO")
         self.notebook.add(self.characters_tab, text="PERSONAGENS E VOZES")
+        self.notebook.add(self.voice_bank_tab, text="BANCO DE VOZ")
         self.notebook.add(self.settings_tab, text="CONFIGURAÇÕES")
         self.notebook.add(self.preview_tab, text="PRÉVIA A/B")
         self._process_ui()
         self._characters_ui()
+        self._voice_bank_ui()
         self._settings_ui()
         self._preview_ui()
 
@@ -303,6 +306,60 @@ class App(Tk):
         button_row.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(24, 0))
         self._button(button_row, "Salvar configurações", self._save_settings, accent=True).pack(side="left")
         self._button(button_row, "Verificar GPU", self._check_gpu).pack(side="left", padx=9)
+
+    def _voice_bank_ui(self) -> None:
+        tab = self.voice_bank_tab
+        tab.columnconfigure(1, weight=1)
+        tab.rowconfigure(8, weight=1)
+        self._section(tab, "Extrair uma voz de qualquer áudio",
+                      "Detecta falantes localmente, cria amostras e salva a voz escolhida como referência.", 0)
+        self.bank_source = StringVar()
+        self.bank_start = StringVar(value="0")
+        self.bank_duration = StringVar(value="600")
+        self.bank_speakers = StringVar(value="Automático")
+        self.bank_name = StringVar()
+        self.bank_status = StringVar(value="Selecione um áudio com falas claras. O processamento é local.")
+        self._path_row(tab, "Áudio", self.bank_source, self._choose_bank_audio, 2)
+        options = ttk.Frame(tab, style="Panel.TFrame")
+        options.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 5))
+        for column in range(6):
+            options.columnconfigure(column, weight=1 if column in {1, 3, 5} else 0)
+        ttk.Label(options, text="Início (s)", style="Panel.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Entry(options, textvariable=self.bank_start, width=12).grid(row=0, column=1, sticky="ew", padx=(7, 18))
+        ttk.Label(options, text="Analisar (s)", style="Panel.TLabel").grid(row=0, column=2, sticky="w")
+        ttk.Entry(options, textvariable=self.bank_duration, width=12).grid(row=0, column=3, sticky="ew", padx=(7, 18))
+        ttk.Label(options, text="Quantidade de vozes", style="Panel.TLabel").grid(row=0, column=4, sticky="w")
+        ttk.Combobox(options, textvariable=self.bank_speakers,
+                     values=("Automático", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+                     state="readonly", width=14).grid(row=0, column=5, sticky="ew", padx=(7, 0))
+        actions = ttk.Frame(tab, style="Panel.TFrame")
+        actions.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(8, 8))
+        self.bank_analyze_button = self._button(actions, "Reconhecer e separar vozes", self._analyze_voice_bank, accent=True)
+        self.bank_analyze_button.pack(side="left")
+        self._button(actions, "Ouvir voz selecionada", self._play_bank_voice).pack(side="left", padx=8)
+        ttk.Label(tab, textvariable=self.bank_status, style="Muted.TLabel").grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        self.bank_tree = ttk.Treeview(tab, columns=("duration", "segments", "cohesion"), show="tree headings", height=8)
+        self.bank_tree.heading("#0", text="Voz detectada")
+        self.bank_tree.heading("duration", text="Áudio útil")
+        self.bank_tree.heading("segments", text="Trechos")
+        self.bank_tree.heading("cohesion", text="Consistência")
+        self.bank_tree.column("#0", width=260)
+        self.bank_tree.column("duration", width=110, anchor="center")
+        self.bank_tree.column("segments", width=90, anchor="center")
+        self.bank_tree.column("cohesion", width=110, anchor="center")
+        self.bank_tree.grid(row=8, column=0, columnspan=3, sticky="nsew", pady=(0, 10))
+        self.bank_tree.bind("<Double-1>", lambda _: self._play_bank_voice())
+        save = ttk.Frame(tab, style="Panel.TFrame")
+        save.grid(row=9, column=0, columnspan=3, sticky="ew")
+        save.columnconfigure(1, weight=1)
+        ttk.Label(save, text="Nome no banco/personagem", style="Panel.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Entry(save, textvariable=self.bank_name).grid(row=0, column=1, sticky="ew", padx=9)
+        self.bank_save_button = self._button(save, "Cortar e salvar voz", self._save_bank_voice, accent=True)
+        self.bank_save_button.grid(row=0, column=2)
+        ttk.Label(tab, text="Use apenas vozes que você tem autorização para utilizar. Evite música, eco e falas sobrepostas.",
+                  style="Muted.TLabel").grid(row=10, column=0, columnspan=3, sticky="w", pady=(9, 0))
+        self.bank_manifest: Path | None = None
+        self.bank_manifest_data: dict[str, Any] = {}
 
     def _preview_ui(self) -> None:
         tab = self.preview_tab
@@ -536,6 +593,106 @@ class App(Tk):
             messagebox.showwarning("Prévia", "Gere a prévia antes de ouvir.")
             return
         self._open_path(path)
+
+    def _choose_bank_audio(self) -> None:
+        value = filedialog.askopenfilename(initialdir=ROOT, filetypes=(
+            ("Áudio", "*.wav *.mp3 *.m4a *.flac *.opus *.ogg *.aac"), ("Todos", "*.*")))
+        if value:
+            self.bank_source.set(value)
+
+    def _analyze_voice_bank(self) -> None:
+        if self.process and self.process.poll() is None:
+            messagebox.showwarning("Em execução", "Aguarde a tarefa atual terminar.")
+            return
+        source = Path(self.bank_source.get())
+        if not source.is_file() or source.suffix.casefold() not in SUPPORTED:
+            messagebox.showerror("Banco de voz", "Escolha um arquivo de áudio válido.")
+            return
+        try:
+            start = float(self.bank_start.get().replace(",", "."))
+            duration = float(self.bank_duration.get().replace(",", "."))
+            speakers = 0 if self.bank_speakers.get() == "Automático" else int(self.bank_speakers.get())
+            if start < 0 or not 10 <= duration <= 3600 or not 0 <= speakers <= 12:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Banco de voz", "Use início positivo, duração entre 10 e 3600 segundos e até 12 vozes.")
+            return
+        self.bank_manifest = None
+        self.bank_manifest_data = {}
+        for item in self.bank_tree.get_children():
+            self.bank_tree.delete(item)
+        args = [sys.executable, "-u", str(ROOT / "main.py"), "voice-bank", "analyze", str(source),
+                "--start", str(start), "--duration", str(duration), "--speakers", str(speakers),
+                "--cache", str(ROOT / "cache" / "voice_bank")]
+        self.task_kind = "voice_bank_analyze"
+        self.bank_status.set("Preparando análise das vozes…")
+        self.status.configure(text="● Separando vozes", foreground=ACCENT)
+        self.progress.configure(mode="indeterminate")
+        self.progress.start(12)
+        self.bank_analyze_button.configure(state="disabled")
+        threading.Thread(target=self._worker, args=(args,), daemon=True).start()
+
+    def _load_voice_bank_manifest(self) -> bool:
+        if not self.bank_manifest or not self.bank_manifest.is_file():
+            return False
+        try:
+            self.bank_manifest_data = json.loads(self.bank_manifest.read_text(encoding="utf-8"))
+            for item in self.bank_tree.get_children():
+                self.bank_tree.delete(item)
+            for voice in self.bank_manifest_data.get("voices", []):
+                consistency = f"{float(voice.get('cohesion', 0)) * 100:.1f}%".replace(".", ",")
+                self.bank_tree.insert("", "end", iid=voice["id"], text=voice["label"], values=(
+                    clock(float(voice.get("useful_duration", 0))), int(voice.get("segment_count", 0)), consistency))
+            first = self.bank_tree.get_children()
+            if first:
+                self.bank_tree.selection_set(first[0])
+                self.bank_tree.focus(first[0])
+            return bool(first)
+        except (OSError, ValueError, json.JSONDecodeError, KeyError):
+            return False
+
+    def _selected_bank_voice(self) -> dict[str, Any] | None:
+        selected = self.bank_tree.selection()
+        if not selected:
+            return None
+        return next((voice for voice in self.bank_manifest_data.get("voices", [])
+                     if voice.get("id") == selected[0]), None)
+
+    def _play_bank_voice(self) -> None:
+        voice = self._selected_bank_voice()
+        preview = Path(voice["preview"]) if voice and voice.get("preview") else None
+        if not preview or not preview.is_file():
+            messagebox.showwarning("Banco de voz", "Analise o áudio e selecione uma voz primeiro.")
+            return
+        self._open_path(preview)
+
+    def _save_bank_voice(self) -> None:
+        if self.process and self.process.poll() is None:
+            messagebox.showwarning("Em execução", "Aguarde a tarefa atual terminar.")
+            return
+        voice = self._selected_bank_voice()
+        name = " ".join(self.bank_name.get().split())
+        if not self.bank_manifest or not voice or not name:
+            messagebox.showerror("Banco de voz", "Selecione uma voz detectada e informe o nome do personagem.")
+            return
+        name = next((existing for existing in self.characters if existing.casefold() == name.casefold()), name)
+        self.bank_name.set(name)
+        slug = re.sub(r"[^a-z0-9]+", "_", name.casefold()).strip("_") or "voice"
+        replace = name in self.characters or (ROOT / "voices" / f"{slug}_ref.wav").is_file()
+        if replace and not messagebox.askyesno("Atualizar voz", f"Substituir a referência atual de {name}?"):
+            return
+        args = [sys.executable, "-u", str(ROOT / "main.py"), "voice-bank", "save", str(self.bank_manifest),
+                voice["id"], name, "--characters", str(CHARACTERS_PATH)]
+        if replace:
+            args.append("--replace")
+        self.task_kind = "voice_bank_save"
+        self.pending_bank_name = name
+        self.bank_status.set(f"Montando referência de {name}…")
+        self.status.configure(text="● Salvando voz", foreground=ACCENT)
+        self.progress.configure(mode="indeterminate")
+        self.progress.start(12)
+        self.bank_save_button.configure(state="disabled")
+        threading.Thread(target=self._worker, args=(args,), daemon=True).start()
 
     def _choose_source(self) -> None:
         value = filedialog.askdirectory(initialdir=self.source_var.get() or ROOT)
@@ -836,6 +993,23 @@ class App(Tk):
                 self.preview_converted_button.configure(state="normal")
                 self._log("\nPrévia concluída. Use os botões A/B para comparar.\n")
                 messagebox.showinfo("Prévia pronta", "As amostras original e convertida estão prontas para ouvir.")
+            elif self.task_kind == "voice_bank_analyze":
+                self.bank_analyze_button.configure(state="normal")
+                if not self._load_voice_bank_manifest():
+                    self.status.configure(text="● Erro", foreground=DANGER)
+                    self.bank_status.set("A análise terminou, mas nenhum resultado pôde ser carregado.")
+                    messagebox.showerror("Banco de voz", "Nenhuma voz utilizável foi produzida. Consulte os logs.")
+                    return
+                count = len(self.bank_manifest_data.get("voices", []))
+                self.bank_status.set(f"{count} voz(es) encontrada(s). Ouça as amostras antes de salvar.")
+                messagebox.showinfo("Vozes separadas", f"Foram encontradas {count} voz(es). Selecione e ouça cada amostra.")
+            elif self.task_kind == "voice_bank_save":
+                self.bank_save_button.configure(state="normal")
+                self.characters = self._read_characters()
+                self._refresh_characters()
+                name = getattr(self, "pending_bank_name", "A voz")
+                self.bank_status.set(f"{name} foi salvo no banco e configurado para conversão.")
+                messagebox.showinfo("Voz salva", f"{name} foi recortado, salvo em voices/ e adicionado aos personagens.")
             else:
                 self._log("\nDiagnóstico concluído.\n")
         else:
@@ -844,6 +1018,12 @@ class App(Tk):
                 self.preview_paths = {}
                 self.preview_original_button.configure(state="disabled")
                 self.preview_converted_button.configure(state="disabled")
+            elif getattr(self, "task_kind", "") == "voice_bank_analyze":
+                self.bank_analyze_button.configure(state="normal")
+                self.bank_status.set("Falha ao separar as vozes. Consulte o painel de logs em PROCESSAMENTO.")
+            elif getattr(self, "task_kind", "") == "voice_bank_save":
+                self.bank_save_button.configure(state="normal")
+                self.bank_status.set("Falha ao salvar a voz. Consulte o painel de logs em PROCESSAMENTO.")
             messagebox.showerror("Falha", "A tarefa falhou. Consulte o painel de logs.")
 
     def _cancel(self) -> None:
@@ -880,6 +1060,10 @@ class App(Tk):
 
     def _handle_log(self, value: str) -> None:
         self._log(value)
+        if value.startswith("VOICE_BANK_MANIFEST="):
+            self.bank_manifest = Path(value.split("=", 1)[1].strip())
+        elif value.startswith("[VOICE_BANK]") and self.task_kind.startswith("voice_bank"):
+            self.bank_status.set(value.removeprefix("[VOICE_BANK]").strip())
         match = PROGRESS_PATTERN.search(value)
         if match and self.task_kind == "pipeline":
             percent = min(100.0, max(0.0, float(match.group(1))))
