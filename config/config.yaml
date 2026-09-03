@@ -1,0 +1,55 @@
+# auto uses CUDA when the runtime supports it, otherwise CPU.
+language: auto
+device: auto
+speaker_confidence_threshold: 0.85
+alignment_confidence_threshold: 0.80
+minimum_segment_duration: 0.8
+padding_ms: 150
+
+crossfade:
+  mode: adaptive
+  min_ms: 30
+  max_ms: 150
+
+allow_shared_voice_references: true
+
+characters:
+  default_mode: original
+  # auto remains original unless this is explicitly enabled and a reference exists.
+  auto_convert_with_reference: false
+
+narrator:
+  mode: original
+
+conversion:
+  require_explicit_character_configuration: true
+
+transcription:
+  model: large-v3
+  compute_type: float16
+  beam_size: 5
+  vad_filter: true
+
+alignment:
+  enabled: true
+  block_window: 8
+
+voice_conversion:
+  enabled: true
+  backend: auto
+  # Clone Seed-VC here with setup_seedvc.bat, or set an absolute path.
+  seedvc_path: models/seed-vc
+  openvoice_path: models/OpenVoice
+  rvc_path: models/Retrieval-based-Voice-Conversion-WebUI
+
+llm:
+  enabled: true
+  provider: ollama
+  base_url: http://localhost:11434
+  model: ""
+  api_key_env: OPENAI_API_KEY
+  timeout_seconds: 60
+
+output:
+  format: mp3
+  bitrate: 320k

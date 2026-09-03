@@ -1,0 +1,35 @@
+{
+  "__narrator__": {
+    "mode": "original"
+  },
+  "Yennefer": {
+    "gender": "female",
+    "age_group": "adult",
+    "voice_model": "female_yennefer",
+    "voice_reference": "voices/yennefer_ref.wav",
+    "mode": "convert",
+    "pitch_shift": 0
+  },
+  "Triss": {
+    "gender": "female",
+    "age_group": "adult",
+    "voice_model": "female_triss",
+    "voice_reference": "voices/triss_ref.wav",
+    "mode": "convert",
+    "pitch_shift": 0
+  },
+  "Ciri": {
+    "gender": "female",
+    "age_group": "child",
+    "voice_model": "young_female",
+    "voice_reference": "voices/ciri_ref.wav",
+    "mode": "convert",
+    "pitch_shift": 0
+  },
+  "Geralt": {
+    "gender": "male",
+    "age_group": "adult",
+    "mode": "original",
+    "pitch_shift": 0
+  }
+}
