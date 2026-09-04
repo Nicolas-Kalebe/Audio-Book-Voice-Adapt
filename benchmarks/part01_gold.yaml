@@ -337,6 +337,22 @@ continuation_fragments:
   - 271-1
   - 273-1
 
+standalone_quote_turn_ids:
+  - 19-0
+  - 22-0
+  - 27-0
+  - 27-1
+
+# A lista extensa de incomplete_turn_ids abaixo implica duas regioes faladas
+# por turno. Estes casos fogem desse padrao ou atravessam paragrafos do EPUB.
+expected_fragment_count_overrides:
+  273: 3
+  274: 2
+  294: 2
+
+boundary_text_expectations:
+  249: De nada, alem de lhe agradecer. Muito obrigado, Yennefer.
+
 # Falas presentes no texto e no recorte da Parte 01 que nao receberam ID no
 # relatorio. Elas contam como falsos negativos na cobertura ponta a ponta.
 missing_spoken:

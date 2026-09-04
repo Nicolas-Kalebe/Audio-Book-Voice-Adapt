@@ -5,6 +5,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from .dialogue import propagate_speaker_inside_turn, turn_representatives
+
 
 OVERRIDE_VERSION = 1
 
@@ -43,6 +45,7 @@ def apply_overrides(source: Path, dialogues: list[dict[str, Any]], path: Path) -
             item["reason"] = "confirmação manual do usuário"
             item["manually_confirmed"] = True
             applied += 1
+    propagate_speaker_inside_turn(dialogues)
     return applied
 
 
@@ -81,8 +84,13 @@ def confirm(report_path: Path, overrides_path: Path, source: str, dialogue_id: s
                 item.update({"speaker": speaker, "speaker_confidence": 1.0,
                              "reason": "confirmação manual do usuário", "manually_confirmed": True})
                 changed += 1
+        before = sum(bool(item.get("manually_confirmed")) for item in file.get("dialogues", []))
+        propagate_speaker_inside_turn(file.get("dialogues", []))
+        after = sum(bool(item.get("manually_confirmed")) for item in file.get("dialogues", []))
+        changed += max(0, after - before)
     report["characters_detected"] = dict(Counter(
-        item.get("speaker") or "unknown" for file in report.get("files", []) for item in file.get("dialogues", [])))
+        item.get("speaker") or "unknown" for file in report.get("files", [])
+        for item in turn_representatives(file.get("dialogues", []))))
     temporary_report = report_path.with_suffix(".tmp")
     temporary_report.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     temporary_report.replace(report_path)

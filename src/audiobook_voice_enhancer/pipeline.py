@@ -12,7 +12,7 @@ from .book import load_book, paragraphs
 from .cache import Cache
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
-from .dialogue import DIALOGUE_ALGORITHM_VERSION, book_character_names, detect
+from .dialogue import DIALOGUE_ALGORITHM_VERSION, book_character_names, detect, propagate_speaker_inside_turn
 from .hardware import detect_hardware
 from .llm import build_provider, review_scenes
 from .reporting import summarize, write_reports
@@ -115,6 +115,7 @@ class Pipeline:
                                     lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
         warnings: list[str] = []
         apply_overrides(path, dialogues, self.root / "config" / "speaker_overrides.json")
+        propagate_speaker_inside_turn(dialogues)
         llm_review: dict[str, Any] | None = None
         if self.llm and book_blocks:
             def llm_progress(position: int, total: int) -> None:
@@ -133,6 +134,7 @@ class Pipeline:
             LOG.info("[LLM] %d atribuída(s), %d sugerida(s), %d sem solução em %.1fs",
                      llm_review["assigned"], llm_review["suggested_for_review"],
                      llm_review["unresolved"], llm_review["elapsed_seconds"])
+            propagate_speaker_inside_turn(dialogues)
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
         self._prevent_overlaps(dialogues)

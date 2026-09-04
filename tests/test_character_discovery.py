@@ -7,6 +7,16 @@ def report(*dialogues):
     return {"files": [{"dialogues": list(dialogues)}]}
 
 
+def test_continuation_fragments_do_not_inflate_character_mentions():
+    found = discover_characters(report(
+        {"id": "1-0", "turn_id": "book-1", "fragment_index": 0,
+         "speaker": "Yennefer", "speaker_confidence": .98},
+        {"id": "1-1", "turn_id": "book-1", "fragment_index": 1,
+         "speaker": "Yennefer", "speaker_confidence": .98},
+    ))
+    assert found["Yennefer"]["mentions"] == 1
+
+
 def test_discovery_keeps_named_speakers_and_marks_low_confidence():
     found = discover_characters(report(
         {"speaker": "Vesemir", "speaker_confidence": 0.98},

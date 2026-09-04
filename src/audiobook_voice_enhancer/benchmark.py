@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -12,6 +13,10 @@ import yaml
 def _fold(value: str | None) -> str:
     value = unicodedata.normalize("NFKD", value or "")
     return "".join(char for char in value if not unicodedata.combining(char)).casefold().strip()
+
+
+def _text_key(value: str | None) -> str:
+    return " ".join(re.findall(r"\w+", _fold(value)))
 
 
 def load_gold(path: Path) -> dict[str, Any]:
@@ -53,61 +58,131 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     if len(by_id) != len(candidates):
         raise ValueError("O relatorio contem IDs duplicados")
 
-    expected_candidate_ids = set(spoken) | set(non_spoken)
-    missing_annotations = sorted(set(by_id) - expected_candidate_ids)
-    stale_annotations = sorted(expected_candidate_ids - set(by_id))
-    if missing_annotations or stale_annotations:
-        raise ValueError(
-            f"Gabarito nao corresponde ao relatorio: sem rotulo={missing_annotations}, "
-            f"IDs inexistentes={stale_annotations}"
-        )
+    legacy_fragments = {str(value) for value in gold.get("continuation_fragments", [])}
+    standalone_quotes = {str(value) for value in gold.get("standalone_quote_turn_ids", [])}
+    turns: dict[str, dict[str, Any]] = {}
 
-    fragments = {str(value) for value in gold.get("continuation_fragments", [])}
-    turn_ids = set(spoken) - fragments
-    incomplete = {str(value) for value in gold.get("incomplete_turn_ids", [])}
-    if not incomplete <= turn_ids:
-        raise ValueError(f"Limites incompletos apontam para IDs invalidos: {sorted(incomplete - turn_ids)}")
-    missing_source = list(gold.get("missing_spoken", []))
-    total_source_turns = len(turn_ids) + len(missing_source)
+    def paragraph_from_id(item_id: str) -> int:
+        return int(item_id.split("-", 1)[0])
+
+    for item_id, speaker in spoken.items():
+        if item_id in legacy_fragments:
+            continue
+        paragraph = paragraph_from_id(item_id)
+        key = f"id:{item_id}" if item_id in standalone_quotes else f"p:{paragraph}"
+        if key in turns:
+            raise ValueError(f"Dois turnos principais ocupam a mesma chave: {key}")
+        turns[key] = {"id": item_id, "paragraph": paragraph, "speaker": speaker,
+                      "acceptable": acceptable.get(item_id, set())}
+    for source in gold.get("missing_spoken", []):
+        paragraph = int(source["book_paragraph_id"])
+        key = f"p:{paragraph}"
+        if key in turns:
+            raise ValueError(f"Fala ausente duplica um turno anotado: {key}")
+        turns[key] = {"id": str(source["id"]), "paragraph": paragraph,
+                      "speaker": source["speaker"], "acceptable": set(), "text": source.get("text", "")}
+
+    candidates_by_turn: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    detected_non_spoken: list[dict[str, Any]] = []
+    unexpected: list[str] = []
+    for item in candidates:
+        item_id = str(item["id"])
+        if item_id in standalone_quotes:
+            key = f"id:{item_id}"
+        else:
+            turn_id = str(item.get("turn_id", ""))
+            if turn_id.startswith("book-") and turn_id[5:].isdigit():
+                paragraph = int(turn_id[5:])
+            else:
+                paragraph = item.get("book_paragraph_id")
+                paragraph = int(paragraph) if paragraph is not None else -1
+            key = f"p:{paragraph}"
+        if item.get("dialogue_style") == "dash" and key in turns:
+            candidates_by_turn[key].append(item)
+        elif item_id in non_spoken:
+            detected_non_spoken.append(item)
+        elif key in turns:
+            candidates_by_turn[key].append(item)
+        else:
+            unexpected.append(item_id)
+    if unexpected:
+        raise ValueError(f"Candidatos sem anotacao no gabarito: {sorted(unexpected)}")
+
+    expected_counts = {paragraph_from_id(item_id): 2
+                       for item_id in gold.get("incomplete_turn_ids", [])}
+    expected_counts.update({int(key): int(value)
+                            for key, value in gold.get("expected_fragment_count_overrides", {}).items()})
+    text_expectations = {int(key): str(value)
+                         for key, value in gold.get("boundary_text_expectations", {}).items()}
+    total_source_turns = len(turns)
     assigned = 0
     correct = 0
     correct_and_complete = 0
     wrong: list[dict[str, Any]] = []
     confusion: Counter[tuple[str, str]] = Counter()
-    per_speaker_total = Counter(spoken[item_id] for item_id in turn_ids)
+    per_speaker_total = Counter(turn["speaker"] for turn in turns.values())
     per_speaker_correct: Counter[str] = Counter()
-    per_speaker_missing = Counter(item["speaker"] for item in missing_source)
-    per_speaker_total.update(per_speaker_missing)
+    detected_turns = 0
+    complete_detected_turns = 0
+    dynamically_missing: list[dict[str, Any]] = []
+    incomplete_turns: list[dict[str, Any]] = []
 
-    for item_id in sorted(turn_ids, key=lambda value: tuple(int(part) for part in value.split("-"))):
-        item = by_id[item_id]
-        expected = spoken[item_id]
-        predicted = item.get("speaker")
+    ordered_turns = sorted(turns.items(), key=lambda pair: (pair[1]["paragraph"], pair[0]))
+    for key, turn in ordered_turns:
+        items = sorted(candidates_by_turn.get(key, []),
+                       key=lambda item: (int(item.get("fragment_index", 0)), float(item.get("start", 0))))
+        expected = turn["speaker"]
+        if not items:
+            dynamically_missing.append({"id": turn["id"], "book_paragraph_id": turn["paragraph"],
+                                        "speaker": expected, "text": turn.get("text", "")})
+            confusion[(expected, "NAO DETECTADA")] += 1
+            continue
+        detected_turns += 1
+        primary = next((item for item in items if int(item.get("fragment_index", 0)) == 0), items[0])
+        predicted = primary.get("speaker")
         if predicted:
             assigned += 1
         is_correct = _fold(predicted) == _fold(expected)
-        if item_id in acceptable and _fold(predicted) in acceptable[item_id]:
+        if turn["acceptable"] and _fold(predicted) in turn["acceptable"]:
             is_correct = True
+
+        expected_count = expected_counts.get(turn["paragraph"], 1)
+        indices = {int(item.get("fragment_index", 0)) for item in items}
+        has_fragment_metadata = all(item.get("turn_id") for item in items)
+        complete = expected_count == 1 or (has_fragment_metadata and set(range(expected_count)) <= indices)
+        expected_text = text_expectations.get(turn["paragraph"])
+        if expected_text is not None:
+            complete = complete and _text_key(primary.get("text")) == _text_key(expected_text)
+        if complete:
+            complete_detected_turns += 1
+        else:
+            incomplete_turns.append({"id": turn["id"], "book_paragraph_id": turn["paragraph"],
+                                     "expected_fragments": expected_count,
+                                     "found_fragments": sorted(indices)})
+
         if is_correct:
             correct += 1
             per_speaker_correct[expected] += 1
-            if item_id not in incomplete:
+            every_fragment_correct = all(
+                _fold(item.get("speaker")) == _fold(expected)
+                or (turn["acceptable"] and _fold(item.get("speaker")) in turn["acceptable"])
+                for item in items
+            )
+            if complete and every_fragment_correct:
                 correct_and_complete += 1
         else:
             actual_label = predicted or "SEM ATRIBUICAO"
             confusion[(expected, actual_label)] += 1
             wrong.append({
-                "id": item_id,
-                "paragraph": item.get("book_paragraph_id"),
+                "id": turn["id"],
+                "paragraph": turn["paragraph"],
                 "expected": expected,
                 "predicted": predicted,
-                "suggestion": item.get("llm_suggestion"),
-                "text": item.get("text", ""),
+                "suggestion": primary.get("llm_suggestion"),
+                "text": primary.get("text", ""),
             })
 
-    detected_turns = len(turn_ids)
-    complete_detected_turns = detected_turns - len(incomplete)
-    false_turn_candidates = len(non_spoken)
+    false_turn_candidates = len(detected_non_spoken)
     detection_precision = detected_turns / (detected_turns + false_turn_candidates)
     detection_recall = detected_turns / total_source_turns
     per_character = []
@@ -118,14 +193,14 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     return {
         "gold": gold["name"],
         "candidates_in_report": len(candidates),
-        "spoken_candidate_regions": len(spoken),
-        "non_spoken_candidates": len(non_spoken),
-        "continuation_fragments": len(fragments),
+        "spoken_candidate_regions": sum(len(items) for items in candidates_by_turn.values()),
+        "non_spoken_candidates": false_turn_candidates,
+        "continuation_fragments": sum(max(0, len(items) - 1) for items in candidates_by_turn.values()),
         "gold_source_turns": total_source_turns,
         "detected_source_turns": detected_turns,
-        "incomplete_detected_turns": len(incomplete),
+        "incomplete_detected_turns": detected_turns - complete_detected_turns,
         "complete_detected_turns": complete_detected_turns,
-        "missing_source_turns": len(missing_source),
+        "missing_source_turns": total_source_turns - detected_turns,
         "detection_precision": detection_precision,
         "detection_recall": detection_recall,
         "complete_turn_recall": complete_detected_turns / total_source_turns,
@@ -143,7 +218,8 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
             {"expected": expected, "predicted": predicted, "count": count}
             for (expected, predicted), count in confusion.most_common()
         ],
-        "missing_spoken": missing_source,
+        "missing_spoken": dynamically_missing,
+        "incomplete_turns": incomplete_turns,
         "known_boundary_issues": gold.get("known_boundary_issues", []),
     }
 

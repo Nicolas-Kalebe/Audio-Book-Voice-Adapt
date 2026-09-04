@@ -213,7 +213,8 @@ ambíguas e turnos cortados antes da continuação. Para comparar uma nova `outp
 .venv\Scripts\python scripts\evaluate_part01_gold.py
 ```
 
-O baseline completo e sua leitura humana ficam em `benchmarks/PART01_BASELINE_REPORT.md`. A métrica
+O baseline completo e sua leitura humana ficam em `benchmarks/PART01_BASELINE_REPORT.md`; a primeira
+correção medida está em `benchmarks/PART01_FULL_TURNS_REPORT.md`. A métrica
 principal conta omissões como erro e também informa separadamente se os limites inteiros da fala foram
 encontrados; assim, recusar os casos difíceis ou cortar apenas a primeira frase não infla a acurácia.
 

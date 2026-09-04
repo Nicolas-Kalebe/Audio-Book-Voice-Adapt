@@ -1,5 +1,10 @@
 from audiobook_voice_enhancer.alignment import align_blocks, map_phrase_to_words, normalize
-from audiobook_voice_enhancer.dialogue import _infer_addressed_replies, _infer_preceding_named_actions, detect
+from audiobook_voice_enhancer.dialogue import (
+    _dash_speech_fragments,
+    _infer_addressed_replies,
+    _infer_preceding_named_actions,
+    detect,
+)
 from audiobook_voice_enhancer.book import load_book
 
 
@@ -113,6 +118,70 @@ def test_dialogue_can_span_multiple_transcript_segments():
     assert found[0]["speaker"] == "Geralt"
     assert found[0]["start"] == 0
     assert found[0]["end"] >= 1.4
+
+
+def test_dash_dialogue_keeps_continuation_but_excludes_narrator_attribution():
+    paragraph = "— Primeira frase — disse Yennefer. — Segunda frase inteira."
+    fragments = _dash_speech_fragments(paragraph)
+    assert [item.group(1) for item in fragments] == ["Primeira frase", "Segunda frase inteira."]
+    assert [item.continuation for item in fragments] == [False, True]
+
+
+def test_dash_continuation_does_not_require_a_space_after_the_mark():
+    paragraph = "— Primeira — disse o sacerdote. –Segunda sem espaço."
+    assert [item.group(1) for item in _dash_speech_fragments(paragraph)] == [
+        "Primeira", "Segunda sem espaço."
+    ]
+
+
+def test_continuation_is_a_separate_audio_region_with_the_same_speaker():
+    spoken = "Primeira frase disse Yennefer Segunda frase inteira"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": spoken, "words": words(spoken)}]}
+    paragraph = "— Primeira frase — disse Yennefer. — Segunda frase inteira."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 3, "audio_start": 0,
+                  "audio_end": 4, "alignment_confidence": 0.99, "book_text": paragraph}]
+    found = detect(transcript, alignment, {"yennefer": "Yennefer"}, ["x", "x", "x", paragraph])
+    assert [item["text"] for item in found] == ["Primeira frase", "Segunda frase inteira."]
+    assert [item["speaker"] for item in found] == ["Yennefer", "Yennefer"]
+    assert found[0]["end"] < found[1]["start"]
+    assert found[0]["turn_id"] == found[1]["turn_id"]
+    assert found[1]["is_continuation"] is True
+
+
+def test_epub_paragraph_break_can_continue_an_unfinished_dash_turn():
+    blocks = ["— A regra consta em nosso", "capítulo e deve ser obedecida."]
+    first = "A regra consta em nosso"
+    second = "capitulo e deve ser obedecida"
+    transcript = {"segments": [
+        {"id": 0, "start": 0, "end": 3, "text": first, "words": words(first)},
+        {"id": 1, "start": 4, "end": 7, "text": second,
+         "words": [{"word": item, "start": 4 + index * .5, "end": 4.4 + index * .5}
+                   for index, item in enumerate(second.split())]},
+    ]}
+    alignments = [
+        {"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 3,
+         "alignment_confidence": .99, "book_text": blocks[0]},
+        {"segment_id": 1, "book_paragraph_id": 1, "audio_start": 4, "audio_end": 7,
+         "alignment_confidence": .99, "book_text": blocks[1]},
+    ]
+    found = detect(transcript, alignments, {}, blocks)
+    assert [item["text"] for item in found] == blocks[0][2:].split(" — ") + [blocks[1]]
+    assert found[0]["turn_id"] == found[1]["turn_id"]
+    assert found[0]["fragment_count"] == 2
+    assert found[1]["fragment_count"] == 2
+    assert found[1]["is_continuation"] is True
+
+
+def test_continuation_cannot_override_speaker_anchored_at_start_of_turn():
+    dialogues = [
+        {"dialogue_style": "dash", "turn_id": "book-1", "fragment_index": 0,
+         "speaker": "Yennefer", "speaker_confidence": .98},
+        {"dialogue_style": "dash", "turn_id": "book-1", "fragment_index": 1,
+         "speaker": "Geralt", "speaker_confidence": .9},
+    ]
+    from audiobook_voice_enhancer.dialogue import propagate_speaker_inside_turn
+    propagate_speaker_inside_turn(dialogues)
+    assert [item["speaker"] for item in dialogues] == ["Yennefer", "Yennefer"]
 
 
 def test_two_person_conversation_is_inferred_from_vocatives_and_turns():

@@ -8,17 +8,21 @@ def test_part01_gold_is_complete_and_has_no_duplicate_ids():
     gold = load_gold(root / "benchmarks" / "part01_gold.yaml")
     dialogues = []
     for speaker, ids in gold["spoken_by"].items():
-        dialogues.extend({"id": str(item_id), "speaker": speaker} for item_id in ids)
+        dialogues.extend({"id": str(item_id), "speaker": speaker,
+                          "book_paragraph_id": int(str(item_id).split("-", 1)[0])} for item_id in ids)
     for label, detail in gold["ambiguous_spoken"].items():
-        dialogues.extend({"id": str(item_id), "speaker": label} for item_id in detail["ids"])
+        dialogues.extend({"id": str(item_id), "speaker": label,
+                          "book_paragraph_id": int(str(item_id).split("-", 1)[0])}
+                         for item_id in detail["ids"])
     for ids in gold["non_spoken"].values():
-        dialogues.extend({"id": str(item_id), "speaker": None} for item_id in ids)
+        dialogues.extend({"id": str(item_id), "speaker": None,
+                          "book_paragraph_id": int(str(item_id).split("-", 1)[0])} for item_id in ids)
     result = evaluate(gold, {"files": [{"dialogues": dialogues}]})
     assert result["candidates_in_report"] == 267
     assert result["gold_source_turns"] == 255
     assert result["missing_source_turns"] == 5
-    assert result["incomplete_detected_turns"] == 143
-    assert result["complete_detected_turns"] == 107
+    assert result["incomplete_detected_turns"] == 145
+    assert result["complete_detected_turns"] == 105
 
 
 def test_benchmark_counts_abstention_as_end_to_end_error():
