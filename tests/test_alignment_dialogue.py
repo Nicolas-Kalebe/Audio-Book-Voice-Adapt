@@ -184,6 +184,67 @@ def test_unclosed_dash_does_not_include_following_narration():
     assert found[0]["end"] < timed[-1]["end"]
 
 
+def test_named_speaker_is_discovered_from_book_on_first_pass():
+    text = "Nao foi apenas isso falou Radcliffe"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 3, "text": text, "words": words(text)}]}
+    block = "— Não foi apenas isso — falou Radcliffe com voz firme."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 3,
+                  "alignment_confidence": 0.99, "book_text": block}]
+    found = detect(transcript, alignment, {}, [block])
+    assert found[0]["speaker"] == "Radcliffe"
+    assert found[0]["speaker_confidence"] == 0.98
+
+
+def test_self_introduction_discovers_full_character_name():
+    text = "Pois eu Rayla de Liria conheco Geralt"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": text, "words": words(text)}]}
+    block = "— Pois eu, Rayla de Líria, conheço Geralt — afirmou a guerreira."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 4,
+                  "alignment_confidence": 0.99, "book_text": block}]
+    found = detect(transcript, alignment, {}, [block])
+    assert found[0]["speaker"] == "Rayla de Líria"
+
+
+def test_addressee_in_attribution_is_not_selected_as_speaker():
+    text = "Gostaria de saber do lado de quem"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": text, "words": words(text)}]}
+    block = "— Gostaria de saber do lado de quem — comentou com Radcliffe o chanceler Vilibert."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 4,
+                  "alignment_confidence": 0.99, "book_text": block}]
+    found = detect(transcript, alignment, {"radcliffe": "Radcliffe", "vilibert": "Vilibert"}, [block])
+    assert found[0]["speaker"] == "Vilibert"
+
+
+def test_quote_inside_dash_speech_is_not_a_separate_dialogue():
+    text = "Lembrem se da profecia o mundo vai morrer assim falou a sibila"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 6, "text": text, "words": words(text)}]}
+    block = '— Lembrem-se da profecia: “O mundo vai morrer.” Assim falou a sibila!'
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 6,
+                  "alignment_confidence": 0.99, "book_text": block}]
+    found = detect(transcript, alignment, {}, [block])
+    assert len(found) == 1
+
+
+def test_named_subject_action_after_speech_identifies_speaker():
+    text = "Voce acha"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 2, "text": text, "words": words(text)}]}
+    block = "— Você acha? — Yennefer endireitou-se e pegou a adaga."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 2,
+                  "alignment_confidence": 0.99, "book_text": block}]
+    found = detect(transcript, alignment, {"yennefer": "Yennefer"}, [block])
+    assert found[0]["speaker"] == "Yennefer"
+
+
+def test_self_identification_in_same_paragraph_attributes_opening_speech():
+    text = "Agradeco lhe mestre Jaskier Permitam que eu Radcliffe de Oxenfurt diga algumas palavras"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 8, "text": text, "words": words(text)}]}
+    block = "— Agradeço-lhe, mestre Jaskier — disse com voz baixa. — Permitam que eu, Radcliffe de Oxenfurt, diga algumas palavras."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0, "audio_end": 8,
+                  "alignment_confidence": 0.99, "book_text": block}]
+    found = detect(transcript, alignment, {"jaskier": "Jaskier"}, [block])
+    assert found[0]["speaker"] == "Radcliffe de Oxenfurt"
+
+
 def test_book_txt_accepts_windows_1252(tmp_path):
     path = tmp_path / "livro.txt"
     path.write_bytes("Capítulo — não".encode("cp1252"))

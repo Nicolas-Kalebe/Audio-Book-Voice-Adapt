@@ -207,6 +207,8 @@ Cada voz encontrada pode ser expandida para mostrar cortes individuais de até q
 
 O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, bruxo`. Quando o livro usar um desses nomes em uma atribuição de fala, ele será associado ao personagem principal.
 
+O motor também reconhece nomes apresentados durante a própria fala, ações como `Yennefer levantou-se` depois do travessão e alternância em conversas de duas pessoas. Ele mantém falas anônimas sem conversão quando o texto só informa uma função genérica. Depois de uma atualização do motor, execute **Analisar** novamente: a transcrição do Whisper continua no cache e apenas as etapas textuais são refeitas.
+
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
 
 ## Problemas comuns

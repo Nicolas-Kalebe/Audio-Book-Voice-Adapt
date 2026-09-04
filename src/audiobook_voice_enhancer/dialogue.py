@@ -6,21 +6,83 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 
-DIALOGUE_ALGORITHM_VERSION = "paragraph-groups-conversation-turns-v2"
-SPEECH_VERBS = r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|said|asked|replied|shouted|whispered|murmured|exclaimed"
+DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v3"
+SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
+                r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
+                r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
+                r"protestou|refutou|concordou|discordou|admitiu|explicou|esclareceu|resmungou|"
+                r"gemeu|suspirou|cochichou|balbuciou|ordenou|mandou|pediu|implorou|advertiu|"
+                r"ameaçou|ironizou|zombou|riu|sorriu|bocejou|explodiu|disparou|sentenciou|"
+                r"intrometeu|apoiou|adicionou|conclamou|assegurou|garantiu|confirmou|"
+                r"said|asked|replied|shouted|whispered|murmured|exclaimed")
+SPEECH_VERB = rf"(?:{SPEECH_VERBS})(?:-(?:lhe|lhes|[oa]s?|se|me))?"
 NAME = r"[A-ZÀ-Ý][\wÀ-ÿ'-]+(?:\s+(?:(?:d[aeo]s?|e)\s+)?[A-ZÀ-Ý][\wÀ-ÿ'-]+){0,3}"
 QUOTE = re.compile(r"[“\"]([^”\"]{2,}?)[”\"]")
 DASH = re.compile(r"(?:^|\n)\s*[—–-]\s*([^\n—–]{2,}?)(?=\s+[—–]\s*|$)", re.M)
-ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERBS})\s+(?:(?i:a|o|the)\s+)?({NAME})")
-ATTR_BEFORE = re.compile(rf"\b({NAME})\s+(?i:{SPEECH_VERBS})\s*:")
+ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERB})\s+(?:(?i:a|o|the)\s+)?({NAME})")
+ATTR_BEFORE = re.compile(rf"\b({NAME})\s+(?i:{SPEECH_VERB})\s*:")
 UNSAFE_SHORT = re.compile(r"^(?:ah+|oh+|uh+|hm+|ha(?:ha)+|ai+|ei+|suspiro|risos?)[!.…]*$", re.I)
 NARRATION_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                    r"repetiu|continuou|acrescentou|prosseguiu|pensou|olhou|ouvira|ouviu|tremeu|"
                    r"sorriu|assentiu|levantou|baixou|virou|afastou|aproximou")
+SUBJECT_ACTIONS = (r"ajeitou|apertou|assentiu|baixou|coçou|colocou|cruzou|deu|endireitou|ergueu|"
+                   r"encolheu|fitou|inclinou|levantou|olhou|piscou|recuou|sacudiu|sorriu|tremeu|"
+                   r"virou|voltou")
+NON_NAMES = {"a", "as", "e", "ele", "ela", "em", "eu", "o", "os", "the", "um", "uma", "você", "vocês"}
 
 
 def _canonical(value: str, aliases: dict[str, str]) -> str:
     return aliases.get(" ".join(value.split()).casefold(), value)
+
+
+def _proper_names(value: str) -> list[str]:
+    names = [" ".join(match.group(0).split()).strip(" ,.;:!?") for match in re.finditer(NAME, value)]
+    return [name for name in names if len(name) > 1 and name.casefold() not in NON_NAMES]
+
+
+def _book_aliases(book_blocks: list[str] | None, configured: dict[str, str]) -> dict[str, str]:
+    """Discover explicitly named speakers before the first analysis pass."""
+    result = dict(configured)
+    discovered: list[str] = []
+    for block in book_blocks or []:
+        for speech in DASH.finditer(block):
+            attribution = block[speech.end():speech.end() + 160]
+            verb = re.search(rf"\b{SPEECH_VERB}\b", attribution, re.I)
+            if not verb or verb.start() > 50:
+                continue
+            clause = re.split(r"[—–.!?]", attribution[verb.end():], maxsplit=1)[0]
+            candidates = []
+            for candidate in re.finditer(NAME, clause):
+                prefix = clause[:candidate.start()].rstrip().casefold()
+                preceding = re.search(r"([a-zà-ÿ]+)\s*$", prefix)
+                if preceding and preceding.group(1) in {"a", "ao", "à", "com", "da", "das", "de", "do", "dos", "para"}:
+                    continue
+                candidates.extend(_proper_names(candidate.group(0)))
+            if candidates:
+                discovered.append(candidates[-1])
+        for introduction in re.finditer(rf"\b(?i:eu)\s*,\s*({NAME})", block):
+            candidates = _proper_names(introduction.group(1))
+            if candidates:
+                discovered.append(candidates[0])
+    configured_first: dict[str, set[str]] = {}
+    for character in set(configured.values()):
+        configured_first.setdefault(character.split()[0].casefold(), set()).add(character)
+    discovered_first: dict[str, set[str]] = {}
+    for name in discovered:
+        discovered_first.setdefault(name.split()[0].casefold(), set()).add(name)
+    for first, variants in discovered_first.items():
+        configured_matches = configured_first.get(first, set())
+        canonical = (next(iter(configured_matches)) if len(configured_matches) == 1
+                     else max(variants, key=lambda value: (len(value.split()), len(value))))
+        for name in variants:
+            result.setdefault(name.casefold(), canonical)
+    first_names: dict[str, set[str]] = {}
+    for canonical in set(result.values()):
+        first_names.setdefault(canonical.split()[0].casefold(), set()).add(canonical)
+    for first, owners in first_names.items():
+        if len(owners) == 1:
+            result.setdefault(first, next(iter(owners)))
+    return result
 
 
 def _alias_match(context: str, aliases: dict[str, str], *, before: bool) -> str | None:
@@ -28,12 +90,22 @@ def _alias_match(context: str, aliases: dict[str, str], *, before: bool) -> str 
         return None
     choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
     if before:
-        pattern = re.compile(rf"\b({choices})\s+(?:{SPEECH_VERBS})\s*:", re.I)
+        pattern = re.compile(rf"\b({choices})\s+(?:{SPEECH_VERB})\s*:", re.I)
         matches = list(pattern.finditer(context))
         match = matches[-1] if matches else None
     else:
-        pattern = re.compile(rf"\b(?:{SPEECH_VERBS})\s+(?:(?:a|o|the)\s+)?({choices})\b", re.I)
-        match = pattern.search(context)
+        verb = re.search(rf"\b(?:{SPEECH_VERB})\b", context, re.I)
+        if not verb:
+            return None
+        clause = re.split(r"[—–.!?]", context[verb.end():verb.end() + 140], maxsplit=1)[0]
+        match = None
+        for candidate in re.finditer(rf"\b({choices})\b", clause, re.I):
+            prefix = clause[:candidate.start()].rstrip().casefold()
+            preceding = re.search(r"([a-zà-ÿ]+)\s*$", prefix)
+            if preceding and preceding.group(1) in {"a", "ao", "à", "com", "da", "das", "de", "do", "dos", "para"}:
+                continue
+            match = candidate
+            break
     return aliases.get(match.group(1).casefold()) if match else None
 
 
@@ -55,10 +127,17 @@ def _speaker(context: str, start: int, end: int, aliases: dict[str, str]) -> tup
         return _canonical(matches[-1].group(1), aliases), 0.98, "atribuição explícita antes da fala"
     if aliases:
         choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+        acting_subject = re.match(rf"\s*(?:[—–-]\s*)?({choices})\s+(?:{SUBJECT_ACTIONS})(?:-se)?\b",
+                                  narrative_after, re.I)
+        if acting_subject:
+            return aliases[acting_subject.group(1).casefold()], 0.96, "personagem nomeado como sujeito após a fala"
         narrative = re.search(rf"\bquem\b.{{0,180}}\b(?:dizia|falava)\b.{{0,80}}\bera\s+({choices})\b",
                               narrative_after, re.I)
         if narrative:
             return aliases[narrative.group(1).casefold()], 0.96, "atribuição explícita na narração após a fala"
+        self_identity = _self_identified_speaker(context, aliases)
+        if self_identity:
+            return self_identity, 0.96, "autoidentificação explícita no mesmo parágrafo"
     return None, 0.0, "falante não atribuído explicitamente"
 
 
@@ -73,6 +152,14 @@ def _addressed_characters(text: str, aliases: dict[str, str]) -> set[str]:
     return found
 
 
+def _self_identified_speaker(text: str, aliases: dict[str, str]) -> str | None:
+    if not aliases:
+        return None
+    choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+    match = re.search(rf"\b(?:eu\s*,\s*|me\s+chamo\s+|sou\s+(?:a|o)?\s*)({choices})\b", text, re.I)
+    return aliases.get(match.group(1).casefold()) if match else None
+
+
 def _trim_dash_narration(text: str, aliases: dict[str, str]) -> tuple[str, int]:
     """Split an unclosed dash speech when a named subject clearly starts narration."""
     if not aliases:
@@ -84,6 +171,17 @@ def _trim_dash_narration(text: str, aliases: dict[str, str]) -> tuple[str, int]:
     return text[:boundary.start()].rstrip(), boundary.start()
 
 
+def _scene_numbers(book_blocks: list[str] | None) -> dict[int, int]:
+    scene = 0
+    result: dict[int, int] = {}
+    for index, block in enumerate(book_blocks or []):
+        cleaned = block.strip()
+        if cleaned in {"—", "–", "-", "*", "***", "•"} or re.match(r"^(?:capítulo|chapter)\b", cleaned, re.I):
+            scene += 1
+        result[index] = scene
+    return result
+
+
 def _conversation_runs(dialogues: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     runs: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
@@ -92,7 +190,8 @@ def _conversation_runs(dialogues: list[dict[str, Any]]) -> list[list[dict[str, A
         if current:
             paragraph_gap = int(dialogue.get("book_paragraph_id", -1000)) - int(current[-1].get("book_paragraph_id", 1000))
             audio_gap = float(dialogue["start"]) - float(current[-1]["end"])
-            if paragraph_gap < 0 or paragraph_gap > 3 or audio_gap > 75:
+            scene_changed = dialogue.get("_scene_id") != current[-1].get("_scene_id")
+            if scene_changed or paragraph_gap < 0 or paragraph_gap > 5 or audio_gap > 75:
                 runs.append(current)
                 current = []
         current.append(dialogue)
@@ -141,8 +240,10 @@ def _infer_conversation_turns(dialogues: list[dict[str, Any]], aliases: dict[str
 
 
 def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
-           speaker_aliases: dict[str, str] | None = None) -> list[dict[str, Any]]:
-    aliases = speaker_aliases or {}
+           speaker_aliases: dict[str, str] | None = None,
+           book_blocks: list[str] | None = None) -> list[dict[str, Any]]:
+    aliases = _book_aliases(book_blocks, speaker_aliases or {})
+    scenes = _scene_numbers(book_blocks)
     segments = transcript.get("segments", [])
     segment_by_id = {item["id"]: item for item in segments}
     aligned_ids = {item["segment_id"] for item in (alignments or [])}
@@ -170,7 +271,11 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
 
     dialogues: list[dict[str, Any]] = []
     for _, context, grouped_segments, alignment_score, is_aligned, unit_id in units:
-        matches = sorted(list(QUOTE.finditer(context)) + list(DASH.finditer(context)), key=lambda match: match.start())
+        dash_matches = list(DASH.finditer(context))
+        quote_matches = [quote for quote in QUOTE.finditer(context)
+                         if not any(dash.start() <= quote.start() and quote.end() <= dash.end()
+                                    for dash in dash_matches)]
+        matches = sorted(quote_matches + dash_matches, key=lambda match: match.start())
         if not matches and not is_aligned:
             attribution = ATTR_BEFORE.search(context)
             if attribution:
@@ -193,6 +298,9 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
             owner = next((segment for segment in grouped_segments
                           if float(segment["start"]) <= start <= float(segment["end"])), grouped_segments[0])
             speaker, speaker_score, reason = _speaker(context, match.start(), speech_end, aliases)
+            introduced = _self_identified_speaker(text, aliases)
+            if not speaker and introduced:
+                speaker, speaker_score, reason = introduced, 0.98, "autoidentificação explícita dentro da fala"
             continuation = bool(re.match(r"\s*(?:[,.;:]|[—–-])?\s*(?:repetiu|continuou|acrescentou|prosseguiu)\b",
                                          context[speech_end:], re.I))
             confidence = min(alignment_score if is_aligned else word_score, word_score)
@@ -201,6 +309,8 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                               "speaker_confidence": round(speaker_score, 4), "alignment_confidence": round(confidence, 4),
                               "source": "book" if is_aligned else "transcript", "reason": reason,
                               "book_paragraph_id": unit_id if is_aligned else None,
+                              "book_context": book_blocks[max(0, unit_id - 2):unit_id + 3] if is_aligned and book_blocks else [context],
+                              "_scene_id": scenes.get(unit_id, 0) if is_aligned else -1,
                               "_dialogue_style": "dash" if getattr(match, "re", None) is DASH else "quote",
                               "_continues_previous": continuation,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
@@ -208,6 +318,7 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
     for dialogue in dialogues:
         dialogue.pop("_dialogue_style", None)
         dialogue.pop("_continues_previous", None)
+        dialogue.pop("_scene_id", None)
     return dialogues
 
 
