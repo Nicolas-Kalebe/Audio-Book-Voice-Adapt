@@ -57,6 +57,18 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     by_id = {str(item["id"]): item for item in candidates}
     if len(by_id) != len(candidates):
         raise ValueError("O relatorio contem IDs duplicados")
+    paragraph_scenes = {
+        int(item["book_paragraph_id"]): int(item.get("scene_id", -1))
+        for item in candidates if item.get("book_paragraph_id") is not None
+    }
+
+    def scene_for(paragraph: int) -> int:
+        if paragraph in paragraph_scenes:
+            return paragraph_scenes[paragraph]
+        if not paragraph_scenes:
+            return -1
+        nearest = min(paragraph_scenes, key=lambda value: abs(value - paragraph))
+        return paragraph_scenes[nearest]
 
     legacy_fragments = {str(value) for value in gold.get("continuation_fragments", [])}
     standalone_quotes = {str(value) for value in gold.get("standalone_quote_turn_ids", [])}
@@ -126,22 +138,35 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     complete_detected_turns = 0
     dynamically_missing: list[dict[str, Any]] = []
     incomplete_turns: list[dict[str, Any]] = []
+    split_scenes = {name: {int(scene) for scene in detail.get("scenes", [])}
+                    for name, detail in gold.get("split", {}).items()}
+    split_counts = {name: Counter() for name in split_scenes}
 
     ordered_turns = sorted(turns.items(), key=lambda pair: (pair[1]["paragraph"], pair[0]))
     for key, turn in ordered_turns:
+        split_name = next((name for name, scenes in split_scenes.items()
+                           if scene_for(turn["paragraph"]) in scenes), None)
+        if split_name:
+            split_counts[split_name]["total"] += 1
         items = sorted(candidates_by_turn.get(key, []),
                        key=lambda item: (int(item.get("fragment_index", 0)), float(item.get("start", 0))))
         expected = turn["speaker"]
         if not items:
+            if split_name:
+                split_counts[split_name]["missing"] += 1
             dynamically_missing.append({"id": turn["id"], "book_paragraph_id": turn["paragraph"],
                                         "speaker": expected, "text": turn.get("text", "")})
             confusion[(expected, "NAO DETECTADA")] += 1
             continue
         detected_turns += 1
+        if split_name:
+            split_counts[split_name]["detected"] += 1
         primary = next((item for item in items if int(item.get("fragment_index", 0)) == 0), items[0])
         predicted = primary.get("speaker")
         if predicted:
             assigned += 1
+            if split_name:
+                split_counts[split_name]["assigned"] += 1
         is_correct = _fold(predicted) == _fold(expected)
         if turn["acceptable"] and _fold(predicted) in turn["acceptable"]:
             is_correct = True
@@ -162,6 +187,8 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
 
         if is_correct:
             correct += 1
+            if split_name:
+                split_counts[split_name]["correct"] += 1
             per_speaker_correct[expected] += 1
             every_fragment_correct = all(
                 _fold(item.get("speaker")) == _fold(expected)
@@ -190,6 +217,19 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         hit = per_speaker_correct[speaker]
         per_character.append({"speaker": speaker, "correct": hit, "total": total, "recall": hit / total})
 
+    split_metrics = []
+    for name, counts in split_counts.items():
+        total, split_detected, split_assigned, hit = (
+            counts[key] for key in ("total", "detected", "assigned", "correct")
+        )
+        split_metrics.append({
+            "split": name, "total": total, "detected": split_detected,
+            "assigned": split_assigned, "correct": hit,
+            "end_to_end_accuracy": hit / total if total else 0.0,
+            "accuracy_when_assigned": hit / split_assigned if split_assigned else 0.0,
+            "coverage": split_assigned / split_detected if split_detected else 0.0,
+        })
+
     return {
         "gold": gold["name"],
         "candidates_in_report": len(candidates),
@@ -213,6 +253,7 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         "speaker_and_boundary_end_to_end_accuracy": correct_and_complete / total_source_turns,
         "speaker_correct_and_complete_turns": correct_and_complete,
         "per_character": per_character,
+        "split_metrics": split_metrics,
         "wrong_or_unassigned": wrong,
         "confusion": [
             {"expected": expected, "predicted": predicted, "count": count}
@@ -261,6 +302,14 @@ def render_markdown(result: dict[str, Any]) -> str:
     lines.extend(["", "## Principais confusoes", "", "| Esperado | Motor atual | Quantidade |", "|---|---|---:|"])
     for item in result["confusion"]:
         lines.append(f"| {item['expected']} | {item['predicted']} | {item['count']} |")
+    if result.get("split_metrics"):
+        lines.extend(["", "## Separacao de desenvolvimento", "",
+                      "| Conjunto | Corretas | Total | Ponta a ponta | Cobertura | Precisao atribuida |",
+                      "|---|---:|---:|---:|---:|---:|"])
+        for item in result["split_metrics"]:
+            lines.append(f"| {item['split']} | {item['correct']} | {item['total']} | "
+                         f"{pct(item['end_to_end_accuracy'])} | {pct(item['coverage'])} | "
+                         f"{pct(item['accuracy_when_assigned'])} |")
     lines.extend(["", "## Falas inteiras perdidas", ""])
     for item in result["missing_spoken"]:
         lines.append(f"- P{item['book_paragraph_id']} - {item['speaker']}: `{item['text']}`")

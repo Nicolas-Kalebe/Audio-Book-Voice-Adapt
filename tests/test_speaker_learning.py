@@ -52,6 +52,48 @@ def test_contextual_ai_rejects_addressee_as_speaker(tmp_path):
     assert stats["unresolved"] == 1
 
 
+def test_contextual_ai_abstains_when_critic_disagrees(tmp_path):
+    class DisagreeingProvider(LLMProvider):
+        model = "disagree"
+
+        def infer(self, payload):
+            speaker = "Ciri" if "proposed_assignments" in payload else "Geralt"
+            return {"assignments": [{"id": item["id"], "speaker": speaker,
+                                      "confidence": .99, "reason": "teste"}
+                                     for item in payload["target_dialogues"]]}
+
+    dialogues = [{"id": "1", "speaker": None, "speaker_confidence": 0, "scene_id": 1,
+                  "book_paragraph_id": 0, "text": "Olá"}]
+    stats = review_scenes(DisagreeingProvider(), Cache(tmp_path), dialogues, ["— Olá"],
+                          {"Geralt", "Ciri"}, .85)
+    assert dialogues[0]["speaker"] is None
+    assert dialogues[0]["llm_suggestion"] == "Geralt"
+    assert dialogues[0]["llm_alternative"] == "Ciri"
+    assert stats["critic_disagreements"] == 1
+
+
+def test_consensus_threshold_is_not_lowered_in_multi_speaker_batch(tmp_path):
+    class ModestProvider(LLMProvider):
+        model = "modest"
+
+        def infer(self, payload):
+            return {"assignments": [{"id": item["id"], "speaker": "Geralt",
+                                      "confidence": .91, "reason": "contexto"}
+                                     for item in payload["target_dialogues"]]}
+
+    dialogues = [
+        {"id": "target", "speaker": None, "speaker_confidence": 0, "scene_id": 1,
+         "book_paragraph_id": 1, "text": "Olá"},
+        *({"id": name, "speaker": name, "speaker_confidence": .98, "scene_id": 1,
+           "book_paragraph_id": index, "text": "fala"}
+          for index, name in enumerate(("Geralt", "Ciri", "Yennefer"), 2)),
+    ]
+    stats = review_scenes(ModestProvider(), Cache(tmp_path), dialogues,
+                          ["x", "— Olá", "x", "x", "x"], {"Geralt", "Ciri", "Yennefer"}, .85)
+    assert dialogues[0]["speaker"] is None
+    assert stats["suggested_for_review"] == 1
+
+
 def test_confirmation_propagates_same_role_in_scene(tmp_path):
     report_path = tmp_path / "analysis.json"
     overrides = tmp_path / "speaker_overrides.json"

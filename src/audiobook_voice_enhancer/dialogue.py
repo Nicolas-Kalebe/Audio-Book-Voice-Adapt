@@ -6,7 +6,7 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 
-DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v12-full-turns"
+DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v25-stable-roles"
 SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                 r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
                 r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
@@ -31,8 +31,15 @@ SUBJECT_ACTIONS = (r"ajeitou|apertou|apertaram|apertava|assentiu|baixou|coçou|c
                    r"virou|voltou")
 ROLE = (r"artesã|artesão|artista|anão|anã|bardo|bruxo|bruxa|cavaleiro|cavaleira|chanceler|"
         r"druida|elfo|elfa|feiticeiro|feiticeira|guerreiro|guerreira|mago|maga|poeta|"
-        r"sacerdote|sacerdotisa|trovador|trovadora|gnomo|gnoma")
+        r"sacerdote|sacerdotisas?|trovador|trovadora|gnomo|gnoma|taberneiro|taberneira|"
+        r"albergueiro|albergueira|filhas?")
+ROLE_SPEECH_VERB = rf"(?:{SPEECH_VERB}|piou|piaram|latiu|apoiaram|indagou)"
 NON_NAMES = {"a", "as", "e", "ele", "ela", "em", "eu", "o", "os", "the", "um", "uma", "você", "vocês"}
+
+
+def _is_possessed_name(prefix: str) -> bool:
+    return bool(re.search(r"\b(?:de|do|da|dos|das)\s+(?:[a-zà-ÿ'-]+\s+){0,3}[a-zà-ÿ'-]+\s*$",
+                          prefix.casefold()))
 
 
 def _canonical(value: str, aliases: dict[str, str]) -> str:
@@ -60,6 +67,8 @@ def _book_aliases(book_blocks: list[str] | None, configured: dict[str, str]) -> 
                 prefix = clause[:candidate.start()].rstrip().casefold()
                 preceding = re.search(r"([a-zà-ÿ]+)\s*$", prefix)
                 if preceding and preceding.group(1) in {"a", "ao", "à", "com", "da", "das", "de", "do", "dos", "para"}:
+                    continue
+                if _is_possessed_name(prefix):
                     continue
                 candidates.extend(_proper_names(candidate.group(0)))
             if candidates:
@@ -113,6 +122,8 @@ def _alias_match(context: str, aliases: dict[str, str], *, before: bool) -> str 
             preceding = re.search(r"([a-zà-ÿ]+)\s*$", prefix)
             if preceding and preceding.group(1) in {"a", "ao", "à", "com", "da", "das", "de", "do", "dos", "para"}:
                 continue
+            if _is_possessed_name(prefix):
+                continue
             match = candidate
             break
     return aliases.get(match.group(1).casefold()) if match else None
@@ -138,7 +149,11 @@ def _speaker(context: str, start: int, end: int, aliases: dict[str, str]) -> tup
         choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
         acting_subject = re.match(rf"\s*(?:[—–-]\s*)?({choices})\s+(?:{SUBJECT_ACTIONS})(?:-se)?\b",
                                   narrative_after, re.I)
-        if acting_subject:
+        reacting_to_other = bool(acting_subject and re.match(
+            r"\s+(?:assustad[oa]\s+)?(?:para|em dire[cç][aã]o a)\s+(?:ele|ela|o|a)\b",
+            narrative_after[acting_subject.end():], re.I,
+        ))
+        if acting_subject and not reacting_to_other:
             return aliases[acting_subject.group(1).casefold()], 0.96, "personagem nomeado como sujeito após a fala"
         narrative = re.search(rf"\bquem\b.{{0,180}}\b(?:dizia|falava)\b.{{0,80}}\bera\s+({choices})\b",
                               narrative_after, re.I)
@@ -155,10 +170,20 @@ def _addressed_characters(text: str, aliases: dict[str, str]) -> set[str]:
     found: set[str] = set()
     for alias, character in aliases.items():
         escaped = re.escape(alias)
-        if (re.search(rf"^\s*{escaped}(?=\s*(?:[,.!?…:]|$))", text, re.I)
-                or re.search(rf",\s*{escaped}(?=\s*(?:[,.!?…:]|$))", text, re.I)):
+        at_start = re.search(rf"^\s*{escaped}(?=\s*(?:[,.!?…:]|$))", text, re.I)
+        internal = re.search(rf",\s*{escaped}(?=\s*(?:[,.!?…:]|$))", text, re.I)
+        # ``Eu, Rayla, ...`` is a self-introduction, not Rayla being addressed.
+        # The old rule poisoned the following reply and then an entire alternating run.
+        self_introduction = bool(internal and re.search(r"\beu\s*$", text[:internal.start()], re.I))
+        if at_start or (internal and not self_introduction):
             found.add(character)
     return found
+
+
+def _addressed_roles(text: str) -> set[str]:
+    """Return occupational addressees without adding common nouns as name aliases."""
+    return {match.group(1).casefold().capitalize()
+            for match in re.finditer(rf"\b(?i:senhor|senhora)\s+({ROLE})\b", text)}
 
 
 def _self_identified_speaker(text: str, aliases: dict[str, str]) -> str | None:
@@ -253,24 +278,66 @@ def _scene_role_owners(book_blocks: list[str] | None, aliases: dict[str, str],
                 found.append((role_matches[-1].group(1).casefold(), identity))
         for role, character in found:
             candidates.setdefault(scene, {}).setdefault(role, set()).add(character)
-    return {scene: {role: next(iter(owners)) for role, owners in roles.items() if len(owners) == 1}
+    # Empty value preserves known ambiguity, preventing creation of one synthetic
+    # character for several named people sharing the same occupation.
+    return {scene: {role: next(iter(owners)) if len(owners) == 1 else ""
+                    for role, owners in roles.items()}
             for scene, roles in candidates.items()}
 
 
 def _attribution_role(context: str, speech_end: int) -> str | None:
     after = context[speech_end:speech_end + 180]
-    verb = re.search(rf"\b{SPEECH_VERB}\b", after, re.I)
+    verb = re.search(rf"\b{ROLE_SPEECH_VERB}\b", after, re.I)
     if not verb or verb.start() > 60:
         return None
     clause = re.split(r"[—–,.!?]", after[verb.end():], maxsplit=1)[0]
-    roles = list(re.finditer(rf"\b({ROLE})\b", clause, re.I))
+    roles = []
+    for candidate in re.finditer(rf"\b({ROLE})\b", clause, re.I):
+        preceding = re.search(r"([a-zà-ÿ]+)\s*$", clause[:candidate.start()], re.I)
+        if preceding and preceding.group(1).casefold() in {"de", "do", "da", "dos", "das"}:
+            continue
+        roles.append(candidate)
     return roles[-1].group(1).casefold() if roles else None
+
+
+def _anonymous_role_label(context: str, speech_end: int, role: str | None) -> str | None:
+    """Build a readable identity from an explicit unnamed attribution."""
+    if not role:
+        return None
+    after = context[speech_end:speech_end + 180]
+    verb = re.search(rf"\b{ROLE_SPEECH_VERB}\b", after, re.I)
+    if not verb or verb.start() > 60:
+        return None
+    clause = re.split(r"[—–,.!?]", after[verb.end():], maxsplit=1)[0]
+    match = re.search(rf"\b{re.escape(role)}\b", clause, re.I)
+    if not match:
+        return None
+    label = role.capitalize()
+    suffix = clause[match.end():].strip()
+    relation = re.match(r"((?:de|do|da|dos|das)\s+[a-zà-ÿ'-]+(?:\s+[A-ZÀ-Ý][\wÀ-ÿ'-]+)?)", suffix)
+    if relation and not re.match(r"(?:de|do|da|dos|das)\s+(?:cima|baixo|alto)\b", relation.group(1), re.I):
+        return label + " " + relation.group(1)
+    suffix_match = re.match(r"([a-zà-ÿ'-]+)", suffix, re.I)
+    if (suffix_match and not suffix_match.group(1).casefold().endswith("mente")
+            and suffix_match.group(1).casefold() not in {
+        "com", "de", "do", "da", "dos", "das", "que", "vestido", "vestida", "sentado", "sentada",
+    }):
+        label += " " + suffix_match.group(1).casefold()
+    else:
+        prefix = clause[:match.start()].strip()
+        words = re.findall(r"[a-zà-ÿ'-]+", prefix, re.I)
+        ignored = {"o", "a", "um", "uma", "os", "as", "e", "com", "voz", "muito", "repentinamente"}
+        modifiers = [word.casefold() for word in words if word.casefold() not in ignored]
+        if modifiers and not modifiers[-1].endswith("mente"):
+            label += " " + modifiers[-1]
+    return label if " " in label else None
 
 
 def _conversation_runs(dialogues: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     runs: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
-    spoken_turns = [item for item in dialogues if item.get("dialogue_style") == "dash"]
+    spoken_turns = [item for item in turn_representatives(dialogues)
+                    if item.get("dialogue_style") == "dash"]
     for dialogue in sorted(spoken_turns, key=lambda item: float(item["start"])):
         if current:
             paragraph_gap = int(dialogue.get("book_paragraph_id", -1000)) - int(current[-1].get("book_paragraph_id", 1000))
@@ -286,11 +353,22 @@ def _conversation_runs(dialogues: list[dict[str, Any]]) -> list[list[dict[str, A
 
 
 def _infer_conversation_turns(dialogues: list[dict[str, Any]], aliases: dict[str, str]) -> None:
-    """Infer alternating two-person book dialogue only when vocatives identify both participants."""
+    """Fill only alternating intervals that agree with reliable anchors on both sides.
+
+    Literary dialogue is not guaranteed to alternate: a character may speak twice,
+    narration may interrupt them, or a third person may enter.  Consequently an
+    anchor on just the left is insufficient.  We accept an interval only when its
+    right anchor independently confirms the same parity.
+    """
     for run in _conversation_runs(dialogues):
-        addressed = [_addressed_characters(item["text"], aliases) for item in run]
-        participants = set().union(*addressed) if addressed else set()
-        participants.update(item["speaker"] for item in run if item.get("speaker"))
+        addressed = [_addressed_characters(item["text"], aliases) | _addressed_roles(item["text"])
+                     for item in run]
+        participants = {item["speaker"] for item in run
+                        if item.get("speaker") and float(item.get("speaker_confidence", 0)) >= .92}
+        # Anchored speakers define the cast more reliably than names at the start
+        # of a sentence: ``Rience. Ele é feiticeiro?`` names the topic, not a listener.
+        if len(participants) < 2:
+            participants.update(set().union(*addressed) if addressed else set())
         if len(run) < 3 or len(participants) != 2:
             continue
         pair = tuple(sorted(participants))
@@ -306,27 +384,33 @@ def _infer_conversation_turns(dialogues: list[dict[str, Any]], aliases: dict[str
                 item["speaker_confidence"] = 0.93
                 item["reason"] = "inferência por vocativo em conversa entre dois personagens"
 
-        previous_speaker: str | None = None
-        for item in run:
-            if item.get("speaker") in participants:
-                previous_speaker = item["speaker"]
+        anchors = [(index, item["speaker"]) for index, item in enumerate(run)
+                   if item.get("speaker") in participants
+                   and float(item.get("speaker_confidence", 0)) >= .92]
+        for (left_index, left_speaker), (right_index, right_speaker) in zip(anchors, anchors[1:]):
+            if right_index - left_index <= 1:
                 continue
-            if not previous_speaker:
+            expected_right = (left_speaker if (right_index - left_index) % 2 == 0
+                              else pair[1] if left_speaker == pair[0] else pair[0])
+            if expected_right != right_speaker:
                 continue
-            if item.get("_continues_previous"):
-                item["speaker"] = previous_speaker
+            interval_listeners = set().union(*addressed[left_index:right_index + 1])
+            if interval_listeners - participants:
+                continue
+            speaker = left_speaker
+            for item in run[left_index + 1:right_index]:
+                speaker = pair[1] if speaker == pair[0] else pair[0]
+                if item.get("speaker"):
+                    continue
+                item["speaker"] = speaker
                 item["speaker_confidence"] = 0.9
-                item["reason"] = "inferência de continuação explícita da fala anterior"
-            else:
-                item["speaker"] = pair[1] if previous_speaker == pair[0] else pair[0]
-                item["speaker_confidence"] = 0.88
-                item["reason"] = "inferência de alternância em conversa entre dois personagens"
-            previous_speaker = item["speaker"]
+                item["reason"] = "alternância confirmada por âncoras textuais nos dois lados"
 
 
 def _infer_recent_vocative_turns(dialogues: list[dict[str, Any]], aliases: dict[str, str]) -> None:
     """Resolve a vocative from the two recent anchored speakers, even inside a larger scene."""
-    ordered = sorted((item for item in dialogues if item.get("dialogue_style") == "dash"),
+    ordered = sorted((item for item in turn_representatives(dialogues)
+                      if item.get("dialogue_style") == "dash"),
                      key=lambda item: float(item["start"]))
     for index, item in enumerate(ordered):
         if item.get("speaker"):
@@ -357,7 +441,8 @@ def _infer_recent_vocative_turns(dialogues: list[dict[str, Any]], aliases: dict[
 def _infer_addressed_replies(dialogues: list[dict[str, Any]], aliases: dict[str, str],
                              book_blocks: list[str] | None = None) -> None:
     """A direct reply normally belongs to the character addressed in the preceding turn."""
-    ordered = sorted((item for item in dialogues if item.get("dialogue_style") == "dash"),
+    ordered = sorted((item for item in turn_representatives(dialogues)
+                      if item.get("dialogue_style") == "dash"),
                      key=lambda item: float(item["start"]))
     for current, following in zip(ordered, ordered[1:]):
         if following.get("speaker") or current.get("scene_id") != following.get("scene_id"):
@@ -380,7 +465,8 @@ def _infer_addressed_replies(dialogues: list[dict[str, Any]], aliases: dict[str,
 def _infer_mutual_vocatives(dialogues: list[dict[str, Any]], aliases: dict[str, str],
                             book_blocks: list[str] | None = None) -> None:
     """Two adjacent turns addressing each other identify both speakers."""
-    ordered = sorted((item for item in dialogues if item.get("dialogue_style") == "dash"),
+    ordered = sorted((item for item in turn_representatives(dialogues)
+                      if item.get("dialogue_style") == "dash"),
                      key=lambda item: float(item["start"]))
     for current, following in zip(ordered, ordered[1:]):
         if current.get("scene_id") != following.get("scene_id"):
@@ -420,11 +506,46 @@ def _infer_preceding_named_actions(dialogues: list[dict[str, Any]], aliases: dic
         if paragraph <= 0:
             continue
         preceding = book_blocks[paragraph - 1]
+        if _dash_speech_fragments(preceding):
+            continue
         matches = list(action.finditer(preceding))
         if matches:
             item["speaker"] = aliases[matches[-1].group(1).casefold()]
             item["speaker_confidence"] = 0.92
             item["reason"] = "ação do personagem imediatamente antes da fala"
+
+
+def _resolve_role_coreference(dialogues: list[dict[str, Any]]) -> None:
+    """Replace generic occupation labels when the same scene ties that role to one named speaker."""
+    owners: dict[tuple[int, str], set[str]] = {}
+    anonymous: dict[tuple[int, str], set[str]] = {}
+    for item in turn_representatives(dialogues):
+        role, speaker = item.get("attribution_role"), item.get("speaker")
+        if not role or not speaker:
+            continue
+        if item.get("reason") == "personagem anônimo descrito explicitamente":
+            anonymous.setdefault((int(item.get("scene_id", -1)), str(role)), set()).add(str(speaker))
+            continue
+        owners.setdefault((int(item.get("scene_id", -1)), str(role)), set()).add(str(speaker))
+    unique = {key: next(iter(values)) for key, values in owners.items() if len(values) == 1}
+    role_labels = {
+        key: max(values, key=lambda value: (
+            bool(re.search(r"\b(?:de|do|da|dos|das)\b", value, re.I)),
+            len(value.split()), len(value),
+        ))
+        for key, values in anonymous.items()
+    }
+    for item in dialogues:
+        if item.get("reason") != "personagem anônimo descrito explicitamente":
+            continue
+        key = (int(item.get("scene_id", -1)), str(item.get("attribution_role")))
+        owner = unique.get(key)
+        if owner:
+            item["speaker"] = owner
+            item["speaker_confidence"] = .94
+            item["reason"] = "papel ligado a um único personagem nomeado nesta cena"
+        elif key in role_labels:
+            item["speaker"] = role_labels[key]
 
 
 def propagate_speaker_inside_turn(dialogues: list[dict[str, Any]]) -> None:
@@ -474,6 +595,12 @@ def turn_representatives(dialogues: list[dict[str, Any]]) -> list[dict[str, Any]
         min(items, key=lambda item: (int(item.get("fragment_index", 0)), float(item.get("start", 0))))
         for items in grouped.values()
     ]
+
+
+def refine_speaker_sequence(dialogues: list[dict[str, Any]], aliases: dict[str, str]) -> None:
+    """Use newly reviewed anchors to fill only bidirectionally confirmed gaps."""
+    _infer_conversation_turns(dialogues, aliases)
+    propagate_speaker_inside_turn(dialogues)
 
 
 def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
@@ -553,9 +680,15 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                           if float(segment["start"]) <= start <= float(segment["end"])), grouped_segments[0])
             speaker, speaker_score, reason = _speaker(context, match.start(), speech_end, aliases)
             attribution_role = _attribution_role(context, speech_end)
-            role_speaker = role_owners.get(scenes.get(unit_id, 0), {}).get(attribution_role or "")
+            scene_roles = role_owners.get(scenes.get(unit_id, 0), {})
+            role_is_known = attribution_role in scene_roles
+            role_speaker = scene_roles.get(attribution_role or "")
             if not speaker and role_speaker:
                 speaker, speaker_score, reason = role_speaker, 0.94, "memória de papel do personagem nesta cena"
+            if not speaker and attribution_role and not role_is_known:
+                role_label = _anonymous_role_label(context, speech_end, attribution_role)
+                if role_label:
+                    speaker, speaker_score, reason = role_label, 0.96, "personagem anônimo descrito explicitamente"
             introduced = _self_identified_speaker(text, aliases)
             if not speaker and introduced:
                 speaker, speaker_score, reason = introduced, 0.98, "autoidentificação explícita dentro da fala"
@@ -582,12 +715,23 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                               "is_continuation": is_continuation,
                               "_continues_previous": continuation,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
+    _resolve_role_coreference(dialogues)
+    for item in dialogues:
+        if item.get("reason") == "personagem anônimo descrito explicitamente":
+            item["_anonymous_role_candidate"] = (item["speaker"], item["speaker_confidence"], item["reason"])
+            item["speaker"], item["speaker_confidence"] = None, 0.0
+            item["reason"] = "papel anônimo aguardando resolução dos personagens nomeados"
     propagate_speaker_inside_turn(dialogues)
-    _infer_conversation_turns(dialogues, aliases)
     _infer_preceding_named_actions(dialogues, aliases, book_blocks)
     _infer_mutual_vocatives(dialogues, aliases, book_blocks)
     _infer_addressed_replies(dialogues, aliases, book_blocks)
     _infer_recent_vocative_turns(dialogues, aliases)
+    _infer_conversation_turns(dialogues, aliases)
+    for item in dialogues:
+        candidate = item.pop("_anonymous_role_candidate", None)
+        if candidate and not item.get("speaker"):
+            item["speaker"], item["speaker_confidence"], item["reason"] = candidate
+    propagate_speaker_inside_turn(dialogues)
     for dialogue in dialogues:
         dialogue.pop("_continues_previous", None)
     return dialogues

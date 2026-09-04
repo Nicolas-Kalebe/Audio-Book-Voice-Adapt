@@ -12,7 +12,8 @@ from .book import load_book, paragraphs
 from .cache import Cache
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
-from .dialogue import DIALOGUE_ALGORITHM_VERSION, book_character_names, detect, propagate_speaker_inside_turn
+from .dialogue import (DIALOGUE_ALGORITHM_VERSION, book_character_names, detect,
+                       propagate_speaker_inside_turn, refine_speaker_sequence)
 from .hardware import detect_hardware
 from .llm import build_provider, review_scenes
 from .reporting import summarize, write_reports
@@ -128,13 +129,15 @@ class Pipeline:
                 self.book_characters | set(self.characters),
                 float(self.config["speaker_confidence_threshold"]), llm_progress,
                 float(self.config.get("llm", {}).get("automatic_confidence", 0.98)),
+                bool(self.config.get("llm", {}).get("critic_enabled", True)),
+                float(self.config.get("llm", {}).get("consensus_confidence", 0.90)),
             )
             if llm_review["errors"]:
                 warnings.append(f"IA contextual falhou em {len(llm_review['errors'])} cena(s); falas foram preservadas")
             LOG.info("[LLM] %d atribuída(s), %d sugerida(s), %d sem solução em %.1fs",
                      llm_review["assigned"], llm_review["suggested_for_review"],
                      llm_review["unresolved"], llm_review["elapsed_seconds"])
-            propagate_speaker_inside_turn(dialogues)
+            refine_speaker_sequence(dialogues, self.speaker_aliases)
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
         self._prevent_overlaps(dialogues)
