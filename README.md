@@ -203,6 +203,20 @@ Execute `check_gpu.bat`. Três estados são independentes: o driver pode detecta
 
 Os testes cobrem configuração, referências compartilhadas, cache, alinhamento, segmentação em nível de palavra, elegibilidade, ordenação de capítulos e preservação byte a byte quando não há substituições. Um teste FFmpeg é executado quando as ferramentas estão instaladas.
 
+### Benchmark auditado da Parte 01
+
+O gabarito manual fica em `benchmarks/part01_gold.yaml`. Ele separa treino, desenvolvimento e teste
+por cenas, registra falas ausentes, pensamentos confundidos com fala, identidades que o livro deixa
+ambíguas e turnos cortados antes da continuação. Para comparar uma nova `output/analysis.json`:
+
+```bat
+.venv\Scripts\python scripts\evaluate_part01_gold.py
+```
+
+O baseline completo e sua leitura humana ficam em `benchmarks/PART01_BASELINE_REPORT.md`. A métrica
+principal conta omissões como erro e também informa separadamente se os limites inteiros da fala foram
+encontrados; assim, recusar os casos difíceis ou cortar apenas a primeira frase não infla a acurácia.
+
 ## Saídas e auditoria
 
 `report.json` inclui duração, segmentos, falantes, conversões, pulos, erros, GPU, backends, hits de cache e taxa de alinhamento. `report.html` contém os mesmos dados legíveis. Cada fala registra timestamps, scores, motivo, elegibilidade e ação.
