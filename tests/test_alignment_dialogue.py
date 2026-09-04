@@ -115,6 +115,75 @@ def test_dialogue_can_span_multiple_transcript_segments():
     assert found[0]["end"] >= 1.4
 
 
+def test_two_person_conversation_is_inferred_from_vocatives_and_turns():
+    texts = ["Ciri Acalme se", "Geralt", "Foi apenas um sonho", "Geralt eu", "Estou aqui Durma Ciri"]
+    book = ["— Ciri. Acalme-se.", "— Geralt...", "— Foi apenas um sonho.",
+            "— Geralt, eu...", "— Estou aqui. Durma, Ciri."]
+    segments = []
+    alignments = []
+    cursor = 0.0
+    for index, (spoken, paragraph) in enumerate(zip(texts, book)):
+        timed = [{"word": word, "start": cursor + offset * 0.5, "end": cursor + offset * 0.5 + 0.4}
+                 for offset, word in enumerate(spoken.split())]
+        end = timed[-1]["end"]
+        segments.append({"id": index, "start": cursor, "end": end, "text": spoken, "words": timed})
+        alignments.append({"segment_id": index, "book_paragraph_id": 40 + index,
+                           "audio_start": cursor, "audio_end": end,
+                           "alignment_confidence": 0.99, "book_text": paragraph})
+        cursor = end + 1
+    found = detect({"segments": segments}, alignments, {"ciri": "Ciri", "geralt": "Geralt"})
+    assert [item["speaker"] for item in found] == ["Geralt", "Ciri", "Geralt", "Ciri", "Geralt"]
+    assert all(item["speaker_confidence"] >= 0.88 for item in found)
+
+
+def test_turn_inference_stays_unknown_when_only_one_participant_is_named():
+    spoken = ["Ciri venha", "Vamos embora", "Depressa"]
+    paragraphs = ["— Ciri, venha.", "— Vamos embora.", "— Depressa."]
+    transcript = {"segments": []}
+    alignments = []
+    for index, (text, paragraph) in enumerate(zip(spoken, paragraphs)):
+        transcript["segments"].append({"id": index, "start": index * 2, "end": index * 2 + 1,
+                                       "text": text, "words": words(text)})
+        alignments.append({"segment_id": index, "book_paragraph_id": index, "audio_start": index * 2,
+                           "audio_end": index * 2 + 1, "alignment_confidence": 0.99,
+                           "book_text": paragraph})
+    found = detect(transcript, alignments, {"ciri": "Ciri", "geralt": "Geralt"})
+    assert all(item["speaker"] is None for item in found)
+
+
+def test_quoted_thought_is_not_inferred_as_spoken_turn():
+    spoken = ["Por que ninguem me ajuda", "Ciri Acalme se", "Geralt", "Durma Ciri"]
+    paragraphs = ['Ela pensou: “Por que ninguém me ajuda?”', "— Ciri. Acalme-se.",
+                  "— Geralt...", "— Durma, Ciri."]
+    transcript = {"segments": []}
+    alignments = []
+    for index, (text, paragraph) in enumerate(zip(spoken, paragraphs)):
+        timed = [{"word": word, "start": index * 2 + offset * 0.2,
+                  "end": index * 2 + offset * 0.2 + 0.15} for offset, word in enumerate(text.split())]
+        transcript["segments"].append({"id": index, "start": index * 2, "end": timed[-1]["end"],
+                                       "text": text, "words": timed})
+        alignments.append({"segment_id": index, "book_paragraph_id": 36 + index,
+                           "audio_start": index * 2, "audio_end": timed[-1]["end"],
+                           "alignment_confidence": 0.99, "book_text": paragraph})
+    found = detect(transcript, alignments, {"ciri": "Ciri", "geralt": "Geralt"})
+    assert found[0]["speaker"] is None
+    assert [item["speaker"] for item in found[1:]] == ["Geralt", "Ciri", "Geralt"]
+
+
+def test_unclosed_dash_does_not_include_following_narration():
+    spoken = "Foi apenas um sonho Durma tranquila Ele nao voltara Ciri ouvira essas palavras"
+    timed = words(spoken)
+    transcript = {"segments": [{"id": 0, "start": 0, "end": timed[-1]["end"],
+                                 "text": spoken, "words": timed}]}
+    paragraph = "— Foi apenas um sonho. Durma tranquila. Ele não voltará. Ciri ouvira essas palavras."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 56, "audio_start": 0,
+                  "audio_end": timed[-1]["end"], "alignment_confidence": 0.99,
+                  "book_text": paragraph}]
+    found = detect(transcript, alignment, {"ciri": "Ciri", "geralt": "Geralt"})
+    assert found[0]["text"] == "Foi apenas um sonho. Durma tranquila. Ele não voltará."
+    assert found[0]["end"] < timed[-1]["end"]
+
+
 def test_book_txt_accepts_windows_1252(tmp_path):
     path = tmp_path / "livro.txt"
     path.write_bytes("Capítulo — não".encode("cp1252"))

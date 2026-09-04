@@ -6,7 +6,7 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 
-DIALOGUE_ALGORITHM_VERSION = "paragraph-groups-v1"
+DIALOGUE_ALGORITHM_VERSION = "paragraph-groups-conversation-turns-v2"
 SPEECH_VERBS = r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|said|asked|replied|shouted|whispered|murmured|exclaimed"
 NAME = r"[A-ZÀ-Ý][\wÀ-ÿ'-]+(?:\s+(?:(?:d[aeo]s?|e)\s+)?[A-ZÀ-Ý][\wÀ-ÿ'-]+){0,3}"
 QUOTE = re.compile(r"[“\"]([^”\"]{2,}?)[”\"]")
@@ -14,6 +14,9 @@ DASH = re.compile(r"(?:^|\n)\s*[—–-]\s*([^\n—–]{2,}?)(?=\s+[—–]\s*|$
 ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERBS})\s+(?:(?i:a|o|the)\s+)?({NAME})")
 ATTR_BEFORE = re.compile(rf"\b({NAME})\s+(?i:{SPEECH_VERBS})\s*:")
 UNSAFE_SHORT = re.compile(r"^(?:ah+|oh+|uh+|hm+|ha(?:ha)+|ai+|ei+|suspiro|risos?)[!.…]*$", re.I)
+NARRATION_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
+                   r"repetiu|continuou|acrescentou|prosseguiu|pensou|olhou|ouvira|ouviu|tremeu|"
+                   r"sorriu|assentiu|levantou|baixou|virou|afastou|aproximou")
 
 
 def _canonical(value: str, aliases: dict[str, str]) -> str:
@@ -36,6 +39,7 @@ def _alias_match(context: str, aliases: dict[str, str], *, before: bool) -> str 
 
 def _speaker(context: str, start: int, end: int, aliases: dict[str, str]) -> tuple[str | None, float, str]:
     after = context[end:end + 100]
+    narrative_after = context[end:end + 500]
     before = context[max(0, start - 100):start]
     alias = _alias_match(after, aliases, before=False)
     if alias:
@@ -49,7 +53,91 @@ def _speaker(context: str, start: int, end: int, aliases: dict[str, str]) -> tup
     matches = list(ATTR_BEFORE.finditer(before))
     if matches:
         return _canonical(matches[-1].group(1), aliases), 0.98, "atribuição explícita antes da fala"
+    if aliases:
+        choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+        narrative = re.search(rf"\bquem\b.{{0,180}}\b(?:dizia|falava)\b.{{0,80}}\bera\s+({choices})\b",
+                              narrative_after, re.I)
+        if narrative:
+            return aliases[narrative.group(1).casefold()], 0.96, "atribuição explícita na narração após a fala"
     return None, 0.0, "falante não atribuído explicitamente"
+
+
+def _addressed_characters(text: str, aliases: dict[str, str]) -> set[str]:
+    """Find known characters used as vocatives, not ordinary mentions."""
+    found: set[str] = set()
+    for alias, character in aliases.items():
+        escaped = re.escape(alias)
+        if (re.search(rf"^\s*{escaped}(?=\s*(?:[,.!?…:]|$))", text, re.I)
+                or re.search(rf",\s*{escaped}(?=\s*(?:[,.!?…:]|$))", text, re.I)):
+            found.add(character)
+    return found
+
+
+def _trim_dash_narration(text: str, aliases: dict[str, str]) -> tuple[str, int]:
+    """Split an unclosed dash speech when a named subject clearly starts narration."""
+    if not aliases:
+        return text, len(text)
+    choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+    boundary = re.search(rf"(?<=[.!?…])\s+(?=(?:{choices})\s+(?:{NARRATION_VERBS})\b)", text, re.I)
+    if not boundary:
+        return text, len(text)
+    return text[:boundary.start()].rstrip(), boundary.start()
+
+
+def _conversation_runs(dialogues: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    runs: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    spoken_turns = [item for item in dialogues if item.get("_dialogue_style") == "dash"]
+    for dialogue in sorted(spoken_turns, key=lambda item: float(item["start"])):
+        if current:
+            paragraph_gap = int(dialogue.get("book_paragraph_id", -1000)) - int(current[-1].get("book_paragraph_id", 1000))
+            audio_gap = float(dialogue["start"]) - float(current[-1]["end"])
+            if paragraph_gap < 0 or paragraph_gap > 3 or audio_gap > 75:
+                runs.append(current)
+                current = []
+        current.append(dialogue)
+    if current:
+        runs.append(current)
+    return runs
+
+
+def _infer_conversation_turns(dialogues: list[dict[str, Any]], aliases: dict[str, str]) -> None:
+    """Infer alternating two-person book dialogue only when vocatives identify both participants."""
+    for run in _conversation_runs(dialogues):
+        addressed = [_addressed_characters(item["text"], aliases) for item in run]
+        participants = set().union(*addressed) if addressed else set()
+        participants.update(item["speaker"] for item in run if item.get("speaker"))
+        if len(run) < 3 or len(participants) != 2:
+            continue
+        pair = tuple(sorted(participants))
+
+        # A vocative names the listener, so in a verified two-person exchange the
+        # other participant is the speaker. These are strong anchors.
+        for item, listeners in zip(run, addressed):
+            if item.get("speaker") or len(listeners) != 1:
+                continue
+            listener = next(iter(listeners))
+            if listener in participants:
+                item["speaker"] = pair[1] if listener == pair[0] else pair[0]
+                item["speaker_confidence"] = 0.93
+                item["reason"] = "inferência por vocativo em conversa entre dois personagens"
+
+        previous_speaker: str | None = None
+        for item in run:
+            if item.get("speaker") in participants:
+                previous_speaker = item["speaker"]
+                continue
+            if not previous_speaker:
+                continue
+            if item.get("_continues_previous"):
+                item["speaker"] = previous_speaker
+                item["speaker_confidence"] = 0.9
+                item["reason"] = "inferência de continuação explícita da fala anterior"
+            else:
+                item["speaker"] = pair[1] if previous_speaker == pair[0] else pair[0]
+                item["speaker_confidence"] = 0.88
+                item["reason"] = "inferência de alternância em conversa entre dois personagens"
+            previous_speaker = item["speaker"]
 
 
 def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
@@ -81,8 +169,6 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
     units.sort(key=lambda item: item[0])
 
     dialogues: list[dict[str, Any]] = []
-    last_explicit: str | None = None
-    previous_speaker: str | None = None
     for _, context, grouped_segments, alignment_score, is_aligned, unit_id in units:
         matches = sorted(list(QUOTE.finditer(context)) + list(DASH.finditer(context)), key=lambda match: match.start())
         if not matches and not is_aligned:
@@ -94,24 +180,34 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
         combined_words = sorted((word for segment in grouped_segments for word in segment.get("words", [])),
                                 key=lambda word: float(word.get("start", 0)))
         for local_index, match in enumerate(matches):
-            text = match.group(1).strip(" \t\r\n—–-\"")
+            raw_text = match.group(1)
+            speech_end = match.end()
+            if getattr(match, "re", None) is DASH:
+                raw_text, relative_end = _trim_dash_narration(raw_text, aliases)
+                speech_end = match.start(1) + relative_end
+            text = raw_text.strip(" \t\r\n—–-\"")
             mapped = map_phrase_to_words(text, combined_words)
             if not mapped:
                 continue
             start, end, word_score = mapped
             owner = next((segment for segment in grouped_segments
                           if float(segment["start"]) <= start <= float(segment["end"])), grouped_segments[0])
-            speaker, speaker_score, reason = _speaker(context, match.start(), match.end(), aliases)
-            if speaker:
-                last_explicit, previous_speaker = speaker, speaker
-            elif last_explicit and previous_speaker and len(matches) == 1:
-                speaker, speaker_score, reason = last_explicit, 0.72, "inferência de continuidade conversacional"
+            speaker, speaker_score, reason = _speaker(context, match.start(), speech_end, aliases)
+            continuation = bool(re.match(r"\s*(?:[,.;:]|[—–-])?\s*(?:repetiu|continuou|acrescentou|prosseguiu)\b",
+                                         context[speech_end:], re.I))
             confidence = min(alignment_score if is_aligned else word_score, word_score)
             dialogues.append({"id": f"{unit_id}-{local_index}", "segment_id": owner["id"], "text": text,
                               "start": start, "end": end, "speaker": speaker,
                               "speaker_confidence": round(speaker_score, 4), "alignment_confidence": round(confidence, 4),
                               "source": "book" if is_aligned else "transcript", "reason": reason,
+                              "book_paragraph_id": unit_id if is_aligned else None,
+                              "_dialogue_style": "dash" if getattr(match, "re", None) is DASH else "quote",
+                              "_continues_previous": continuation,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
+    _infer_conversation_turns(dialogues, aliases)
+    for dialogue in dialogues:
+        dialogue.pop("_dialogue_style", None)
+        dialogue.pop("_continues_previous", None)
     return dialogues
 
 
