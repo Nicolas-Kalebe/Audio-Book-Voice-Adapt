@@ -209,6 +209,8 @@ O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, brux
 
 O motor também reconhece nomes apresentados durante a própria fala, ações como `Yennefer levantou-se` depois do travessão e alternância em conversas de duas pessoas. Ele mantém falas anônimas sem conversão quando o texto só informa uma função genérica. Depois de uma atualização do motor, execute **Analisar** novamente: a transcrição do Whisper continua no cache e apenas as etapas textuais são refeitas.
 
+Na aba **REVISÃO DE FALAS**, dê duplo clique ou use **Ouvir fala**, selecione o personagem e confirme. **Confirmar somente esta** grava apenas aquele trecho. **Confirmar e aplicar semelhantes** reutiliza a decisão somente na mesma cena e quando o papel textual ou a sugestão acústica coincide. A opção acústica pode ser desligada em **CONFIGURAÇÕES**; na primeira execução ela demora mais para criar as assinaturas, e depois usa cache.
+
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
 
 ## Problemas comuns

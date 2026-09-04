@@ -6,7 +6,7 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 
-DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v3"
+DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v4"
 SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                 r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
                 r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
@@ -28,6 +28,9 @@ NARRATION_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamo
 SUBJECT_ACTIONS = (r"ajeitou|apertou|assentiu|baixou|coçou|colocou|cruzou|deu|endireitou|ergueu|"
                    r"encolheu|fitou|inclinou|levantou|olhou|piscou|recuou|sacudiu|sorriu|tremeu|"
                    r"virou|voltou")
+ROLE = (r"artesã|artesão|artista|anão|anã|bardo|bruxo|bruxa|cavaleiro|cavaleira|chanceler|"
+        r"druida|elfo|elfa|feiticeiro|feiticeira|guerreiro|guerreira|mago|maga|poeta|"
+        r"sacerdote|sacerdotisa|trovador|trovadora|gnomo|gnoma")
 NON_NAMES = {"a", "as", "e", "ele", "ela", "em", "eu", "o", "os", "the", "um", "uma", "você", "vocês"}
 
 
@@ -182,15 +185,52 @@ def _scene_numbers(book_blocks: list[str] | None) -> dict[int, int]:
     return result
 
 
+def _scene_role_owners(book_blocks: list[str] | None, aliases: dict[str, str],
+                       scenes: dict[int, int]) -> dict[int, dict[str, str]]:
+    candidates: dict[int, dict[str, set[str]]] = {}
+    if not aliases:
+        return {}
+    choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+    for index, block in enumerate(book_blocks or []):
+        scene = scenes.get(index, 0)
+        found: list[tuple[str, str]] = []
+        for match in re.finditer(rf"\b(?:o|a|um|uma)\s+(?:[a-zà-ÿ'-]+\s+){{0,3}}?({ROLE})\s+({choices})\b",
+                                 block, re.I):
+            found.append((match.group(1).casefold(), aliases[match.group(2).casefold()]))
+        identity = _self_identified_speaker(block, aliases)
+        if identity:
+            # In introductions such as "disse uma esbelta guerreira ... eu, Rayla",
+            # the role before the self-identification belongs to that character.
+            prefix = block[:block.casefold().find(identity.split()[0].casefold())]
+            role_matches = list(re.finditer(rf"\b(?:o|a|um|uma)\s+(?:[a-zà-ÿ'-]+\s+){{0,3}}?({ROLE})\b",
+                                            prefix, re.I))
+            if role_matches:
+                found.append((role_matches[-1].group(1).casefold(), identity))
+        for role, character in found:
+            candidates.setdefault(scene, {}).setdefault(role, set()).add(character)
+    return {scene: {role: next(iter(owners)) for role, owners in roles.items() if len(owners) == 1}
+            for scene, roles in candidates.items()}
+
+
+def _attribution_role(context: str, speech_end: int) -> str | None:
+    after = context[speech_end:speech_end + 180]
+    verb = re.search(rf"\b{SPEECH_VERB}\b", after, re.I)
+    if not verb or verb.start() > 60:
+        return None
+    clause = re.split(r"[—–,.!?]", after[verb.end():], maxsplit=1)[0]
+    roles = list(re.finditer(rf"\b({ROLE})\b", clause, re.I))
+    return roles[-1].group(1).casefold() if roles else None
+
+
 def _conversation_runs(dialogues: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     runs: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
-    spoken_turns = [item for item in dialogues if item.get("_dialogue_style") == "dash"]
+    spoken_turns = [item for item in dialogues if item.get("dialogue_style") == "dash"]
     for dialogue in sorted(spoken_turns, key=lambda item: float(item["start"])):
         if current:
             paragraph_gap = int(dialogue.get("book_paragraph_id", -1000)) - int(current[-1].get("book_paragraph_id", 1000))
             audio_gap = float(dialogue["start"]) - float(current[-1]["end"])
-            scene_changed = dialogue.get("_scene_id") != current[-1].get("_scene_id")
+            scene_changed = dialogue.get("scene_id") != current[-1].get("scene_id")
             if scene_changed or paragraph_gap < 0 or paragraph_gap > 5 or audio_gap > 75:
                 runs.append(current)
                 current = []
@@ -244,6 +284,7 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
            book_blocks: list[str] | None = None) -> list[dict[str, Any]]:
     aliases = _book_aliases(book_blocks, speaker_aliases or {})
     scenes = _scene_numbers(book_blocks)
+    role_owners = _scene_role_owners(book_blocks, aliases, scenes)
     segments = transcript.get("segments", [])
     segment_by_id = {item["id"]: item for item in segments}
     aligned_ids = {item["segment_id"] for item in (alignments or [])}
@@ -298,6 +339,10 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
             owner = next((segment for segment in grouped_segments
                           if float(segment["start"]) <= start <= float(segment["end"])), grouped_segments[0])
             speaker, speaker_score, reason = _speaker(context, match.start(), speech_end, aliases)
+            attribution_role = _attribution_role(context, speech_end)
+            role_speaker = role_owners.get(scenes.get(unit_id, 0), {}).get(attribution_role or "")
+            if not speaker and role_speaker:
+                speaker, speaker_score, reason = role_speaker, 0.94, "memória de papel do personagem nesta cena"
             introduced = _self_identified_speaker(text, aliases)
             if not speaker and introduced:
                 speaker, speaker_score, reason = introduced, 0.98, "autoidentificação explícita dentro da fala"
@@ -310,15 +355,14 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                               "source": "book" if is_aligned else "transcript", "reason": reason,
                               "book_paragraph_id": unit_id if is_aligned else None,
                               "book_context": book_blocks[max(0, unit_id - 2):unit_id + 3] if is_aligned and book_blocks else [context],
-                              "_scene_id": scenes.get(unit_id, 0) if is_aligned else -1,
-                              "_dialogue_style": "dash" if getattr(match, "re", None) is DASH else "quote",
+                              "scene_id": scenes.get(unit_id, 0) if is_aligned else -1,
+                              "attribution_role": attribution_role,
+                              "dialogue_style": "dash" if getattr(match, "re", None) is DASH else "quote",
                               "_continues_previous": continuation,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
     _infer_conversation_turns(dialogues, aliases)
     for dialogue in dialogues:
-        dialogue.pop("_dialogue_style", None)
         dialogue.pop("_continues_previous", None)
-        dialogue.pop("_scene_id", None)
     return dialogues
 
 

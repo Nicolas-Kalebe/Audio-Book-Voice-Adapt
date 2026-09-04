@@ -17,13 +17,15 @@ from typing import Any
 import yaml
 
 from .character_discovery import merge_detected_characters
-from .audio import SUPPORTED, natural_key, probe
+from .audio import SUPPORTED, extract_segment, natural_key, probe
 from .config import ConfigurationError, load_characters, load_config
 from .planning import analysis_for_selection, clock, estimate_job
+from .speaker_overrides import confirm
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "config" / "config.yaml"
 CHARACTERS_PATH = ROOT / "config" / "characters.json"
+OVERRIDES_PATH = ROOT / "config" / "speaker_overrides.json"
 
 BG = "#04070d"
 PANEL = "#09111f"
@@ -142,16 +144,19 @@ class App(Tk):
         self.process_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.characters_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.voice_bank_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
+        self.review_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.settings_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.preview_tab = ttk.Frame(self.notebook, style="Panel.TFrame", padding=22)
         self.notebook.add(self.process_tab, text="PROCESSAMENTO")
         self.notebook.add(self.characters_tab, text="PERSONAGENS E VOZES")
         self.notebook.add(self.voice_bank_tab, text="BANCO DE VOZ")
+        self.notebook.add(self.review_tab, text="REVISÃO DE FALAS")
         self.notebook.add(self.settings_tab, text="CONFIGURAÇÕES")
         self.notebook.add(self.preview_tab, text="PRÉVIA A/B")
         self._process_ui()
         self._characters_ui()
         self._voice_bank_ui()
+        self._review_ui()
         self._settings_ui()
         self._preview_ui()
 
@@ -299,6 +304,7 @@ class App(Tk):
             "llm_provider": StringVar(value=llm.get("provider", "ollama")),
             "llm_url": StringVar(value=llm.get("base_url", "http://localhost:11434")),
             "llm_model": StringVar(value=llm.get("model", "")),
+            "acoustic": BooleanVar(value=self.config_data.get("speaker_attribution", {}).get("acoustic_suggestions", True)),
         }
         left = ttk.Frame(tab, style="Panel.TFrame")
         right = ttk.Frame(tab, style="Panel.TFrame")
@@ -315,6 +321,7 @@ class App(Tk):
                                      ("Provedor LLM", "llm_provider", ("ollama", "openai-compatible")),
                                      ("URL do LLM", "llm_url", None), ("Modelo LLM (vazio desativa chamadas)", "llm_model", None)))
         ttk.Checkbutton(right, text="LLM habilitado", variable=self.setting_vars["llm_enabled"]).pack(anchor="w", pady=(12, 4))
+        ttk.Checkbutton(right, text="Gerar sugestões por assinatura acústica", variable=self.setting_vars["acoustic"]).pack(anchor="w", pady=4)
         button_row = ttk.Frame(tab, style="Panel.TFrame")
         button_row.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(24, 0))
         self._button(button_row, "Salvar configurações", self._save_settings, accent=True).pack(side="left")
@@ -388,6 +395,120 @@ class App(Tk):
                   style="Muted.TLabel").grid(row=10, column=0, columnspan=3, sticky="w", pady=(9, 0))
         self.bank_manifest: Path | None = None
         self.bank_manifest_data: dict[str, Any] = {}
+
+    def _review_ui(self) -> None:
+        tab = self.review_tab
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(2, weight=1)
+        self._section(tab, "Revisão de falas",
+                      "Confirme ambiguidades; a propagação só alcança o mesmo papel ou assinatura acústica dentro da mesma cena.", 0)
+        columns = ("chapter", "time", "current", "suggestion", "evidence", "text")
+        self.review_tree = ttk.Treeview(tab, columns=columns, show="headings", selectmode="browse")
+        for column, title, width in (("chapter", "Capítulo", 120), ("time", "Tempo", 75),
+                                     ("current", "Atual", 105), ("suggestion", "Sugestão", 105),
+                                     ("evidence", "Evidência", 105), ("text", "Fala", 430)):
+            self.review_tree.heading(column, text=title)
+            self.review_tree.column(column, width=width, anchor="w")
+        self.review_tree.grid(row=2, column=0, sticky="nsew", pady=(10, 10))
+        self.review_tree.bind("<Double-1>", lambda _: self._play_review_dialogue())
+        self.review_tree.bind("<<TreeviewSelect>>", self._select_review_dialogue)
+        actions = ttk.Frame(tab, style="Panel.TFrame")
+        actions.grid(row=3, column=0, sticky="ew")
+        self.review_character = StringVar()
+        self.review_character_box = ttk.Combobox(actions, textvariable=self.review_character, state="readonly", width=24)
+        self.review_character_box.pack(side="left")
+        self._button(actions, "Ouvir fala", self._play_review_dialogue).pack(side="left", padx=8)
+        self._button(actions, "Confirmar somente esta", lambda: self._confirm_review(False)).pack(side="left")
+        self._button(actions, "Confirmar e aplicar semelhantes", lambda: self._confirm_review(True), accent=True).pack(side="left", padx=8)
+        self._button(actions, "Atualizar", self._refresh_review).pack(side="right")
+        self.review_status = StringVar(value="Execute Analisar para gerar a fila de revisão.")
+        ttk.Label(tab, textvariable=self.review_status, style="Muted.TLabel").grid(row=4, column=0, sticky="w", pady=(10, 0))
+        self.review_items: dict[str, tuple[str, dict[str, Any]]] = {}
+        self._refresh_review()
+
+    def _refresh_review(self) -> None:
+        if not hasattr(self, "review_tree"):
+            return
+        for iid in self.review_tree.get_children():
+            self.review_tree.delete(iid)
+        self.review_items = {}
+        names = sorted((name for name in self.characters if name != "__narrator__"), key=str.casefold)
+        self.review_character_box.configure(values=names)
+        if names and self.review_character.get() not in names:
+            self.review_character.set(names[0])
+        report_path = Path(self.output_var.get()) / "analysis.json" if hasattr(self, "output_var") else ROOT / "output" / "analysis.json"
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            self.review_status.set("Execute Analisar para gerar a fila de revisão.")
+            return
+        threshold = float(self.config_data.get("speaker_confidence_threshold", .85))
+        pending = []
+        for file in report.get("files", []):
+            source = file.get("input", "")
+            for dialogue in file.get("dialogues", []):
+                confidence = float(dialogue.get("speaker_confidence", 0))
+                if dialogue.get("manually_confirmed") or (dialogue.get("speaker") and confidence >= threshold):
+                    continue
+                pending.append((source, dialogue))
+        pending.sort(key=lambda pair: (not bool(pair[1].get("acoustic_suggestion")),
+                                       -(float(pair[1]["end"]) - float(pair[1]["start"]))))
+        for index, (source, dialogue) in enumerate(pending):
+            iid = f"review-{index}"
+            suggestion = dialogue.get("acoustic_suggestion", "")
+            if suggestion:
+                evidence = f"voz {float(dialogue.get('acoustic_similarity', 0)):.2f} / margem {float(dialogue.get('acoustic_margin', 0)):.2f}"
+            elif dialogue.get("attribution_role"):
+                evidence = f"papel: {dialogue['attribution_role']}"
+            else:
+                evidence = "sem evidência segura"
+            self.review_tree.insert("", "end", iid=iid, values=(Path(source).name,
+                clock(float(dialogue.get("start", 0))), dialogue.get("speaker") or "Desconhecido",
+                suggestion, evidence, dialogue.get("text", "")))
+            self.review_items[iid] = (source, dialogue)
+        self.review_status.set(f"{len(pending)} fala(s) aguardando revisão. Sugestões não são convertidas sem confirmação.")
+
+    def _selected_review(self) -> tuple[str, dict[str, Any]] | None:
+        selected = self.review_tree.selection()
+        return self.review_items.get(selected[0]) if selected else None
+
+    def _select_review_dialogue(self, _: Any = None) -> None:
+        selected = self._selected_review()
+        if selected:
+            suggestion = selected[1].get("acoustic_suggestion")
+            if suggestion in self.characters:
+                self.review_character.set(suggestion)
+
+    def _play_review_dialogue(self) -> None:
+        selected = self._selected_review()
+        if not selected:
+            messagebox.showwarning("Revisão", "Selecione uma fala na lista.")
+            return
+        source, dialogue = selected
+        target = ROOT / "cache" / "review-preview.wav"
+        try:
+            extract_segment(Path(source), target, max(0, float(dialogue["start"]) - .5),
+                            float(dialogue["end"]) + .5)
+            self._open_path(target)
+        except Exception as exc:
+            messagebox.showerror("Ouvir fala", str(exc))
+
+    def _confirm_review(self, propagate: bool) -> None:
+        selected = self._selected_review()
+        speaker = self.review_character.get().strip()
+        if not selected or not speaker:
+            messagebox.showwarning("Revisão", "Selecione uma fala e o personagem correto.")
+            return
+        source, dialogue = selected
+        report_path = Path(self.output_var.get()) / "analysis.json"
+        try:
+            changed = confirm(report_path, OVERRIDES_PATH, source, str(dialogue["id"]), speaker, propagate)
+            self._refresh_review()
+            self._refresh_characters()
+            suffix = f" e aplicada a {changed - 1} semelhante(s) da mesma cena" if changed > 1 else ""
+            messagebox.showinfo("Fala confirmada", f"Fala atribuída a {speaker}{suffix}. A decisão será reutilizada ao processar.")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("Revisão", str(exc))
 
     def _preview_ui(self) -> None:
         tab = self.preview_tab
@@ -993,6 +1114,7 @@ class App(Tk):
             data.setdefault("output", {}).update(format=self.setting_vars["format"].get(), bitrate=self.setting_vars["bitrate"].get())
             data.setdefault("llm", {}).update(enabled=bool(self.setting_vars["llm_enabled"].get()),
                 provider=self.setting_vars["llm_provider"].get(), base_url=self.setting_vars["llm_url"].get(), model=self.setting_vars["llm_model"].get())
+            data.setdefault("speaker_attribution", {})["acoustic_suggestions"] = bool(self.setting_vars["acoustic"].get())
             atomic_yaml(CONFIG_PATH, data)
             self.run_model.set(data["transcription"]["model"])
             messagebox.showinfo("Configurações", "Configurações salvas.")
@@ -1089,6 +1211,7 @@ class App(Tk):
                     self._sync_detected_characters(Path(self.output_var.get()) / "analysis.json")
                     self.characters = self._read_characters()
                     self._refresh_characters()
+                    self._refresh_review()
                     added = sorted(set(self.characters) - getattr(self, "characters_before_task", set()))
                 else:
                     added = []
