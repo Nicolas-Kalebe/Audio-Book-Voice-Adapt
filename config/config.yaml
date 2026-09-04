@@ -34,13 +34,6 @@ alignment:
   enabled: true
   block_window: 40
 
-speaker_attribution:
-  acoustic_suggestions: true
-  minimum_acoustic_anchors: 2
-  acoustic_anchor_confidence: 0.90
-  minimum_acoustic_similarity: 0.78
-  minimum_acoustic_margin: 0.06
-
 voice_conversion:
   enabled: true
   backend: auto
@@ -53,9 +46,12 @@ llm:
   enabled: true
   provider: ollama
   base_url: http://localhost:11434
-  model: ""
+  model: qwen3:8b
   api_key_env: OPENAI_API_KEY
-  timeout_seconds: 60
+  timeout_seconds: 90
+  reasoning: false
+  # IA local costuma superestimar certeza; somente evidência quase explícita entra automaticamente.
+  automatic_confidence: 0.98
 
 output:
   format: mp3

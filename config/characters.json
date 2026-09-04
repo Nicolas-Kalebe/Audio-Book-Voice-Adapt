@@ -29,6 +29,7 @@
   "Geralt": {
     "gender": "male",
     "age_group": "adult",
+    "aliases": ["Lobo", "Lobo Branco"],
     "mode": "original",
     "pitch_shift": 0
   }

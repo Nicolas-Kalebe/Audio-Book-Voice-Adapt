@@ -303,8 +303,8 @@ class App(Tk):
             "llm_enabled": BooleanVar(value=llm.get("enabled", True)),
             "llm_provider": StringVar(value=llm.get("provider", "ollama")),
             "llm_url": StringVar(value=llm.get("base_url", "http://localhost:11434")),
-            "llm_model": StringVar(value=llm.get("model", "")),
-            "acoustic": BooleanVar(value=self.config_data.get("speaker_attribution", {}).get("acoustic_suggestions", True)),
+            "llm_model": StringVar(value=llm.get("model", "qwen3:8b")),
+            "llm_confidence": DoubleVar(value=llm.get("automatic_confidence", .98)),
         }
         left = ttk.Frame(tab, style="Panel.TFrame")
         right = ttk.Frame(tab, style="Panel.TFrame")
@@ -319,9 +319,10 @@ class App(Tk):
                                      ("Formato de saída", "format", ("mp3", "m4a", "flac", "wav", "opus", "ogg")),
                                      ("Bitrate", "bitrate", ("128k", "192k", "256k", "320k")),
                                      ("Provedor LLM", "llm_provider", ("ollama", "openai-compatible")),
-                                     ("URL do LLM", "llm_url", None), ("Modelo LLM (vazio desativa chamadas)", "llm_model", None)))
-        ttk.Checkbutton(right, text="LLM habilitado", variable=self.setting_vars["llm_enabled"]).pack(anchor="w", pady=(12, 4))
-        ttk.Checkbutton(right, text="Gerar sugestões por assinatura acústica", variable=self.setting_vars["acoustic"]).pack(anchor="w", pady=4)
+                                     ("URL da IA local", "llm_url", None), ("Modelo contextual", "llm_model", ("qwen3:8b",)),
+                                     ("Confiança automática da IA", "llm_confidence", None)))
+        ttk.Checkbutton(right, text="Usar IA contextual do livro (sem comparação de voz)",
+                        variable=self.setting_vars["llm_enabled"]).pack(anchor="w", pady=(12, 4))
         button_row = ttk.Frame(tab, style="Panel.TFrame")
         button_row.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(24, 0))
         self._button(button_row, "Salvar configurações", self._save_settings, accent=True).pack(side="left")
@@ -401,7 +402,7 @@ class App(Tk):
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
         self._section(tab, "Revisão de falas",
-                      "Confirme ambiguidades; a propagação só alcança o mesmo papel ou assinatura acústica dentro da mesma cena.", 0)
+                      "A IA usa o contexto do livro. Confirme aqui apenas as falas que continuarem ambíguas.", 0)
         columns = ("chapter", "time", "current", "suggestion", "evidence", "text")
         self.review_tree = ttk.Treeview(tab, columns=columns, show="headings", selectmode="browse")
         for column, title, width in (("chapter", "Capítulo", 120), ("time", "Tempo", 75),
@@ -451,13 +452,13 @@ class App(Tk):
                 if dialogue.get("manually_confirmed") or (dialogue.get("speaker") and confidence >= threshold):
                     continue
                 pending.append((source, dialogue))
-        pending.sort(key=lambda pair: (not bool(pair[1].get("acoustic_suggestion")),
+        pending.sort(key=lambda pair: (not bool(pair[1].get("llm_suggestion")),
                                        -(float(pair[1]["end"]) - float(pair[1]["start"]))))
         for index, (source, dialogue) in enumerate(pending):
             iid = f"review-{index}"
-            suggestion = dialogue.get("acoustic_suggestion", "")
+            suggestion = dialogue.get("llm_suggestion", "")
             if suggestion:
-                evidence = f"voz {float(dialogue.get('acoustic_similarity', 0)):.2f} / margem {float(dialogue.get('acoustic_margin', 0)):.2f}"
+                evidence = f"IA {float(dialogue.get('llm_confidence', 0)):.0%}"
             elif dialogue.get("attribution_role"):
                 evidence = f"papel: {dialogue['attribution_role']}"
             else:
@@ -466,7 +467,7 @@ class App(Tk):
                 clock(float(dialogue.get("start", 0))), dialogue.get("speaker") or "Desconhecido",
                 suggestion, evidence, dialogue.get("text", "")))
             self.review_items[iid] = (source, dialogue)
-        self.review_status.set(f"{len(pending)} fala(s) aguardando revisão. Sugestões não são convertidas sem confirmação.")
+        self.review_status.set(f"{len(pending)} fala(s) aguardando revisão. Abaixo do limite, nada é convertido sem confirmação.")
 
     def _selected_review(self) -> tuple[str, dict[str, Any]] | None:
         selected = self.review_tree.selection()
@@ -475,7 +476,7 @@ class App(Tk):
     def _select_review_dialogue(self, _: Any = None) -> None:
         selected = self._selected_review()
         if selected:
-            suggestion = selected[1].get("acoustic_suggestion")
+            suggestion = selected[1].get("llm_suggestion")
             if suggestion in self.characters:
                 self.review_character.set(suggestion)
 
@@ -1102,7 +1103,9 @@ class App(Tk):
         try:
             speaker = float(self.setting_vars["speaker"].get())
             alignment = float(self.setting_vars["alignment"].get())
-            if not 0 <= speaker <= 1 or not 0 <= alignment <= 1: raise ValueError("Confianças devem ficar entre 0 e 1.")
+            llm_confidence = float(self.setting_vars["llm_confidence"].get())
+            if not 0 <= speaker <= 1 or not 0 <= alignment <= 1 or not 0 <= llm_confidence <= 1:
+                raise ValueError("Confianças devem ficar entre 0 e 1.")
             data = self.config_data
             data["device"] = self.setting_vars["device"].get()
             data["speaker_confidence_threshold"] = speaker
@@ -1113,8 +1116,8 @@ class App(Tk):
             data.setdefault("voice_conversion", {})["backend"] = self.setting_vars["backend"].get()
             data.setdefault("output", {}).update(format=self.setting_vars["format"].get(), bitrate=self.setting_vars["bitrate"].get())
             data.setdefault("llm", {}).update(enabled=bool(self.setting_vars["llm_enabled"].get()),
-                provider=self.setting_vars["llm_provider"].get(), base_url=self.setting_vars["llm_url"].get(), model=self.setting_vars["llm_model"].get())
-            data.setdefault("speaker_attribution", {})["acoustic_suggestions"] = bool(self.setting_vars["acoustic"].get())
+                provider=self.setting_vars["llm_provider"].get(), base_url=self.setting_vars["llm_url"].get(),
+                model=self.setting_vars["llm_model"].get(), automatic_confidence=llm_confidence)
             atomic_yaml(CONFIG_PATH, data)
             self.run_model.set(data["transcription"]["model"])
             messagebox.showinfo("Configurações", "Configurações salvas.")

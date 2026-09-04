@@ -1,5 +1,5 @@
 from audiobook_voice_enhancer.alignment import align_blocks, map_phrase_to_words, normalize
-from audiobook_voice_enhancer.dialogue import detect
+from audiobook_voice_enhancer.dialogue import _infer_addressed_replies, _infer_preceding_named_actions, detect
 from audiobook_voice_enhancer.book import load_book
 
 
@@ -134,6 +134,39 @@ def test_two_person_conversation_is_inferred_from_vocatives_and_turns():
     found = detect({"segments": segments}, alignments, {"ciri": "Ciri", "geralt": "Geralt"})
     assert [item["speaker"] for item in found] == ["Geralt", "Ciri", "Geralt", "Ciri", "Geralt"]
     assert all(item["speaker_confidence"] >= 0.88 for item in found)
+
+
+def test_reply_belongs_to_character_addressed_in_previous_turn():
+    dialogues = [
+        {"id": "a", "text": "Vejo que está vivo, Lobo.", "speaker": "Eskel",
+         "scene_id": 4, "book_paragraph_id": 10, "dialogue_style": "dash", "start": 0},
+        {"id": "b", "text": "Estou.", "speaker": None,
+         "scene_id": 4, "book_paragraph_id": 11, "dialogue_style": "dash", "start": 2},
+    ]
+    _infer_addressed_replies(dialogues, {"lobo": "Geralt"})
+    assert dialogues[1]["speaker"] == "Geralt"
+    assert dialogues[1]["speaker_confidence"] == .95
+
+
+def test_action_in_preceding_paragraph_carries_speaker_to_dialogue():
+    dialogues = [{"id": "a", "text": "Ela é nosso destino.", "speaker": None,
+                  "scene_id": 4, "book_paragraph_id": 1, "dialogue_style": "dash", "start": 2}]
+    _infer_preceding_named_actions(dialogues, {"geralt": "Geralt"},
+                                    ["As mãos de Geralt apertaram seus ombros.", "— Ela é nosso destino."])
+    assert dialogues[0]["speaker"] == "Geralt"
+    assert dialogues[0]["speaker_confidence"] == .92
+
+
+def test_reply_uses_vocative_from_full_book_paragraph():
+    dialogues = [
+        {"id": "a", "text": "Quem vem lá?", "speaker": None, "scene_id": 2,
+         "book_paragraph_id": 0, "dialogue_style": "dash", "start": 0},
+        {"id": "b", "text": "Sim, Eskel, sou eu.", "speaker": None, "scene_id": 2,
+         "book_paragraph_id": 1, "dialogue_style": "dash", "start": 2},
+    ]
+    book = ["— Quem vem lá? — perguntou a voz. — É você, Geralt?", "— Sim, Eskel, sou eu."]
+    _infer_addressed_replies(dialogues, {"geralt": "Geralt", "eskel": "Eskel"}, book)
+    assert dialogues[1]["speaker"] == "Geralt"
 
 
 def test_turn_inference_stays_unknown_when_only_one_participant_is_named():
