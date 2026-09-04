@@ -126,7 +126,9 @@ As opções documentadas ficam em `config/config.yaml`:
 - `voice_conversion.backend`: `auto`, `seedvc`, `openvoice` ou `rvc`;
 - `output.format`/`bitrate`: MP3, M4A, FLAC, WAV, OPUS ou OGG;
 - `llm`: revisor contextual via Ollama local ou endpoint OpenAI-compatible;
-- `llm.automatic_confidence`: limite independente e conservador para aceitar uma decisão da IA.
+- `llm.automatic_confidence`: limite conservador para uma decisão sem consenso;
+- `llm.critic_enabled`: faz uma segunda leitura independente da cena;
+- `llm.consensus_confidence`: limite usado quando as leituras concordam e o bloco tem dois participantes.
 
 ### LLM local com Ollama
 
@@ -139,12 +141,16 @@ llm:
   timeout_seconds: 90
   reasoning: false
   automatic_confidence: 0.98
+  critic_enabled: true
+  consensus_confidence: 0.90
 ```
 
 Dê dois cliques em `setup_qwen.bat` para instalar o Ollama e baixar o modelo, ou execute
 `ollama pull qwen3:8b` manualmente uma vez. O modo normal
 desativa raciocínio prolongado porque ele pode multiplicar o tempo sem garantir mais acertos. A IA
-recebe blocos conversacionais locais do livro, nunca o timbre do narrador. Para API compatível, use
+recebe blocos conversacionais locais do livro, nunca o timbre do narrador. A segunda leitura aumenta
+o tempo da primeira análise, mas divergências ficam para revisão humana em vez de entrarem no áudio.
+Para API compatível, use
 `provider: openai-compatible`, uma `base_url` terminada antes de `/chat/completions`, e defina a
 variável indicada por `api_key_env`. Respostas são cacheadas pelo hash de todo o contexto.
 

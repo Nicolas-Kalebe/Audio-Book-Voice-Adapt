@@ -305,6 +305,8 @@ class App(Tk):
             "llm_url": StringVar(value=llm.get("base_url", "http://localhost:11434")),
             "llm_model": StringVar(value=llm.get("model", "qwen3:8b")),
             "llm_confidence": DoubleVar(value=llm.get("automatic_confidence", .98)),
+            "llm_critic": BooleanVar(value=llm.get("critic_enabled", True)),
+            "llm_consensus": DoubleVar(value=llm.get("consensus_confidence", .90)),
         }
         left = ttk.Frame(tab, style="Panel.TFrame")
         right = ttk.Frame(tab, style="Panel.TFrame")
@@ -320,9 +322,12 @@ class App(Tk):
                                      ("Bitrate", "bitrate", ("128k", "192k", "256k", "320k")),
                                      ("Provedor LLM", "llm_provider", ("ollama", "openai-compatible")),
                                      ("URL da IA local", "llm_url", None), ("Modelo contextual", "llm_model", ("qwen3:8b",)),
-                                     ("Confiança automática da IA", "llm_confidence", None)))
+                                     ("Confiança automática da IA", "llm_confidence", None),
+                                     ("Confiança com consenso", "llm_consensus", None)))
         ttk.Checkbutton(right, text="Usar IA contextual do livro (sem comparação de voz)",
                         variable=self.setting_vars["llm_enabled"]).pack(anchor="w", pady=(12, 4))
+        ttk.Checkbutton(right, text="Usar segunda leitura crítica antes de aceitar",
+                        variable=self.setting_vars["llm_critic"]).pack(anchor="w", pady=4)
         button_row = ttk.Frame(tab, style="Panel.TFrame")
         button_row.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(24, 0))
         self._button(button_row, "Salvar configurações", self._save_settings, accent=True).pack(side="left")
@@ -1104,7 +1109,8 @@ class App(Tk):
             speaker = float(self.setting_vars["speaker"].get())
             alignment = float(self.setting_vars["alignment"].get())
             llm_confidence = float(self.setting_vars["llm_confidence"].get())
-            if not 0 <= speaker <= 1 or not 0 <= alignment <= 1 or not 0 <= llm_confidence <= 1:
+            llm_consensus = float(self.setting_vars["llm_consensus"].get())
+            if not all(0 <= value <= 1 for value in (speaker, alignment, llm_confidence, llm_consensus)):
                 raise ValueError("Confianças devem ficar entre 0 e 1.")
             data = self.config_data
             data["device"] = self.setting_vars["device"].get()
@@ -1117,7 +1123,8 @@ class App(Tk):
             data.setdefault("output", {}).update(format=self.setting_vars["format"].get(), bitrate=self.setting_vars["bitrate"].get())
             data.setdefault("llm", {}).update(enabled=bool(self.setting_vars["llm_enabled"].get()),
                 provider=self.setting_vars["llm_provider"].get(), base_url=self.setting_vars["llm_url"].get(),
-                model=self.setting_vars["llm_model"].get(), automatic_confidence=llm_confidence)
+                model=self.setting_vars["llm_model"].get(), automatic_confidence=llm_confidence,
+                critic_enabled=bool(self.setting_vars["llm_critic"].get()), consensus_confidence=llm_consensus)
             atomic_yaml(CONFIG_PATH, data)
             self.run_model.set(data["transcription"]["model"])
             messagebox.showinfo("Configurações", "Configurações salvas.")

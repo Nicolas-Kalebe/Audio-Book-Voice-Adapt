@@ -52,6 +52,9 @@ llm:
   reasoning: false
   # IA local costuma superestimar certeza; somente evidência quase explícita entra automaticamente.
   automatic_confidence: 0.98
+  # Consenso usa limiar menor somente em blocos com exatamente dois participantes.
+  critic_enabled: true
+  consensus_confidence: 0.90
 
 output:
   format: mp3

@@ -41,3 +41,19 @@ def test_benchmark_counts_abstention_as_end_to_end_error():
     assert result["speaker_accuracy_when_assigned"] == 1.0
     assert result["speaker_accuracy_all_detected"] == 0.5
     assert result["end_to_end_accuracy"] == 1 / 3
+
+
+def test_benchmark_reports_train_development_and_locked_test_separately():
+    gold = {
+        "version": 1, "name": "mini",
+        "split": {"train": {"scenes": [1]}, "test_locked": {"scenes": [2]}},
+        "spoken_by": {"Ana": ["1-0", "2-0"]}, "non_spoken": {}, "missing_spoken": [],
+    }
+    analysis = {"files": [{"dialogues": [
+        {"id": "1-0", "speaker": "Ana", "book_paragraph_id": 1, "scene_id": 1},
+        {"id": "2-0", "speaker": None, "book_paragraph_id": 2, "scene_id": 2},
+    ]}]}
+    result = evaluate(gold, analysis)
+    metrics = {item["split"]: item for item in result["split_metrics"]}
+    assert metrics["train"]["end_to_end_accuracy"] == 1.0
+    assert metrics["test_locked"]["end_to_end_accuracy"] == 0.0

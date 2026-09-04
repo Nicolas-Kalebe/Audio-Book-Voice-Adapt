@@ -1,8 +1,11 @@
 from audiobook_voice_enhancer.alignment import align_blocks, map_phrase_to_words, normalize
 from audiobook_voice_enhancer.dialogue import (
+    _addressed_characters,
     _dash_speech_fragments,
+    _infer_conversation_turns,
     _infer_addressed_replies,
     _infer_preceding_named_actions,
+    _resolve_role_coreference,
     detect,
 )
 from audiobook_voice_enhancer.book import load_book
@@ -253,6 +256,75 @@ def test_turn_inference_stays_unknown_when_only_one_participant_is_named():
     assert all(item["speaker"] is None for item in found)
 
 
+def test_self_introduction_is_not_mistaken_for_a_vocative():
+    aliases = {"rayla de líria": "Rayla de Líria", "geralt": "Geralt"}
+    assert _addressed_characters("Eu, Rayla de Líria, conheço Geralt.", aliases) == set()
+
+
+def test_alternation_is_rejected_when_right_anchor_disagrees():
+    dialogues = [
+        {"id": "1", "turn_id": "book-1", "text": "Primeira", "speaker": "Ana",
+         "speaker_confidence": .98, "scene_id": 1, "book_paragraph_id": 1,
+         "dialogue_style": "dash", "start": 0, "end": 1},
+        {"id": "2", "turn_id": "book-2", "text": "Segunda", "speaker": None,
+         "speaker_confidence": 0, "scene_id": 1, "book_paragraph_id": 2,
+         "dialogue_style": "dash", "start": 2, "end": 3},
+        {"id": "3", "turn_id": "book-3", "text": "Terceira, Bia.", "speaker": "Bia",
+         "speaker_confidence": .98, "scene_id": 1, "book_paragraph_id": 3,
+         "dialogue_style": "dash", "start": 4, "end": 5},
+    ]
+    _infer_conversation_turns(dialogues, {"ana": "Ana", "bia": "Bia"})
+    assert dialogues[1]["speaker"] is None
+
+
+def test_fragments_of_one_turn_do_not_advance_conversation_parity():
+    dialogues = [
+        {"id": "1-0", "turn_id": "book-1", "fragment_index": 0, "text": "Olá, Bia.",
+         "speaker": "Ana", "speaker_confidence": .98, "scene_id": 1,
+         "book_paragraph_id": 1, "dialogue_style": "dash", "start": 0, "end": 1},
+        {"id": "1-1", "turn_id": "book-1", "fragment_index": 1, "text": "Ainda sou eu.",
+         "speaker": "Ana", "speaker_confidence": .98, "scene_id": 1,
+         "book_paragraph_id": 1, "dialogue_style": "dash", "start": 1.2, "end": 2},
+        {"id": "2-0", "turn_id": "book-2", "fragment_index": 0, "text": "Resposta.",
+         "speaker": None, "speaker_confidence": 0, "scene_id": 1,
+         "book_paragraph_id": 2, "dialogue_style": "dash", "start": 3, "end": 4},
+        {"id": "3-0", "turn_id": "book-3", "fragment_index": 0, "text": "Outra fala, Bia.",
+         "speaker": "Ana", "speaker_confidence": .98, "scene_id": 1,
+         "book_paragraph_id": 3, "dialogue_style": "dash", "start": 5, "end": 6},
+    ]
+    _infer_conversation_turns(dialogues, {"ana": "Ana", "bia": "Bia"})
+    assert dialogues[2]["speaker"] == "Bia"
+
+
+def test_topic_name_does_not_expand_cast_when_two_speakers_are_anchored():
+    dialogues = []
+    speakers = ["Yennefer", None, None, "Jaskier"]
+    texts = ["Não faça isso.", "Sim, você disse.", "E Rience?", "Suponhamos..."]
+    for index, (speaker, text) in enumerate(zip(speakers, texts)):
+        dialogues.append({"id": str(index), "turn_id": f"book-{index}", "text": text,
+                          "speaker": speaker, "speaker_confidence": .98 if speaker else 0,
+                          "scene_id": 1, "book_paragraph_id": index,
+                          "dialogue_style": "dash", "start": index * 2, "end": index * 2 + 1})
+    aliases = {"yennefer": "Yennefer", "jaskier": "Jaskier", "rience": "Rience"}
+    _infer_conversation_turns(dialogues, aliases)
+    assert [item["speaker"] for item in dialogues] == ["Yennefer", "Jaskier", "Yennefer", "Jaskier"]
+
+
+def test_third_person_vocative_blocks_two_person_alternation():
+    dialogues = []
+    speakers = ["Jaskier", None, None, "Yennefer"]
+    texts = ["Obrigado.", "Ei, senhor taberneiro!", "Às ordens.", "Continue."]
+    for index, (speaker, value) in enumerate(zip(speakers, texts)):
+        dialogues.append({"id": str(index), "turn_id": f"book-{index}", "text": value,
+                          "speaker": speaker, "speaker_confidence": .98 if speaker else 0,
+                          "scene_id": 1, "book_paragraph_id": index,
+                          "dialogue_style": "dash", "start": index * 2, "end": index * 2 + 1})
+    aliases = {"jaskier": "Jaskier", "yennefer": "Yennefer", "taberneiro": "Taberneiro"}
+    _infer_conversation_turns(dialogues, aliases)
+    assert dialogues[1]["speaker"] is None
+    assert dialogues[2]["speaker"] is None
+
+
 def test_quoted_thought_is_not_inferred_as_spoken_turn():
     spoken = ["Por que ninguem me ajuda", "Ciri Acalme se", "Geralt", "Durma Ciri"]
     paragraphs = ['Ela pensou: “Por que ninguém me ajuda?”', "— Ciri. Acalme-se.",
@@ -335,6 +407,60 @@ def test_named_subject_action_after_speech_identifies_speaker():
                   "alignment_confidence": 0.99, "book_text": block}]
     found = detect(transcript, alignment, {"yennefer": "Yennefer"}, [block])
     assert found[0]["speaker"] == "Yennefer"
+
+
+def test_listener_reaction_after_speech_is_not_selected_as_speaker():
+    text = "Que droga Uma menina Ciri olhou para ele assustada"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 5, "text": text, "words": words(text)}]}
+    block = "— Que droga! — rosnou. — Uma menina. Ciri olhou para ele assustada."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0,
+                  "audio_end": 5, "alignment_confidence": .99, "book_text": block}]
+    found = detect(transcript, alignment, {"ciri": "Ciri"}, [block])
+    assert all(item["speaker"] is None for item in found)
+
+
+def test_explicit_anonymous_role_becomes_selectable_character():
+    text = "Calma calma disse com voz forte um druida grisalho"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": text, "words": words(text)}]}
+    block = "— Calma, calma! — disse com voz forte um druida grisalho vestido de branco."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0,
+                  "audio_end": 4, "alignment_confidence": .99, "book_text": block}]
+    found = detect(transcript, alignment, {}, [block])
+    assert found[0]["speaker"] == "Druida grisalho"
+    assert found[0]["speaker_confidence"] == .96
+
+
+def test_plural_speech_verb_identifies_anonymous_group():
+    text = "Nao poderia apoiaram as sacerdotisas"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 3, "text": text, "words": words(text)}]}
+    block = "— Não poderia! — apoiaram as sacerdotisas assustadas."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0,
+                  "audio_end": 3, "alignment_confidence": .99, "book_text": block}]
+    found = detect(transcript, alignment, {}, [block])
+    assert found[0]["speaker"] == "Sacerdotisas assustadas"
+
+
+def test_name_inside_possessed_role_is_not_selected_as_speaker():
+    text = "Nao poderia apoiaram as filhas do chanceler Vilibert"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 4, "text": text, "words": words(text)}]}
+    block = "— Não poderia! — apoiaram as filhas do chanceler Vilibert."
+    alignment = [{"segment_id": 0, "book_paragraph_id": 0, "audio_start": 0,
+                  "audio_end": 4, "alignment_confidence": .99, "book_text": block}]
+    found = detect(transcript, alignment, {"vilibert": "Vilibert"}, [block])
+    assert found[0]["speaker"] == "Filhas do chanceler Vilibert"
+
+
+def test_anonymous_role_uses_one_stable_description_per_scene():
+    dialogues = [
+        {"id": "1", "turn_id": "book-1", "fragment_index": 0, "speaker": "Gnomo narigudo",
+         "speaker_confidence": .96, "reason": "personagem anônimo descrito explicitamente",
+         "attribution_role": "gnomo", "scene_id": 2},
+        {"id": "2", "turn_id": "book-2", "fragment_index": 0, "speaker": "Gnomo dos artigos",
+         "speaker_confidence": .96, "reason": "personagem anônimo descrito explicitamente",
+         "attribution_role": "gnomo", "scene_id": 2},
+    ]
+    _resolve_role_coreference(dialogues)
+    assert [item["speaker"] for item in dialogues] == ["Gnomo dos artigos", "Gnomo dos artigos"]
 
 
 def test_self_identification_in_same_paragraph_attributes_opening_speech():

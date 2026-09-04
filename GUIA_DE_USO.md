@@ -178,10 +178,14 @@ llm:
   timeout_seconds: 90
   reasoning: false
   automatic_confidence: 0.98
+  critic_enabled: true
+  consensus_confidence: 0.90
 ```
 
 Execute `setup_qwen.bat` uma vez para instalar o Ollama e baixar `qwen3:8b`. Em **CONFIGURAÇÕES**, mantenha **Usar IA
-contextual do livro** marcado. A primeira análise demora mais; as decisões são reaproveitadas pelo cache.
+contextual do livro** e **Usar segunda leitura crítica antes de aceitar** marcados. A primeira análise
+demora mais; as decisões são reaproveitadas pelo cache. Quando as duas leituras discordam, a fala fica
+na fila de revisão em vez de receber uma voz automaticamente.
 
 ## Interface gráfica
 
