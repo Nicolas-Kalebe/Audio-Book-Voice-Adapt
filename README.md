@@ -202,6 +202,8 @@ Os testes cobrem configuração, referências compartilhadas, cache, alinhamento
 
 Com um EPUB correspondente ao áudio, o motor usa atribuições explícitas, uma lista ampla de verbos de fala em português, autoapresentações, nomes usados como vocativo, ações narrativas e turnos de conversas entre duas pessoas. Divisores e capítulos do livro encerram a cena para impedir que um personagem seja carregado para a conversa seguinte. Citações e pensamentos dentro de uma fala não viram falas separadas. Inferências só são convertidas quando ultrapassam `speaker_confidence_threshold`; descrições sem nome, como “um camponês”, permanecem desconhecidas.
 
+O motor mantém memória de papéis por cena (`a guerreira`, `o feiticeiro`) e pode gerar sugestões acústicas a partir das falas textualmente confirmadas do próprio audiobook. As sugestões aparecem em **REVISÃO DE FALAS** e nunca autorizam conversão sozinhas. Uma confirmação pode ficar restrita à fala ou ser propagada para o mesmo papel/assinatura dentro da mesma cena; as decisões locais ficam em `config/speaker_overrides.json`.
+
 ## Licenças de terceiros
 
 Este projeto é MIT. Seed-VC é GPL-3.0 e permanece uma instalação externa; faster-whisper, PyTorch, FFmpeg e modelos possuem suas próprias licenças. Confira-as antes de distribuir resultados ou empacotar dependências.

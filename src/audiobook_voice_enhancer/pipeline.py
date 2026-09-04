@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .alignment import ALIGNMENT_ALGORITHM_VERSION, align_blocks
+from .acoustic_attribution import AcousticAttributionError, suggest_speakers
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
 from .cache import Cache
@@ -16,6 +17,7 @@ from .dialogue import DIALOGUE_ALGORITHM_VERSION, detect
 from .hardware import detect_hardware
 from .llm import build_provider, cached_infer
 from .reporting import summarize, write_reports
+from .speaker_overrides import apply_overrides
 from .transcription import transcribe
 from .voice_conversion import VoiceConversionError, select_converter
 
@@ -110,13 +112,25 @@ class Pipeline:
         dialogue_key = self.cache.digest(DIALOGUE_ALGORITHM_VERSION, trans_key, alignments, self.speaker_aliases)
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
                                     lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
+        warnings: list[str] = []
+        try:
+            overall = ((file_index - 1) + 0.97) * 100 / total_files
+            LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | comparando assinaturas acústicas",
+                     overall, file_index, total_files, path.name)
+            suggestions = suggest_speakers(self.root, path, dialogues, self.cache, self.config)
+            if suggestions:
+                LOG.info("[ACOUSTIC] %d sugestão(ões) segura(s) para revisão em %s", suggestions, path.name)
+        except (OSError, ValueError, AcousticAttributionError) as exc:
+            warnings.append(f"Sugestões acústicas indisponíveis: {exc}")
+            LOG.warning("Sugestões acústicas indisponíveis para %s: %s", path.name, exc)
+        apply_overrides(path, dialogues, self.root / "config" / "speaker_overrides.json")
         self._resolve_ambiguous(dialogues, transcript)
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
         self._prevent_overlaps(dialogues)
         result: dict[str, Any] = {"input": str(path), "duration": info.duration, "sample_rate": info.sample_rate,
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
-            "dialogues": dialogues, "errors": [], "warnings": [], "final_duration": info.duration}
+            "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration}
         confident_ids = [int(item["book_paragraph_id"]) for item in alignments if item.get("alignment_confidence", 0) >= 0.5]
         result["_book_cursor"] = max(confident_ids, default=book_cursor) + (1 if confident_ids else 0)
         if command == "analyze" or dry_run:

@@ -17,3 +17,4 @@ books/**
 !books/.gitkeep
 *.egg-info/
 .env
+config/speaker_overrides.json

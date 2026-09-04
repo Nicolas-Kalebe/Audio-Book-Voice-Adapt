@@ -245,6 +245,48 @@ def test_self_identification_in_same_paragraph_attributes_opening_speech():
     assert found[0]["speaker"] == "Radcliffe de Oxenfurt"
 
 
+def test_role_memory_resolves_character_later_in_same_scene():
+    blocks = ["— Eu confirmo — disse uma esbelta guerreira. — Eu, Rayla de Líria, conheço Geralt.",
+              "— Não acredito nisso — refutou a guerreira."]
+    transcript = {"segments": []}
+    alignments = []
+    for index, text in enumerate(("Eu confirmo", "Nao acredito nisso")):
+        timed = words(text)
+        for word in timed:
+            word["start"] += index * 3
+            word["end"] += index * 3
+        transcript["segments"].append({"id": index, "start": index * 3, "end": timed[-1]["end"],
+                                       "text": text, "words": timed})
+        alignments.append({"segment_id": index, "book_paragraph_id": index,
+                           "audio_start": index * 3, "audio_end": timed[-1]["end"],
+                           "alignment_confidence": 0.99, "book_text": blocks[index]})
+    found = detect(transcript, alignments, {}, blocks)
+    assert found[-1]["speaker"] == "Rayla de Líria"
+    assert found[-1]["reason"] == "memória de papel do personagem nesta cena"
+
+
+def test_ambiguous_role_is_not_learned():
+    blocks = ["O feiticeiro Radcliffe chegou. O feiticeiro Artorius sentou-se.",
+              "— Silêncio — disse o feiticeiro."]
+    text = "Silencio"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 1, "text": text, "words": words(text)}]}
+    alignment = [{"segment_id": 0, "book_paragraph_id": 1, "audio_start": 0, "audio_end": 1,
+                  "alignment_confidence": 0.99, "book_text": blocks[1]}]
+    found = detect(transcript, alignment, {"radcliffe": "Radcliffe", "artorius": "Artorius"}, blocks)
+    assert found[0]["speaker"] is None
+
+
+def test_role_mentioned_after_pronoun_is_not_the_speaker():
+    blocks = ["O feiticeiro Radcliffe chegou.",
+              "— Continuarei — disse ele, sem olhar para o feiticeiro."]
+    text = "Continuarei"
+    transcript = {"segments": [{"id": 0, "start": 0, "end": 1, "text": text, "words": words(text)}]}
+    alignment = [{"segment_id": 0, "book_paragraph_id": 1, "audio_start": 0, "audio_end": 1,
+                  "alignment_confidence": 0.99, "book_text": blocks[1]}]
+    found = detect(transcript, alignment, {"radcliffe": "Radcliffe"}, blocks)
+    assert found[0]["speaker"] is None
+
+
 def test_book_txt_accepts_windows_1252(tmp_path):
     path = tmp_path / "livro.txt"
     path.write_bytes("Capítulo — não".encode("cp1252"))

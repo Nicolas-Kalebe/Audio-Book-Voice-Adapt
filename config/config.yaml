@@ -34,6 +34,13 @@ alignment:
   enabled: true
   block_window: 40
 
+speaker_attribution:
+  acoustic_suggestions: true
+  minimum_acoustic_anchors: 2
+  acoustic_anchor_confidence: 0.90
+  minimum_acoustic_similarity: 0.78
+  minimum_acoustic_margin: 0.06
+
 voice_conversion:
   enabled: true
   backend: auto
