@@ -198,6 +198,10 @@ Os testes cobrem configuração, referências compartilhadas, cache, alinhamento
 
 `report.json` inclui duração, segmentos, falantes, conversões, pulos, erros, GPU, backends, hits de cache e taxa de alinhamento. `report.html` contém os mesmos dados legíveis. Cada fala registra timestamps, scores, motivo, elegibilidade e ação.
 
+### Motor de identificação de falantes
+
+Com um EPUB correspondente ao áudio, o motor usa atribuições explícitas, uma lista ampla de verbos de fala em português, autoapresentações, nomes usados como vocativo, ações narrativas e turnos de conversas entre duas pessoas. Divisores e capítulos do livro encerram a cena para impedir que um personagem seja carregado para a conversa seguinte. Citações e pensamentos dentro de uma fala não viram falas separadas. Inferências só são convertidas quando ultrapassam `speaker_confidence_threshold`; descrições sem nome, como “um camponês”, permanecem desconhecidas.
+
 ## Licenças de terceiros
 
 Este projeto é MIT. Seed-VC é GPL-3.0 e permanece uma instalação externa; faster-whisper, PyTorch, FFmpeg e modelos possuem suas próprias licenças. Confira-as antes de distribuir resultados ou empacotar dependências.

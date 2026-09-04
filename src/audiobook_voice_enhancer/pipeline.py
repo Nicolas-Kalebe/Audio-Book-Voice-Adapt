@@ -109,7 +109,7 @@ class Pipeline:
                 book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 40)), book_cursor))
         dialogue_key = self.cache.digest(DIALOGUE_ALGORITHM_VERSION, trans_key, alignments, self.speaker_aliases)
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
-                                    lambda: detect(transcript, alignments, self.speaker_aliases))
+                                    lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
         self._resolve_ambiguous(dialogues, transcript)
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
@@ -163,7 +163,9 @@ class Pipeline:
             if dialogue.get("speaker_confidence", 0) >= float(self.config["speaker_confidence_threshold"]):
                 continue
             index = int(dialogue["segment_id"])
-            context = [segment.get("text", "") for segment in segments[max(0, index - 3):index + 4]]
+            context = dialogue.get("book_context") or [
+                segment.get("text", "") for segment in segments[max(0, index - 3):index + 4]
+            ]
             payload = {"context": context, "dialogue": dialogue["text"], "known_characters": list(self.characters)}
             try:
                 answer = cached_infer(self.llm, self.cache, payload)
