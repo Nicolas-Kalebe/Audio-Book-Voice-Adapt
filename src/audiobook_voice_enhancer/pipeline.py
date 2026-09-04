@@ -7,15 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from .alignment import ALIGNMENT_ALGORITHM_VERSION, align_blocks
-from .acoustic_attribution import AcousticAttributionError, suggest_speakers
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
 from .cache import Cache
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
-from .dialogue import DIALOGUE_ALGORITHM_VERSION, detect
+from .dialogue import DIALOGUE_ALGORITHM_VERSION, book_character_names, detect
 from .hardware import detect_hardware
-from .llm import build_provider, cached_infer
+from .llm import build_provider, review_scenes
 from .reporting import summarize, write_reports
 from .speaker_overrides import apply_overrides
 from .transcription import transcribe
@@ -38,6 +37,7 @@ class Pipeline:
         self.hardware = detect_hardware()
         self.converter = select_converter(self.config, self.root)
         self.llm = build_provider(self.config.get("llm", {}))
+        self.book_characters: set[str] = set()
 
     def run(self, source: Path, *, command: str, language: str, book_text: Path | None, dry_run: bool,
             include: list[str] | None = None) -> dict[str, Any]:
@@ -50,6 +50,7 @@ class Pipeline:
                             require_references=True)
         files = discover_audio(source, include)
         book_blocks = paragraphs(load_book(book_text)) if book_text else []
+        self.book_characters = book_character_names(book_blocks, getattr(self, "speaker_aliases", {}))
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
         run_key = self.cache.digest(
             ALIGNMENT_ALGORITHM_VERSION, DIALOGUE_ALGORITHM_VERSION,
@@ -113,24 +114,32 @@ class Pipeline:
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
                                     lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
         warnings: list[str] = []
-        try:
-            overall = ((file_index - 1) + 0.97) * 100 / total_files
-            LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | comparando assinaturas acústicas",
-                     overall, file_index, total_files, path.name)
-            suggestions = suggest_speakers(self.root, path, dialogues, self.cache, self.config)
-            if suggestions:
-                LOG.info("[ACOUSTIC] %d sugestão(ões) segura(s) para revisão em %s", suggestions, path.name)
-        except (OSError, ValueError, AcousticAttributionError) as exc:
-            warnings.append(f"Sugestões acústicas indisponíveis: {exc}")
-            LOG.warning("Sugestões acústicas indisponíveis para %s: %s", path.name, exc)
         apply_overrides(path, dialogues, self.root / "config" / "speaker_overrides.json")
-        self._resolve_ambiguous(dialogues, transcript)
+        llm_review: dict[str, Any] | None = None
+        if self.llm and book_blocks:
+            def llm_progress(position: int, total: int) -> None:
+                overall = ((file_index - 1) + 0.95 + 0.04 * position / max(1, total)) * 100 / total_files
+                LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | IA contextual bloco %d/%d",
+                         overall, file_index, total_files, path.name, position, total)
+
+            llm_review = review_scenes(
+                self.llm, self.cache, dialogues, book_blocks,
+                self.book_characters | set(self.characters),
+                float(self.config["speaker_confidence_threshold"]), llm_progress,
+                float(self.config.get("llm", {}).get("automatic_confidence", 0.98)),
+            )
+            if llm_review["errors"]:
+                warnings.append(f"IA contextual falhou em {len(llm_review['errors'])} cena(s); falas foram preservadas")
+            LOG.info("[LLM] %d atribuída(s), %d sugerida(s), %d sem solução em %.1fs",
+                     llm_review["assigned"], llm_review["suggested_for_review"],
+                     llm_review["unresolved"], llm_review["elapsed_seconds"])
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
         self._prevent_overlaps(dialogues)
         result: dict[str, Any] = {"input": str(path), "duration": info.duration, "sample_rate": info.sample_rate,
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
-            "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration}
+            "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration,
+            "llm_review": llm_review}
         confident_ids = [int(item["book_paragraph_id"]) for item in alignments if item.get("alignment_confidence", 0) >= 0.5]
         result["_book_cursor"] = max(confident_ids, default=book_cursor) + (1 if confident_ids else 0)
         if command == "analyze" or dry_run:
@@ -168,27 +177,6 @@ class Pipeline:
         result["output"] = str(target)
         result["final_duration"] = probe(target).duration
         return result
-
-    def _resolve_ambiguous(self, dialogues: list[dict[str, Any]], transcript: dict[str, Any]) -> None:
-        if not self.llm:
-            return
-        segments = transcript.get("segments", [])
-        for dialogue in dialogues:
-            if dialogue.get("speaker_confidence", 0) >= float(self.config["speaker_confidence_threshold"]):
-                continue
-            index = int(dialogue["segment_id"])
-            context = dialogue.get("book_context") or [
-                segment.get("text", "") for segment in segments[max(0, index - 3):index + 4]
-            ]
-            payload = {"context": context, "dialogue": dialogue["text"], "known_characters": list(self.characters)}
-            try:
-                answer = cached_infer(self.llm, self.cache, payload)
-                if answer.get("speaker") in self.characters:
-                    dialogue["speaker"] = answer["speaker"]
-                    dialogue["speaker_confidence"] = min(1.0, max(0.0, float(answer.get("confidence", 0))))
-                    dialogue["reason"] = f"LLM contextual: {answer.get('reason', '')}"
-            except Exception as exc:
-                dialogue["llm_error"] = str(exc)
 
     def _eligibility(self, dialogue: dict[str, Any], has_book: bool) -> None:
         reasons: list[str] = []

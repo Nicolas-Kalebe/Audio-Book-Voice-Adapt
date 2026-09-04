@@ -125,7 +125,8 @@ As opções documentadas ficam em `config/config.yaml`:
 - `minimum_segment_duration`: duração mínima global; pode ser sobrescrita por personagem;
 - `voice_conversion.backend`: `auto`, `seedvc`, `openvoice` ou `rvc`;
 - `output.format`/`bitrate`: MP3, M4A, FLAC, WAV, OPUS ou OGG;
-- `llm`: Ollama local ou endpoint OpenAI-compatible. Deixe `model: ""` para não chamar LLM.
+- `llm`: revisor contextual via Ollama local ou endpoint OpenAI-compatible;
+- `llm.automatic_confidence`: limite independente e conservador para aceitar uma decisão da IA.
 
 ### LLM local com Ollama
 
@@ -134,10 +135,18 @@ llm:
   enabled: true
   provider: ollama
   base_url: http://localhost:11434
-  model: seu-modelo-local
+  model: qwen3:8b
+  timeout_seconds: 90
+  reasoning: false
+  automatic_confidence: 0.98
 ```
 
-Para API compatível, use `provider: openai-compatible`, uma `base_url` terminada antes de `/chat/completions`, e defina a variável indicada por `api_key_env`. Respostas são cacheadas pelo hash de todo o contexto.
+Dê dois cliques em `setup_qwen.bat` para instalar o Ollama e baixar o modelo, ou execute
+`ollama pull qwen3:8b` manualmente uma vez. O modo normal
+desativa raciocínio prolongado porque ele pode multiplicar o tempo sem garantir mais acertos. A IA
+recebe blocos conversacionais locais do livro, nunca o timbre do narrador. Para API compatível, use
+`provider: openai-compatible`, uma `base_url` terminada antes de `/chat/completions`, e defina a
+variável indicada por `api_key_env`. Respostas são cacheadas pelo hash de todo o contexto.
 
 ## Personagens e referências
 
@@ -202,7 +211,12 @@ Os testes cobrem configuração, referências compartilhadas, cache, alinhamento
 
 Com um EPUB correspondente ao áudio, o motor usa atribuições explícitas, uma lista ampla de verbos de fala em português, autoapresentações, nomes usados como vocativo, ações narrativas e turnos de conversas entre duas pessoas. Divisores e capítulos do livro encerram a cena para impedir que um personagem seja carregado para a conversa seguinte. Citações e pensamentos dentro de uma fala não viram falas separadas. Inferências só são convertidas quando ultrapassam `speaker_confidence_threshold`; descrições sem nome, como “um camponês”, permanecem desconhecidas.
 
-O motor mantém memória de papéis por cena (`a guerreira`, `o feiticeiro`) e pode gerar sugestões acústicas a partir das falas textualmente confirmadas do próprio audiobook. As sugestões aparecem em **REVISÃO DE FALAS** e nunca autorizam conversão sozinhas. Uma confirmação pode ficar restrita à fala ou ser propagada para o mesmo papel/assinatura dentro da mesma cena; as decisões locais ficam em `config/speaker_overrides.json`.
+O motor mantém memória de papéis por cena (`a guerreira`, `o feiticeiro`), respostas a personagens
+chamados pelo nome, ações do parágrafo anterior e aliases como `Lobo → Geralt`. Ambiguidades restantes
+são revisadas em blocos pelo Qwen; resultados abaixo do limite aparecem em **REVISÃO DE FALAS**.
+O reconhecimento acústico não decide mais personagens. O áudio serve para transcrição e alinhamento,
+e os cortes finais continuam vindo do arquivo original. As decisões manuais locais ficam em
+`config/speaker_overrides.json`.
 
 ## Licenças de terceiros
 

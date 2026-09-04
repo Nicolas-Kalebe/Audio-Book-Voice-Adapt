@@ -1,42 +1,55 @@
 import json
 
-import numpy as np
-
-from audiobook_voice_enhancer.acoustic_attribution import assign_suggestions
+from audiobook_voice_enhancer.cache import Cache
+from audiobook_voice_enhancer.llm import LLMProvider, review_scenes
 from audiobook_voice_enhancer.speaker_overrides import apply_overrides, confirm
 
 
-def test_acoustic_suggestion_requires_similarity_and_margin():
-    dialogues = [
-        {"id": "a1", "speaker": "Ciri", "speaker_confidence": .98, "scene_id": 1},
-        {"id": "a2", "speaker": "Ciri", "speaker_confidence": .98, "scene_id": 1},
-        {"id": "b1", "speaker": "Geralt", "speaker_confidence": .98, "scene_id": 1},
-        {"id": "b2", "speaker": "Geralt", "speaker_confidence": .98, "scene_id": 1},
-        {"id": "u1", "speaker": None, "speaker_confidence": 0, "scene_id": 1},
-    ]
-    vectors = {"a1": np.array([1., 0.]), "a2": np.array([.98, .02]),
-               "b1": np.array([0., 1.]), "b2": np.array([.02, .98]),
-               "u1": np.array([.99, .01])}
-    count = assign_suggestions(dialogues, vectors,
-                               {"minimum_acoustic_similarity": .78, "minimum_acoustic_margin": .035},
-                               {"Ciri", "Geralt"})
-    assert count == 1
-    assert dialogues[-1]["acoustic_suggestion"] == "Ciri"
+class FakeProvider(LLMProvider):
+    model = "fake"
+
+    def infer(self, payload):
+        return {"assignments": [
+            {"id": item["id"], "speaker": "Geralt", "confidence": .99, "reason": "ação anterior"}
+            for item in payload["target_dialogues"]
+        ]}
 
 
-def test_acoustic_suggestion_never_imports_character_from_another_scene():
+def test_contextual_ai_assigns_scene_in_one_batch(tmp_path):
     dialogues = [
-        {"id": "c", "speaker": "Ciri", "speaker_confidence": .98, "scene_id": 1},
-        {"id": "g", "speaker": "Geralt", "speaker_confidence": .98, "scene_id": 1},
-        {"id": "y1", "speaker": "Yennefer", "speaker_confidence": .98, "scene_id": 2},
-        {"id": "y2", "speaker": "Yennefer", "speaker_confidence": .98, "scene_id": 2},
-        {"id": "u", "speaker": None, "speaker_confidence": 0, "scene_id": 1},
+        {"id": "1", "speaker": None, "speaker_confidence": 0, "scene_id": 3,
+         "book_paragraph_id": 1, "text": "Ela é nosso destino."},
+        {"id": "2", "speaker": "Ciri", "speaker_confidence": .98, "scene_id": 4,
+         "book_paragraph_id": 2, "text": "Estou com medo."},
     ]
-    vectors = {"c": np.array([1., 0.]), "g": np.array([0., 1.]),
-               "y1": np.array([.7, .7]), "y2": np.array([.7, .7]), "u": np.array([.7, .7])}
-    assign_suggestions(dialogues, vectors, {"acoustic_anchor_confidence": .9},
-                       {"Ciri", "Geralt", "Yennefer"})
-    assert dialogues[-1].get("acoustic_suggestion") != "Yennefer"
+    stats = review_scenes(FakeProvider(), Cache(tmp_path), dialogues,
+                          ["As mãos de Geralt apertaram seus ombros.", "— Ela é nosso destino."],
+                          {"Geralt", "Ciri"}, .85)
+    assert dialogues[0]["speaker"] == "Geralt"
+    assert dialogues[0]["llm_suggestion"] == "Geralt"
+    assert stats["scenes_reviewed"] == 1
+    assert stats["assigned"] == 1
+
+
+def test_contextual_ai_rejects_invented_speaker(tmp_path):
+    class Inventor(FakeProvider):
+        def infer(self, payload):
+            return {"assignments": [{"id": "1", "speaker": "Inventado", "confidence": .99, "reason": ""}]}
+
+    dialogues = [{"id": "1", "speaker": None, "speaker_confidence": 0, "scene_id": 1,
+                  "book_paragraph_id": 0, "text": "Olá"}]
+    stats = review_scenes(Inventor(), Cache(tmp_path), dialogues, ["— Olá"], {"Geralt"}, .85)
+    assert dialogues[0]["speaker"] is None
+    assert stats["unresolved"] == 1
+
+
+def test_contextual_ai_rejects_addressee_as_speaker(tmp_path):
+    dialogues = [{"id": "1", "speaker": None, "speaker_confidence": 0, "scene_id": 1,
+                  "book_paragraph_id": 0, "text": "Salve, Geralt!"}]
+    stats = review_scenes(FakeProvider(), Cache(tmp_path), dialogues, ["— Salve, Geralt!"], {"Geralt"}, .85)
+    assert dialogues[0]["speaker"] is None
+    assert dialogues[0]["llm_rejected_reason"]
+    assert stats["unresolved"] == 1
 
 
 def test_confirmation_propagates_same_role_in_scene(tmp_path):

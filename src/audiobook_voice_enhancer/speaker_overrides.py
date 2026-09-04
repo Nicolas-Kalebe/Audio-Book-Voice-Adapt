@@ -33,8 +33,7 @@ def apply_overrides(source: Path, dialogues: list[dict[str, Any]], path: Path) -
                 if int(rule.get("scene_id", -999)) != int(item.get("scene_id", -1)):
                     continue
                 signature = rule.get("signature")
-                value = (item.get("acoustic_suggestion") if str(signature).startswith("acoustic:")
-                         else item.get("attribution_role") if str(signature).startswith("role:") else None)
+                value = item.get("attribution_role") if str(signature).startswith("role:") else None
                 if value and str(signature).split(":", 1)[1].casefold() == str(value).casefold():
                     speaker = rule.get("speaker")
                     break
@@ -57,10 +56,7 @@ def confirm(report_path: Path, overrides_path: Path, source: str, dialogue_id: s
     data = load_overrides(overrides_path)
     data["exact"][_key(source, dialogue_id)] = speaker
     signature = None
-    if (propagate and selected.get("acoustic_suggestion") == speaker
-            and float(selected.get("acoustic_margin", 0)) >= 0.08):
-        signature = f"acoustic:{selected['acoustic_suggestion']}"
-    elif propagate and selected.get("attribution_role"):
+    if propagate and selected.get("attribution_role"):
         signature = f"role:{selected['attribution_role']}"
     if signature:
         rule = {"source": Path(source).name, "scene_id": int(selected.get("scene_id", -1)),
@@ -80,8 +76,7 @@ def confirm(report_path: Path, overrides_path: Path, source: str, dialogue_id: s
         for item in file.get("dialogues", []):
             exact = str(item.get("id")) == str(dialogue_id)
             same_scene = int(item.get("scene_id", -1)) == int(selected.get("scene_id", -1))
-            same_signature = (signature == f"acoustic:{item.get('acoustic_suggestion')}" or
-                              signature == f"role:{item.get('attribution_role')}")
+            same_signature = signature == f"role:{item.get('attribution_role')}"
             if exact or (signature and same_scene and same_signature):
                 item.update({"speaker": speaker, "speaker_confidence": 1.0,
                              "reason": "confirmação manual do usuário", "manually_confirmed": True})

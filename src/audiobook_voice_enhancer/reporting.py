@@ -18,6 +18,20 @@ def summarize(files: list[dict[str, Any]], hardware: dict[str, Any], cache: dict
     intentional = Counter(d.get("speaker") for d in skipped if d.get("speaker") and d.get("character_mode") in {"original", "ignore"})
     unknown = sum(1 for d in skipped if not d.get("speaker") or not d.get("character_configured"))
     narration = sum(max(0, item.get("segments_analyzed", 0) - len({d.get("segment_id") for d in item.get("dialogues", [])})) for item in files)
+    llm_runs = [item["llm_review"] for item in files if item.get("llm_review")]
+    llm_review = None
+    if llm_runs:
+        llm_review = {
+            "model": llm_runs[0].get("model"),
+            "scenes_reviewed": sum(item.get("scenes_reviewed", 0) for item in llm_runs),
+            "batches_reviewed": sum(item.get("batches_reviewed", 0) for item in llm_runs),
+            "dialogues_reviewed": sum(item.get("dialogues_reviewed", 0) for item in llm_runs),
+            "assigned": sum(item.get("assigned", 0) for item in llm_runs),
+            "suggested_for_review": sum(item.get("suggested_for_review", 0) for item in llm_runs),
+            "unresolved": sum(item.get("unresolved", 0) for item in llm_runs),
+            "elapsed_seconds": round(sum(item.get("elapsed_seconds", 0) for item in llm_runs), 3),
+            "errors": [error for item in llm_runs for error in item.get("errors", [])],
+        }
     return {"original_duration": sum(item.get("duration", 0) for item in files),
             "final_duration": sum(item.get("final_duration", item.get("duration", 0)) for item in files),
             "segments_analyzed": sum(item.get("segments_analyzed", 0) for item in files),
@@ -33,7 +47,8 @@ def summarize(files: list[dict[str, Any]], hardware: dict[str, Any], cache: dict
             "warnings": [warning for item in files for warning in item.get("warnings", [])],
             "elapsed_seconds": round(elapsed, 3), "gpu": hardware.get("gpu"),
             "transcription_backend": transcription_backend, "voice_conversion_backend": vc_backend,
-            "cache": cache, "alignment_success_rate": _alignment_rate(dialogues), "files": files}
+            "cache": cache, "alignment_success_rate": _alignment_rate(dialogues),
+            "llm_contextual_review": llm_review, "files": files}
 
 
 def _alignment_rate(dialogues: list[dict[str, Any]]) -> float | None:

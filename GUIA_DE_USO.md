@@ -162,9 +162,10 @@ Uma única execução percorre todos os MP3s e cria um MP3 Enhanced para cada ca
 
 Execute o mesmo comando novamente. Transcrições, alinhamentos, chamadas de LLM e conversões concluídas são reaproveitados. Cada capítulo tem cache independente.
 
-## LLM opcional
+## IA contextual local
 
-O LLM só resolve ambiguidades contextuais. Atualmente `model` está vazio em `config/config.yaml`, portanto nenhuma chamada ocorre. Sem LLM o pipeline funciona, mas preserva mais falas ambíguas.
+A IA resolve ambiguidades usando somente o EPUB e os personagens conhecidos. O áudio não é usado
+para adivinhar quem fala. Sem a IA o pipeline continua funcionando, mas preserva mais falas ambíguas.
 
 Para Ollama local:
 
@@ -173,8 +174,14 @@ llm:
   enabled: true
   provider: ollama
   base_url: http://localhost:11434
-  model: nome-do-modelo
+  model: qwen3:8b
+  timeout_seconds: 90
+  reasoning: false
+  automatic_confidence: 0.98
 ```
+
+Execute `setup_qwen.bat` uma vez para instalar o Ollama e baixar `qwen3:8b`. Em **CONFIGURAÇÕES**, mantenha **Usar IA
+contextual do livro** marcado. A primeira análise demora mais; as decisões são reaproveitadas pelo cache.
 
 ## Interface gráfica
 
@@ -209,7 +216,10 @@ O campo **Aliases** aceita nomes separados por vírgula, como `Lobo Branco, brux
 
 O motor também reconhece nomes apresentados durante a própria fala, ações como `Yennefer levantou-se` depois do travessão e alternância em conversas de duas pessoas. Ele mantém falas anônimas sem conversão quando o texto só informa uma função genérica. Depois de uma atualização do motor, execute **Analisar** novamente: a transcrição do Whisper continua no cache e apenas as etapas textuais são refeitas.
 
-Na aba **REVISÃO DE FALAS**, dê duplo clique ou use **Ouvir fala**, selecione o personagem e confirme. **Confirmar somente esta** grava apenas aquele trecho. **Confirmar e aplicar semelhantes** reutiliza a decisão somente na mesma cena e quando o papel textual ou a sugestão acústica coincide. A opção acústica pode ser desligada em **CONFIGURAÇÕES**; na primeira execução ela demora mais para criar as assinaturas, e depois usa cache.
+Na aba **REVISÃO DE FALAS**, dê duplo clique ou use **Ouvir fala**, selecione o personagem e confirme.
+**Confirmar somente esta** grava apenas aquele trecho. **Confirmar e aplicar semelhantes** reutiliza a
+decisão somente no mesmo papel textual dentro da mesma cena. A coluna de evidência mostra a confiança
+do Qwen; abaixo do limite automático a fala nunca é convertida sem confirmação.
 
 A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, segurança e um arquivo de saída por capítulo.
 
@@ -219,4 +229,5 @@ A interface chama o mesmo pipeline da CLI, portanto mantém cache, retomada, seg
 - **Alinhamento baixo:** confirme tradução/edição, teste o outro texto e compare o relatório.
 - **CUDA indisponível:** execute `check_gpu.bat` e, se necessário, `setup.bat`.
 - **Modelo demora para iniciar:** a primeira execução está baixando pesos; as seguintes usam cache.
+- **Ollama indisponível:** abra o Ollama e confirme `qwen3:8b` com `ollama list`; o áudio original é preservado se a IA falhar.
 - **Poucas falas convertidas:** isso é intencional quando identificação ou alinhamento não atingem os limites de segurança.

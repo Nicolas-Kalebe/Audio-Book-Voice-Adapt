@@ -6,7 +6,7 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 
-DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v4"
+DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v7"
 SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                 r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
                 r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
@@ -25,7 +25,7 @@ UNSAFE_SHORT = re.compile(r"^(?:ah+|oh+|uh+|hm+|ha(?:ha)+|ai+|ei+|suspiro|risos?
 NARRATION_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                    r"repetiu|continuou|acrescentou|prosseguiu|pensou|olhou|ouvira|ouviu|tremeu|"
                    r"sorriu|assentiu|levantou|baixou|virou|afastou|aproximou")
-SUBJECT_ACTIONS = (r"ajeitou|apertou|assentiu|baixou|coçou|colocou|cruzou|deu|endireitou|ergueu|"
+SUBJECT_ACTIONS = (r"ajeitou|apertou|apertaram|apertava|assentiu|baixou|coçou|colocou|cruzou|deu|endireitou|ergueu|"
                    r"encolheu|fitou|inclinou|levantou|olhou|piscou|recuou|sacudiu|sorriu|tremeu|"
                    r"virou|voltou")
 ROLE = (r"artesã|artesão|artista|anão|anã|bardo|bruxo|bruxa|cavaleiro|cavaleira|chanceler|"
@@ -86,6 +86,11 @@ def _book_aliases(book_blocks: list[str] | None, configured: dict[str, str]) -> 
         if len(owners) == 1:
             result.setdefault(first, next(iter(owners)))
     return result
+
+
+def book_character_names(book_blocks: list[str] | None, configured: dict[str, str]) -> set[str]:
+    """Names explicitly supported by the book or the user's configuration."""
+    return set(_book_aliases(book_blocks, configured).values())
 
 
 def _alias_match(context: str, aliases: dict[str, str], *, before: bool) -> str | None:
@@ -279,6 +284,109 @@ def _infer_conversation_turns(dialogues: list[dict[str, Any]], aliases: dict[str
             previous_speaker = item["speaker"]
 
 
+def _infer_recent_vocative_turns(dialogues: list[dict[str, Any]], aliases: dict[str, str]) -> None:
+    """Resolve a vocative from the two recent anchored speakers, even inside a larger scene."""
+    ordered = sorted((item for item in dialogues if item.get("dialogue_style") == "dash"),
+                     key=lambda item: float(item["start"]))
+    for index, item in enumerate(ordered):
+        if item.get("speaker"):
+            continue
+        listeners = _addressed_characters(item.get("text", ""), aliases)
+        if len(listeners) != 1:
+            continue
+        listener = next(iter(listeners))
+        paragraph = int(item.get("book_paragraph_id", -1000))
+        recent: list[str] = []
+        for previous in reversed(ordered[max(0, index - 8):index]):
+            if previous.get("scene_id") != item.get("scene_id"):
+                break
+            previous_paragraph = int(previous.get("book_paragraph_id", -1000))
+            if paragraph - previous_paragraph > 6:
+                break
+            speaker = previous.get("speaker")
+            if speaker and speaker not in recent:
+                recent.append(speaker)
+            if len(recent) == 2:
+                break
+        if len(recent) == 2 and recent[0] == listener:
+            item["speaker"] = recent[1]
+            item["speaker_confidence"] = 0.93
+            item["reason"] = "inferência por vocativo e dois falantes ancorados no trecho recente"
+
+
+def _infer_addressed_replies(dialogues: list[dict[str, Any]], aliases: dict[str, str],
+                             book_blocks: list[str] | None = None) -> None:
+    """A direct reply normally belongs to the character addressed in the preceding turn."""
+    ordered = sorted((item for item in dialogues if item.get("dialogue_style") == "dash"),
+                     key=lambda item: float(item["start"]))
+    for current, following in zip(ordered, ordered[1:]):
+        if following.get("speaker") or current.get("scene_id") != following.get("scene_id"):
+            continue
+        paragraph_gap = int(following.get("book_paragraph_id", -1000)) - int(current.get("book_paragraph_id", 1000))
+        if paragraph_gap != 1:
+            continue
+        paragraph = int(current.get("book_paragraph_id", -1))
+        source = (book_blocks[paragraph] if book_blocks and 0 <= paragraph < len(book_blocks)
+                  else current.get("text", ""))
+        if not current.get("speaker") and "?" not in source:
+            continue
+        listeners = _addressed_characters(source, aliases)
+        if len(listeners) == 1:
+            following["speaker"] = next(iter(listeners))
+            following["speaker_confidence"] = 0.95
+            following["reason"] = "resposta direta ao personagem chamado na fala anterior"
+
+
+def _infer_mutual_vocatives(dialogues: list[dict[str, Any]], aliases: dict[str, str],
+                            book_blocks: list[str] | None = None) -> None:
+    """Two adjacent turns addressing each other identify both speakers."""
+    ordered = sorted((item for item in dialogues if item.get("dialogue_style") == "dash"),
+                     key=lambda item: float(item["start"]))
+    for current, following in zip(ordered, ordered[1:]):
+        if current.get("scene_id") != following.get("scene_id"):
+            continue
+        if int(following.get("book_paragraph_id", -1000)) - int(current.get("book_paragraph_id", 1000)) != 1:
+            continue
+        sources = []
+        for item in (current, following):
+            paragraph = int(item.get("book_paragraph_id", -1))
+            sources.append(book_blocks[paragraph] if book_blocks and 0 <= paragraph < len(book_blocks)
+                           else item.get("text", ""))
+        first, second = _addressed_characters(sources[0], aliases), _addressed_characters(sources[1], aliases)
+        if len(first) != 1 or len(second) != 1 or first == second:
+            continue
+        first_listener, second_listener = next(iter(first)), next(iter(second))
+        if not current.get("speaker"):
+            current["speaker"] = second_listener
+            current["speaker_confidence"] = 0.95
+            current["reason"] = "vocativos mútuos em falas consecutivas"
+        if not following.get("speaker"):
+            following["speaker"] = first_listener
+            following["speaker_confidence"] = 0.95
+            following["reason"] = "vocativos mútuos em falas consecutivas"
+
+
+def _infer_preceding_named_actions(dialogues: list[dict[str, Any]], aliases: dict[str, str],
+                                    book_blocks: list[str] | None) -> None:
+    if not book_blocks or not aliases:
+        return
+    choices = "|".join(re.escape(alias) for alias in sorted(aliases, key=len, reverse=True))
+    adverb = r"(?:(?:então|logo|rapidamente|lentamente|silenciosamente)\s+)?"
+    action = re.compile(rf"\b({choices})\b\s+{adverb}(?:{SUBJECT_ACTIONS})\b", re.I)
+    for item in dialogues:
+        if item.get("speaker") or item.get("dialogue_style") != "dash":
+            continue
+        paragraph = int(item.get("book_paragraph_id", -1))
+        if paragraph <= 0:
+            continue
+        preceding = book_blocks[paragraph - 1]
+        matches = list(action.finditer(preceding))
+        if matches:
+            item["speaker"] = aliases[matches[-1].group(1).casefold()]
+            item["speaker_confidence"] = 0.92
+            item["reason"] = "ação do personagem imediatamente antes da fala"
+
+
 def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
            speaker_aliases: dict[str, str] | None = None,
            book_blocks: list[str] | None = None) -> list[dict[str, Any]]:
@@ -361,6 +469,10 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                               "_continues_previous": continuation,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
     _infer_conversation_turns(dialogues, aliases)
+    _infer_preceding_named_actions(dialogues, aliases, book_blocks)
+    _infer_mutual_vocatives(dialogues, aliases, book_blocks)
+    _infer_addressed_replies(dialogues, aliases, book_blocks)
+    _infer_recent_vocative_turns(dialogues, aliases)
     for dialogue in dialogues:
         dialogue.pop("_continues_previous", None)
     return dialogues

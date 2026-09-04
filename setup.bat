@@ -24,4 +24,5 @@ python check_gpu.py
 echo.
 echo Ambiente principal instalado. Feche e abra o terminal se o FFmpeg acabou de ser instalado.
 echo Para instalar o backend de conversao zero-shot, execute setup_seedvc.bat.
+echo Para instalar a IA contextual local, execute setup_qwen.bat.
 endlocal
