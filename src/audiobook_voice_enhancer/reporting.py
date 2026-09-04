@@ -6,17 +6,22 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from .dialogue import turn_representatives
+
 
 def summarize(files: list[dict[str, Any]], hardware: dict[str, Any], cache: dict[str, int], elapsed: float,
               transcription_backend: str, vc_backend: str) -> dict[str, Any]:
     dialogues = [dialogue for item in files for dialogue in item.get("dialogues", [])]
-    detected = Counter(dialogue.get("speaker") or "unknown" for dialogue in dialogues)
+    turns = turn_representatives(dialogues)
+    detected = Counter(dialogue.get("speaker") or "unknown" for dialogue in turns)
     converted = [dialogue for dialogue in dialogues if dialogue.get("action") == "converted"]
     planned = [dialogue for dialogue in dialogues if dialogue.get("action") == "would_convert"]
     skipped = [dialogue for dialogue in dialogues if dialogue.get("action") == "skipped"]
     converted_by_character = Counter(d.get("speaker") for d in converted if d.get("speaker"))
-    intentional = Counter(d.get("speaker") for d in skipped if d.get("speaker") and d.get("character_mode") in {"original", "ignore"})
-    unknown = sum(1 for d in skipped if not d.get("speaker") or not d.get("character_configured"))
+    skipped_turns = [d for d in turns if d.get("action") == "skipped"]
+    intentional = Counter(d.get("speaker") for d in skipped_turns
+                          if d.get("speaker") and d.get("character_mode") in {"original", "ignore"})
+    unknown = sum(1 for d in skipped_turns if not d.get("speaker") or not d.get("character_configured"))
     narration = sum(max(0, item.get("segments_analyzed", 0) - len({d.get("segment_id") for d in item.get("dialogues", [])})) for item in files)
     llm_runs = [item["llm_review"] for item in files if item.get("llm_review")]
     llm_review = None
@@ -35,7 +40,8 @@ def summarize(files: list[dict[str, Any]], hardware: dict[str, Any], cache: dict
     return {"original_duration": sum(item.get("duration", 0) for item in files),
             "final_duration": sum(item.get("final_duration", item.get("duration", 0)) for item in files),
             "segments_analyzed": sum(item.get("segments_analyzed", 0) for item in files),
-            "dialogues_detected": len(dialogues), "segments_converted": len(converted),
+            "dialogues_detected": len(turns), "dialogue_regions_detected": len(dialogues),
+            "segments_converted": len(converted),
             "characters_detected": dict(detected), "segments_skipped": len(skipped),
             "characters_converted": dict(converted_by_character),
             "characters_planned_for_conversion": dict(Counter(d.get("speaker") for d in planned if d.get("speaker"))),

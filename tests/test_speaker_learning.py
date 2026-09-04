@@ -67,3 +67,19 @@ def test_confirmation_propagates_same_role_in_scene(tmp_path):
     fresh = [{"id": "2", "speaker": None, "scene_id": 3, "attribution_role": "guerreira"}]
     assert apply_overrides(tmp_path / "Parte 01.mp3", fresh, overrides) == 1
     assert fresh[0]["speaker"] == "Rayla"
+
+
+def test_confirmation_applies_to_every_fragment_of_the_same_turn(tmp_path):
+    report_path = tmp_path / "analysis.json"
+    overrides = tmp_path / "speaker_overrides.json"
+    report_data = {"files": [{"input": str(tmp_path / "Parte 01.mp3"), "dialogues": [
+        {"id": "1-0", "turn_id": "book-1", "fragment_index": 0, "dialogue_style": "dash",
+         "speaker": None, "scene_id": 1},
+        {"id": "1-1", "turn_id": "book-1", "fragment_index": 1, "dialogue_style": "dash",
+         "speaker": None, "scene_id": 1},
+    ]}]}
+    report_path.write_text(json.dumps(report_data), encoding="utf-8")
+    assert confirm(report_path, overrides, "Parte 01.mp3", "1-1", "Yennefer", False) == 2
+    saved = json.loads(report_path.read_text(encoding="utf-8"))["files"][0]["dialogues"]
+    assert [item["speaker"] for item in saved] == ["Yennefer", "Yennefer"]
+    assert all(item["manually_confirmed"] for item in saved)

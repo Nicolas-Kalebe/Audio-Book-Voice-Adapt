@@ -6,7 +6,7 @@ from typing import Any
 from .alignment import map_phrase_to_words
 
 
-DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v7"
+DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v12-full-turns"
 SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                 r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
                 r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
@@ -19,12 +19,13 @@ SPEECH_VERB = rf"(?:{SPEECH_VERBS})(?:-(?:lhe|lhes|[oa]s?|se|me))?"
 NAME = r"[A-ZÀ-Ý][\wÀ-ÿ'-]+(?:\s+(?:(?:d[aeo]s?|e)\s+)?[A-ZÀ-Ý][\wÀ-ÿ'-]+){0,3}"
 QUOTE = re.compile(r"[“\"]([^”\"]{2,}?)[”\"]")
 DASH = re.compile(r"(?:^|\n)\s*[—–-]\s*([^\n—–]{2,}?)(?=\s+[—–]\s*|$)", re.M)
+DASH_MARK = re.compile(r"(?<!\w)[—–-]")
 ATTR_AFTER = re.compile(rf"\b(?i:{SPEECH_VERB})\s+(?:(?i:a|o|the)\s+)?({NAME})")
 ATTR_BEFORE = re.compile(rf"\b({NAME})\s+(?i:{SPEECH_VERB})\s*:")
 UNSAFE_SHORT = re.compile(r"^(?:ah+|oh+|uh+|hm+|ha(?:ha)+|ai+|ei+|suspiro|risos?)[!.…]*$", re.I)
 NARRATION_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                    r"repetiu|continuou|acrescentou|prosseguiu|pensou|olhou|ouvira|ouviu|tremeu|"
-                   r"sorriu|assentiu|levantou|baixou|virou|afastou|aproximou")
+                   r"sorriu|assentiu|levantou|baixou|virou|afastou|aproximou|fixou")
 SUBJECT_ACTIONS = (r"ajeitou|apertou|apertaram|apertava|assentiu|baixou|coçou|colocou|cruzou|deu|endireitou|ergueu|"
                    r"encolheu|fitou|inclinou|levantou|olhou|piscou|recuou|sacudiu|sorriu|tremeu|"
                    r"virou|voltou")
@@ -177,6 +178,45 @@ def _trim_dash_narration(text: str, aliases: dict[str, str]) -> tuple[str, int]:
     if not boundary:
         return text, len(text)
     return text[:boundary.start()].rstrip(), boundary.start()
+
+
+def _dash_speech_fragments(text: str) -> list["TextMatch"]:
+    """Return every spoken fragment from one dash-dialogue paragraph.
+
+    Portuguese literary dialogue alternates dash-delimited speech and attribution:
+    ``— speech — said X. — continued speech``.  A paragraph is one speaker turn,
+    but each spoken fragment needs its own audio range so the narrator attribution
+    between them is never voice-converted.
+    """
+    marks = list(DASH_MARK.finditer(text))
+    if not marks or text[:marks[0].start()].strip():
+        return []
+    fragments: list[TextMatch] = []
+    # Text after marks 0, 2, 4... is speech; text after marks 1, 3, 5... is narration.
+    for mark_index in range(0, len(marks), 2):
+        start = marks[mark_index].end()
+        end = marks[mark_index + 1].start() if mark_index + 1 < len(marks) else len(text)
+        while start < end and text[start].isspace():
+            start += 1
+        while end > start and text[end - 1].isspace():
+            end -= 1
+        if end - start >= 2:
+            fragments.append(TextMatch(text[start:end], start, end, style="dash",
+                                       continuation=mark_index > 0))
+    return fragments
+
+
+def _continued_dash_turn(book_blocks: list[str] | None, paragraph: int) -> int | None:
+    """Detect an EPUB paragraph break in the middle of an unfinished dash turn."""
+    if not book_blocks or paragraph <= 0 or paragraph >= len(book_blocks):
+        return None
+    current = book_blocks[paragraph].strip()
+    previous = book_blocks[paragraph - 1].rstrip()
+    if not current or _dash_speech_fragments(current) or not _dash_speech_fragments(previous):
+        return None
+    if previous.endswith((".", "!", "?", "…", '”', '"')):
+        return None
+    return paragraph - 1
 
 
 def _scene_numbers(book_blocks: list[str] | None) -> dict[int, int]:
@@ -387,6 +427,55 @@ def _infer_preceding_named_actions(dialogues: list[dict[str, Any]], aliases: dic
             item["reason"] = "ação do personagem imediatamente antes da fala"
 
 
+def propagate_speaker_inside_turn(dialogues: list[dict[str, Any]]) -> None:
+    turns: dict[str, list[dict[str, Any]]] = {}
+    for item in dialogues:
+        if item.get("dialogue_style") == "dash" and item.get("turn_id"):
+            turns.setdefault(str(item["turn_id"]), []).append(item)
+    for fragments in turns.values():
+        fragments.sort(key=lambda item: int(item.get("fragment_index", 0)))
+        confirmed = [item for item in fragments if item.get("manually_confirmed") and item.get("speaker")]
+        if confirmed:
+            source = confirmed[-1]
+            for item in fragments:
+                item["speaker"] = source["speaker"]
+                item["speaker_confidence"] = 1.0
+                item["reason"] = "confirmação manual do usuário no mesmo turno literário"
+                item["manually_confirmed"] = True
+            continue
+        primary = fragments[0]
+        if primary.get("speaker"):
+            for item in fragments[1:]:
+                item["speaker"] = primary["speaker"]
+                item["speaker_confidence"] = primary["speaker_confidence"]
+                item["reason"] = "mesmo turno literário após atribuição narrativa"
+            continue
+        anchored = {item["speaker"] for item in fragments if item.get("speaker")}
+        if len(anchored) != 1:
+            continue
+        speaker = next(iter(anchored))
+        source = max((item for item in fragments if item.get("speaker") == speaker),
+                     key=lambda item: float(item.get("speaker_confidence", 0)))
+        for item in fragments:
+            if item.get("speaker"):
+                continue
+            item["speaker"] = speaker
+            item["speaker_confidence"] = source["speaker_confidence"]
+            item["reason"] = "mesmo turno literário após atribuição narrativa"
+
+
+def turn_representatives(dialogues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse audio fragments into literary turns for counts and character weights."""
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for index, item in enumerate(dialogues):
+        key = str(item.get("turn_id") or item.get("id") or f"legacy-{index}")
+        grouped.setdefault(key, []).append(item)
+    return [
+        min(items, key=lambda item: (int(item.get("fragment_index", 0)), float(item.get("start", 0))))
+        for items in grouped.values()
+    ]
+
+
 def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None = None,
            speaker_aliases: dict[str, str] | None = None,
            book_blocks: list[str] | None = None) -> list[dict[str, Any]]:
@@ -420,23 +509,39 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
 
     dialogues: list[dict[str, Any]] = []
     for _, context, grouped_segments, alignment_score, is_aligned, unit_id in units:
-        dash_matches = list(DASH.finditer(context))
+        continued_turn = _continued_dash_turn(book_blocks, unit_id) if is_aligned else None
+        dash_matches = _dash_speech_fragments(context)
+        if continued_turn is not None:
+            start = len(context) - len(context.lstrip())
+            dash_matches = [TextMatch(context.strip(), start, len(context.rstrip()), style="dash",
+                                      continuation=True)]
         quote_matches = [quote for quote in QUOTE.finditer(context)
-                         if not any(dash.start() <= quote.start() and quote.end() <= dash.end()
-                                    for dash in dash_matches)]
-        matches = sorted(quote_matches + dash_matches, key=lambda match: match.start())
+                         if not dash_matches]
+        matches: list[tuple[Any, str, bool]] = [
+            *((match, "dash", match.continuation) for match in dash_matches),
+            *((match, "quote", False) for match in quote_matches),
+        ]
+        matches.sort(key=lambda value: value[0].start())
         if not matches and not is_aligned:
             attribution = ATTR_BEFORE.search(context)
             if attribution:
                 trailing = context[attribution.end():].strip(" :—–-")
                 if trailing:
-                    matches = [SyntheticMatch(trailing, attribution.end(), len(context))]
+                    matches = [(TextMatch(trailing, attribution.end(), len(context), style="transcript"),
+                                "transcript", False)]
         combined_words = sorted((word for segment in grouped_segments for word in segment.get("words", [])),
                                 key=lambda word: float(word.get("start", 0)))
-        for local_index, match in enumerate(matches):
+        following_continues = bool(
+            is_aligned and book_blocks and unit_id + 1 < len(book_blocks)
+            and _continued_dash_turn(book_blocks, unit_id + 1) == unit_id
+        )
+        previous_fragment_count = (len(_dash_speech_fragments(book_blocks[continued_turn]))
+                                   if continued_turn is not None and book_blocks else 0)
+        fragment_total = previous_fragment_count + len(dash_matches) + int(following_continues)
+        for local_index, (match, style, is_continuation) in enumerate(matches):
             raw_text = match.group(1)
             speech_end = match.end()
-            if getattr(match, "re", None) is DASH:
+            if style == "dash":
                 raw_text, relative_end = _trim_dash_narration(raw_text, aliases)
                 speech_end = match.start(1) + relative_end
             text = raw_text.strip(" \t\r\n—–-\"")
@@ -454,9 +559,13 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
             introduced = _self_identified_speaker(text, aliases)
             if not speaker and introduced:
                 speaker, speaker_score, reason = introduced, 0.98, "autoidentificação explícita dentro da fala"
-            continuation = bool(re.match(r"\s*(?:[,.;:]|[—–-])?\s*(?:repetiu|continuou|acrescentou|prosseguiu)\b",
-                                         context[speech_end:], re.I))
+            continuation = is_continuation or bool(re.match(
+                r"\s*(?:[,.;:]|[—–-])?\s*(?:repetiu|continuou|acrescentou|prosseguiu)\b",
+                context[speech_end:], re.I))
             confidence = min(alignment_score if is_aligned else word_score, word_score)
+            turn_unit_id = continued_turn if continued_turn is not None else unit_id
+            turn_id = (f"book-{turn_unit_id}" if is_aligned and style == "dash"
+                       else f"book-{unit_id}-{local_index}" if is_aligned else f"transcript-{unit_id}-{local_index}")
             dialogues.append({"id": f"{unit_id}-{local_index}", "segment_id": owner["id"], "text": text,
                               "start": start, "end": end, "speaker": speaker,
                               "speaker_confidence": round(speaker_score, 4), "alignment_confidence": round(confidence, 4),
@@ -465,9 +574,15 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                               "book_context": book_blocks[max(0, unit_id - 2):unit_id + 3] if is_aligned and book_blocks else [context],
                               "scene_id": scenes.get(unit_id, 0) if is_aligned else -1,
                               "attribution_role": attribution_role,
-                              "dialogue_style": "dash" if getattr(match, "re", None) is DASH else "quote",
+                              "dialogue_style": "dash" if style == "dash" else "quote",
+                              "turn_id": turn_id,
+                              "fragment_index": (previous_fragment_count + local_index)
+                              if style == "dash" else 0,
+                              "fragment_count": fragment_total if style == "dash" else 1,
+                              "is_continuation": is_continuation,
                               "_continues_previous": continuation,
                               "unsafe_short": bool(UNSAFE_SHORT.fullmatch(text.strip()))})
+    propagate_speaker_inside_turn(dialogues)
     _infer_conversation_turns(dialogues, aliases)
     _infer_preceding_named_actions(dialogues, aliases, book_blocks)
     _infer_mutual_vocatives(dialogues, aliases, book_blocks)
@@ -478,14 +593,17 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
     return dialogues
 
 
-class SyntheticMatch:
-    def __init__(self, value: str, start: int, end: int):
+class TextMatch:
+    def __init__(self, value: str, start: int, end: int, *, style: str,
+                 continuation: bool = False):
         self.value, self._start, self._end = value, start, end
+        self.style = style
+        self.continuation = continuation
 
     def group(self, _: int) -> str:
         return self.value
 
-    def start(self) -> int:
+    def start(self, _: int | None = None) -> int:
         return self._start
 
     def end(self) -> int:

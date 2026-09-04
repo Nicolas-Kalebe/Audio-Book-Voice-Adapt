@@ -5,6 +5,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from .dialogue import turn_representatives
+
 
 IGNORED_NAMES = {
     "unknown", "desconhecido", "ele", "ela", "eles", "elas", "isso", "isto", "aquele", "aquela",
@@ -40,7 +42,7 @@ def _valid_character_name(value: Any) -> str | None:
 def discover_characters(report: dict[str, Any], confidence_threshold: float = 0.85) -> dict[str, dict[str, Any]]:
     observations: dict[str, list[float]] = defaultdict(list)
     for item in report.get("files", []):
-        for dialogue in item.get("dialogues", []):
+        for dialogue in turn_representatives(item.get("dialogues", [])):
             name = _valid_character_name(dialogue.get("speaker"))
             if name:
                 observations[name].append(float(dialogue.get("speaker_confidence", 0)))

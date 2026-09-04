@@ -5,14 +5,14 @@
 - Turnos falados no gabarito: **255**.
 - Turnos encontrados: **250**; perdidos: **5**.
 - Recall de deteccao: **98,04%**.
-- Turnos encontrados por inteiro: **107/255 (41,96%)**; **143** param no meio da fala.
+- Turnos encontrados por inteiro: **105/255 (41,18%)**; **145** possuem limites incompletos.
 - Candidatos que eram pensamento ou texto escrito: **13**.
 - Precisao da deteccao por turno: **95,06%**.
 - Turnos com personagem atribuido: **186/250 (74,40%)**.
 - Atribuicoes corretas: **143/250 (57,20%)**.
 - Acuracia apenas entre respostas emitidas: **76,88%**.
 - Acuracia ponta a ponta: **143/255 (56,08%)**.
-- Personagem e limite da fala ambos corretos: **60/255 (23,53%)**.
+- Personagem e limite da fala ambos corretos: **58/255 (22,75%)**.
 
 A metrica principal e a acuracia ponta a ponta: omissoes e recusas contam como erro. Acuracia apenas
 entre respostas emitidas pode parecer boa mesmo com baixa cobertura.
@@ -82,9 +82,9 @@ Quando omissoes e falas perdidas contam como erro, a acuracia real cai para 56,0
 
 Existe um segundo problema, ainda mais grave para o audiobook: 143 falas possuem uma atribuicao
 narrativa no meio, como `disse Jaskier`, seguida pela continuacao do dialogo. O detector atual para
-nessa atribuicao e deixa o restante com a voz do narrador. Por isso, somente 107 dos 255 turnos foram
-encontrados por inteiro. Exigindo simultaneamente personagem correto e limite completo, o baseline e
-de apenas 23,53%.
+nessa atribuicao e deixa o restante com a voz do narrador. Somando dois problemas especiais de limite,
+somente 105 dos 255 turnos foram encontrados por inteiro. Exigindo simultaneamente personagem correto
+e limite completo, o baseline e de apenas 22,75%.
 
 O maior defeito nao esta concentrado em Geralt. Ele esta nas conversas longas: o motor troca Jaskier
 por Rience durante o interrogatorio e troca Jaskier por Yennefer durante o dialogo na taverna. Isso
