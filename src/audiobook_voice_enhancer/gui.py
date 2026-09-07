@@ -323,10 +323,10 @@ class App(Tk):
                                      ("Provedor LLM", "llm_provider", ("ollama", "openai-compatible")),
                                      ("URL da IA local", "llm_url", None), ("Modelo contextual", "llm_model", ("qwen3:8b",)),
                                      ("Confiança automática da IA", "llm_confidence", None),
-                                     ("Confiança com consenso", "llm_consensus", None)))
+                                     ("Piso adicional da 2ª leitura", "llm_consensus", None)))
         ttk.Checkbutton(right, text="Usar IA contextual do livro (sem comparação de voz)",
                         variable=self.setting_vars["llm_enabled"]).pack(anchor="w", pady=(12, 4))
-        ttk.Checkbutton(right, text="Usar segunda leitura crítica antes de aceitar",
+        ttk.Checkbutton(right, text="Segunda leitura sem ver a primeira resposta",
                         variable=self.setting_vars["llm_critic"]).pack(anchor="w", pady=4)
         button_row = ttk.Frame(tab, style="Panel.TFrame")
         button_row.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(24, 0))

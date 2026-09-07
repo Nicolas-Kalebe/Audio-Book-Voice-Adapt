@@ -1,6 +1,14 @@
 version: 1
 name: Parte 01 - O Sangue dos Elfos
 language: pt-BR
+evaluation_protocol:
+  status: development_regression
+  independent_holdout: false
+  annotation_review: assistant_authored_not_independently_audited
+  note: >-
+    Todas as cenas, inclusive test_locked, foram consultadas durante os ajustes.
+    Os nomes dos splits sao historicos; nao demonstram generalizacao para outros livros.
+    Treino aqui significa desenvolvimento de regras e prompts, nao ajuste dos pesos do modelo.
 scope:
   audio: input/Parte 01.mp3
   book: books/O Sangue dos Elfos.epub

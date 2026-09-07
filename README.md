@@ -6,6 +6,10 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
+A [revisão do motor para uso geral](docs/ENGINE_REASSESSMENT.md) descreve a direção
+textual, as melhorias verificadas e os limites das métricas. Ainda não há validação
+independente de 95% de identificação em livros novos.
+
 ## Requisitos
 
 - Windows 11, Python 3.11 para a aplicação e Python 3.10 para Seed-VC

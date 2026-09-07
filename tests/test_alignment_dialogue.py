@@ -450,7 +450,7 @@ def test_name_inside_possessed_role_is_not_selected_as_speaker():
     assert found[0]["speaker"] == "Filhas do chanceler Vilibert"
 
 
-def test_anonymous_role_uses_one_stable_description_per_scene():
+def test_different_descriptions_do_not_prove_same_anonymous_person():
     dialogues = [
         {"id": "1", "turn_id": "book-1", "fragment_index": 0, "speaker": "Gnomo narigudo",
          "speaker_confidence": .96, "reason": "personagem anônimo descrito explicitamente",
@@ -460,7 +460,8 @@ def test_anonymous_role_uses_one_stable_description_per_scene():
          "attribution_role": "gnomo", "scene_id": 2},
     ]
     _resolve_role_coreference(dialogues)
-    assert [item["speaker"] for item in dialogues] == ["Gnomo dos artigos", "Gnomo dos artigos"]
+    assert [item["speaker"] for item in dialogues] == ["Gnomo narigudo", "Gnomo dos artigos"]
+    assert all(item["coreference_requires_review"] for item in dialogues)
 
 
 def test_self_identification_in_same_paragraph_attributes_opening_speech():

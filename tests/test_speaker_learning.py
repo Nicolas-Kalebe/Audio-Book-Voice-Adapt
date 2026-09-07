@@ -57,7 +57,7 @@ def test_contextual_ai_abstains_when_critic_disagrees(tmp_path):
         model = "disagree"
 
         def infer(self, payload):
-            speaker = "Ciri" if "proposed_assignments" in payload else "Geralt"
+            speaker = "Ciri" if payload.get("review_pass") == "blind_second_reading" else "Geralt"
             return {"assignments": [{"id": item["id"], "speaker": speaker,
                                       "confidence": .99, "reason": "teste"}
                                      for item in payload["target_dialogues"]]}

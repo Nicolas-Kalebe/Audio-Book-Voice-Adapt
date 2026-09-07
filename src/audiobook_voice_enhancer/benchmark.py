@@ -232,6 +232,10 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "gold": gold["name"],
+        "evaluation_protocol": gold.get("evaluation_protocol", {
+            "status": "unverified", "independent_holdout": False,
+            "note": "Protocolo independente nao documentado neste gabarito.",
+        }),
         "candidates_in_report": len(candidates),
         "spoken_candidate_regions": sum(len(items) for items in candidates_by_turn.values()),
         "non_spoken_candidates": false_turn_candidates,
@@ -268,9 +272,13 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
 def render_markdown(result: dict[str, Any]) -> str:
     pct = lambda value: f"{value * 100:.2f}%"
     lines = [
-        "# Baseline auditavel - Parte 01",
+        f"# Baseline auditavel - {result['gold']}",
         "",
         "## Resultado executivo",
+        "",
+        f"Protocolo: {result.get('evaluation_protocol', {}).get('status', 'unverified')}. "
+        f"{result.get('evaluation_protocol', {}).get('note', '')}",
+        "Os limites completos abaixo verificam cobertura textual, nao substituem auditoria dos cortes no audio.",
         "",
         f"- Turnos falados no gabarito: **{result['gold_source_turns']}**.",
         f"- Turnos encontrados: **{result['detected_source_turns']}**; perdidos: **{result['missing_source_turns']}**.",

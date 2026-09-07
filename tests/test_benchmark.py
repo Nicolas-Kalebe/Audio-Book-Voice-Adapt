@@ -1,4 +1,4 @@
-from audiobook_voice_enhancer.benchmark import evaluate, load_gold
+from audiobook_voice_enhancer.benchmark import evaluate, load_gold, render_markdown
 
 
 def test_part01_gold_is_complete_and_has_no_duplicate_ids():
@@ -23,6 +23,9 @@ def test_part01_gold_is_complete_and_has_no_duplicate_ids():
     assert result["missing_source_turns"] == 5
     assert result["incomplete_detected_turns"] == 145
     assert result["complete_detected_turns"] == 105
+    assert result["evaluation_protocol"]["independent_holdout"] is False
+    assert result["evaluation_protocol"]["status"] == "development_regression"
+    assert "development_regression" in render_markdown(result)
 
 
 def test_benchmark_counts_abstention_as_end_to_end_error():

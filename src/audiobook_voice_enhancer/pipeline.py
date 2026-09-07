@@ -9,13 +9,14 @@ from typing import Any
 from .alignment import ALIGNMENT_ALGORITHM_VERSION, align_blocks
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
+from .book_inventory import audio_coverage, dialogue_inventory
 from .cache import Cache
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import (DIALOGUE_ALGORITHM_VERSION, book_character_names, detect,
                        propagate_speaker_inside_turn, refine_speaker_sequence)
 from .hardware import detect_hardware
-from .llm import build_provider, review_scenes
+from .llm import build_provider, review_cache_identity, review_scenes
 from .reporting import summarize, write_reports
 from .speaker_overrides import apply_overrides
 from .transcription import transcribe
@@ -51,12 +52,14 @@ class Pipeline:
                             require_references=True)
         files = discover_audio(source, include)
         book_blocks = paragraphs(load_book(book_text)) if book_text else []
+        self.book_inventory = dialogue_inventory(book_blocks)
         self.book_characters = book_character_names(book_blocks, getattr(self, "speaker_aliases", {}))
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
         run_key = self.cache.digest(
             ALIGNMENT_ALGORITHM_VERSION, DIALOGUE_ALGORITHM_VERSION,
             [self.cache.file_fingerprint(path) for path in files], book_fingerprint, self.config,
             self.characters, self.voice_fingerprints, command, dry_run, language,
+            review_cache_identity(self.llm),
         )
         checkpoint_path = self.cache.path("checkpoints", run_key)
         checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)
@@ -111,7 +114,8 @@ class Pipeline:
                                           self.config.get("alignment", {}), book_cursor)
             alignments = self.cache.json("alignment", align_key, lambda: align_blocks(
                 book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 40)), book_cursor))
-        dialogue_key = self.cache.digest(DIALOGUE_ALGORITHM_VERSION, trans_key, alignments, self.speaker_aliases)
+        dialogue_key = self.cache.digest(DIALOGUE_ALGORITHM_VERSION, trans_key, book_fingerprint,
+                                         alignments, self.speaker_aliases)
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
                                     lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
         warnings: list[str] = []
@@ -145,6 +149,15 @@ class Pipeline:
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
             "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration,
             "llm_review": llm_review}
+        if book_blocks:
+            inventory = getattr(self, "book_inventory", None)
+            if inventory is None:
+                inventory = dialogue_inventory(book_blocks)
+            result["book_dialogue_coverage"] = audio_coverage(inventory, alignments, dialogues)
+            coverage = result["book_dialogue_coverage"]
+            LOG.info("[BOOK] %d/%d candidatos textuais localizados; %d não detectados no intervalo alinhado",
+                     coverage["candidates_located"], coverage["candidates_in_scope"],
+                     coverage["candidates_not_detected"])
         confident_ids = [int(item["book_paragraph_id"]) for item in alignments if item.get("alignment_confidence", 0) >= 0.5]
         result["_book_cursor"] = max(confident_ids, default=book_cursor) + (1 if confident_ids else 0)
         if command == "analyze" or dry_run:

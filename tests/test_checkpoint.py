@@ -38,6 +38,7 @@ def test_pipeline_reuses_completed_chapter_checkpoint(monkeypatch, tmp_path):
         pipeline.output = tmp_path / "output"
         pipeline.hardware = {}
         pipeline.converter = SimpleNamespace(name="fake")
+        pipeline.llm = SimpleNamespace(model="fake", url="http://local-test")
         return pipeline
 
     monkeypatch.setattr("audiobook_voice_enhancer.pipeline.discover_audio", lambda source, include: files)
@@ -57,3 +58,10 @@ def test_pipeline_reuses_completed_chapter_checkpoint(monkeypatch, tmp_path):
     monkeypatch.setattr(resumed, "_one", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("should resume")))
     report = resumed.run(tmp_path, command="process", language="pt", book_text=None, dry_run=True)
     assert len(report["files"]) == 2
+
+    # A changed prompt must not silently reuse a completed pre-change review.
+    monkeypatch.setattr("audiobook_voice_enhancer.llm.SYSTEM", "updated prompt")
+    changed = instance()
+    monkeypatch.setattr(changed, "_one", fake_one)
+    changed.run(tmp_path, command="process", language="pt", book_text=None, dry_run=True)
+    assert calls == ["one.mp3", "two.mp3", "one.mp3", "two.mp3"]
