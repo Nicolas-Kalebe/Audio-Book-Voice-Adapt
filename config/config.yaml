@@ -42,6 +42,12 @@ voice_conversion:
   openvoice_path: models/OpenVoice
   rvc_path: models/Retrieval-based-Voice-Conversion-WebUI
 
+book_first:
+  enabled: true
+  automatic_confidence: 0.90
+  max_turns_per_window: 24
+  max_context_characters: 14000
+
 llm:
   enabled: true
   provider: ollama

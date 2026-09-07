@@ -2,6 +2,11 @@
 
 ## Como ler a cobertura da análise
 
+O modo **Analisar falas pelo texto (experimental)**, em Configurações, acrescenta
+`book_speaker_analysis` aos relatórios. Ele registra personagens por identidade,
+evidências e turnos que ainda não têm áudio localizado. Consulte o
+[guia do motor textual](docs/BOOK_FIRST_ENGINE.md) para configurar e avaliar esse modo.
+
 Nos relatórios JSON/HTML, cada capítulo com livro tem `book_dialogue_coverage`:
 quantos candidatos do texto foram localizados no áudio, quantos ficaram sem
 detecção e os parágrafos correspondentes. Não é preciso rodar outro comando;

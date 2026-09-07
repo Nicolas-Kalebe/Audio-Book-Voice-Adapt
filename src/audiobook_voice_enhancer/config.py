@@ -30,6 +30,18 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
             raise ConfigurationError(f"{key} deve estar entre 0 e 1")
     if float(data.get("minimum_segment_duration", 0)) < 0:
         raise ConfigurationError("minimum_segment_duration não pode ser negativo")
+    book_first = data.get("book_first", {})
+    if not isinstance(book_first, dict):
+        raise ConfigurationError("book_first deve ser um objeto de configuração")
+    if book_first.get("enabled"):
+        try:
+            valid = (0 <= float(book_first.get("automatic_confidence", .90)) <= 1
+                     and int(book_first.get("max_turns_per_window", 24)) > 0
+                     and int(book_first.get("max_context_characters", 14000)) > 0)
+        except (ValueError, TypeError, OverflowError):
+            valid = False
+        if not valid:
+            raise ConfigurationError("Análise textual: confiança deve estar entre 0 e 1 e limites devem ser positivos")
     return data
 
 

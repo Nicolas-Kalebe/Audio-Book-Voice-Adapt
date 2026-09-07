@@ -10,6 +10,11 @@ A [revisão do motor para uso geral](docs/ENGINE_REASSESSMENT.md) descreve a dir
 textual, as melhorias verificadas e os limites das métricas. Ainda não há validação
 independente de 95% de identificação em livros novos.
 
+O [motor textual experimental](docs/BOOK_FIRST_ENGINE.md) já está integrado à
+análise: identifica turnos no livro e depois associa suas decisões aos recortes.
+As [preferências de trabalho](AGENTS.md) registram a divisão entre turnos de
+implementação e de avaliação.
+
 ## Requisitos
 
 - Windows 11, Python 3.11 para a aplicação e Python 3.10 para Seed-VC

@@ -51,6 +51,8 @@ SCENE_SCHEMA: dict[str, Any] = {
 
 class LLMProvider:
     model: str
+    system_prompt = SYSTEM
+    response_schema = SCENE_SCHEMA
 
     def infer(self, payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
@@ -66,10 +68,10 @@ class OllamaProvider(LLMProvider):
             f"{self.url}/api/chat", timeout=self.timeout,
             json={
                 "model": self.model, "stream": False, "think": self.reasoning,
-                "format": SCENE_SCHEMA, "keep_alive": "10m",
+                "format": self.response_schema, "keep_alive": "10m",
                 "options": {"temperature": 0, "seed": 42, "num_ctx": 32768, "num_predict": 4096},
                 "messages": [
-                    {"role": "system", "content": SYSTEM},
+                    {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
             },
@@ -92,7 +94,7 @@ class OpenAICompatibleProvider(LLMProvider):
             json={
                 "model": self.model, "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": SYSTEM},
+                    {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
                 "temperature": 0,
@@ -123,7 +125,7 @@ def review_cache_identity(provider: LLMProvider | None) -> tuple[Any, ...]:
 
 
 def cached_infer(provider: LLMProvider, cache: Cache, payload: dict[str, Any]) -> dict[str, Any]:
-    key = cache.digest(review_cache_identity(provider), payload)
+    key = cache.digest(review_cache_identity(provider), provider.system_prompt, provider.response_schema, payload)
     return cache.json("llm", key, lambda: provider.infer(payload))
 
 

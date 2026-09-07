@@ -10,6 +10,8 @@ from .alignment import ALIGNMENT_ALGORITHM_VERSION, align_blocks
 from .audio import conform_segment, discover_audio, extract_segment, probe, reconstruct
 from .book import load_book, paragraphs
 from .book_inventory import audio_coverage, dialogue_inventory
+from .book_speakers import (VERSION as BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_SCHEMA,
+                            build_book, project_to_audio, review_book, scoped_report)
 from .cache import Cache
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
@@ -55,11 +57,18 @@ class Pipeline:
         self.book_inventory = dialogue_inventory(book_blocks)
         self.book_characters = book_character_names(book_blocks, getattr(self, "speaker_aliases", {}))
         book_fingerprint = self.cache.file_fingerprint(book_text) if book_text else None
+        self.book_model = None
+        if book_blocks and self.config.get("book_first", {}).get("enabled", False):
+            text_key = self.cache.digest(BOOK_SPEAKER_VERSION, book_blocks, self.speaker_aliases)
+            LOG.info("[BOOK] Construindo entidades e turnos do livro")
+            self.book_model = self.cache.json("book_speakers", text_key,
+                                             lambda: build_book(book_blocks, self.speaker_aliases))
         run_key = self.cache.digest(
             ALIGNMENT_ALGORITHM_VERSION, DIALOGUE_ALGORITHM_VERSION,
             [self.cache.file_fingerprint(path) for path in files], book_fingerprint, self.config,
             self.characters, self.voice_fingerprints, command, dry_run, language,
             review_cache_identity(self.llm),
+            BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_SCHEMA,
         )
         checkpoint_path = self.cache.path("checkpoints", run_key)
         checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)
@@ -119,10 +128,34 @@ class Pipeline:
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
                                     lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
         warnings: list[str] = []
+        textual_analysis = None
+        book_first = bool(self.config.get("book_first", {}).get("enabled", False) and book_blocks)
+        llm_review: dict[str, Any] | None = None
+        if book_first:
+            model = getattr(self, "book_model", None) or build_book(book_blocks, self.speaker_aliases)
+            positions = [int(item["book_paragraph_id"]) for item in alignments
+                         if float(item.get("alignment_confidence", 0)) >= .5]
+            if positions:
+                scope = (min(positions), max(positions))
+                options = self.config.get("book_first", {})
+                reviewed = review_book(
+                    model, self.llm, self.cache, scope,
+                    threshold=float(options.get("automatic_confidence", .90)),
+                    max_turns=int(options.get("max_turns_per_window", 24)),
+                    max_chars=int(options.get("max_context_characters", 14000)),
+                    progress=lambda index, total: LOG.info(
+                        "[BOOK] %s | atribuição textual %d/%d", path.name, index, total))
+                project_to_audio(reviewed, dialogues)
+                textual_analysis = scoped_report(reviewed, scope)
+                llm_review = reviewed.get("review")
+                if llm_review and llm_review["errors"]:
+                    warnings.append(f"Atribuição textual: {len(llm_review['errors'])} bloco(s) pendente(s)")
+            else:
+                project_to_audio(model, dialogues)
+                warnings.append("Sem intervalo alinhado confiável; revisão contextual do livro não executada")
         apply_overrides(path, dialogues, self.root / "config" / "speaker_overrides.json")
         propagate_speaker_inside_turn(dialogues)
-        llm_review: dict[str, Any] | None = None
-        if self.llm and book_blocks:
+        if self.llm and book_blocks and not book_first:
             def llm_progress(position: int, total: int) -> None:
                 overall = ((file_index - 1) + 0.95 + 0.04 * position / max(1, total)) * 100 / total_files
                 LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | IA contextual bloco %d/%d",
@@ -149,6 +182,8 @@ class Pipeline:
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
             "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration,
             "llm_review": llm_review}
+        if textual_analysis is not None:
+            result["book_speaker_analysis"] = textual_analysis
         if book_blocks:
             inventory = getattr(self, "book_inventory", None)
             if inventory is None:
