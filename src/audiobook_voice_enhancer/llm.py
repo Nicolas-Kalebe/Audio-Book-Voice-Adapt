@@ -77,7 +77,16 @@ class OllamaProvider(LLMProvider):
             },
         )
         response.raise_for_status()
-        result = json.loads(response.json()["message"]["content"])
+        body = response.json()
+        self.last_diagnostics = {key: body.get(key) for key in (
+            "done", "done_reason", "total_duration", "load_duration", "prompt_eval_count",
+            "prompt_eval_duration", "eval_count", "eval_duration")}
+        self.last_diagnostics["raw_content"] = body["message"]["content"]
+        try:
+            result = json.loads(body["message"]["content"])
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON; done_reason={body.get('done_reason')}; "
+                             f"eval_count={body.get('eval_count')}: {exc}") from exc
         if not isinstance(result, dict):
             raise ValueError("O LLM não devolveu um objeto JSON")
         return result
@@ -126,7 +135,21 @@ def review_cache_identity(provider: LLMProvider | None) -> tuple[Any, ...]:
 
 def cached_infer(provider: LLMProvider, cache: Cache, payload: dict[str, Any]) -> dict[str, Any]:
     key = cache.digest(review_cache_identity(provider), provider.system_prompt, provider.response_schema, payload)
-    return cache.json("llm", key, lambda: provider.infer(payload))
+    def invoke():
+        provider.last_diagnostics = {}
+        started = time.monotonic()
+        error = None
+        try:
+            return provider.infer(payload)
+        except Exception as exc:
+            error = str(exc)
+            raise
+        finally:
+            diagnostics = {**provider.last_diagnostics, "error": error,
+                           "elapsed_seconds": time.monotonic() - started}
+            cache.path("llm_diagnostics", key).write_text(
+                json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding="utf-8")
+    return cache.json("llm", key, invoke)
 
 
 def _confidence(value: Any) -> float:

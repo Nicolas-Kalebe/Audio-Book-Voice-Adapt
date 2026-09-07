@@ -34,6 +34,8 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if not isinstance(book_first, dict):
         raise ConfigurationError("book_first deve ser um objeto de configuração")
     if book_first.get("enabled"):
+        if book_first.get("protocol", "evidence") not in {"compact", "evidence"}:
+            raise ConfigurationError("Análise textual: protocol deve ser compact ou evidence")
         try:
             valid = (0 <= float(book_first.get("automatic_confidence", .90)) <= 1
                      and int(book_first.get("max_turns_per_window", 24)) > 0
@@ -42,6 +44,13 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
             valid = False
         if not valid:
             raise ConfigurationError("Análise textual: confiança deve estar entre 0 e 1 e limites devem ser positivos")
+    import math
+    try:
+        timeout = float(data["voice_conversion"].get("worker_timeout_seconds", 600))
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError()
+    except (ValueError, TypeError, OverflowError):
+        raise ConfigurationError("worker_timeout_seconds deve ser positivo e finito")
     return data
 
 

@@ -13,6 +13,7 @@ from .book_inventory import audio_coverage, dialogue_inventory
 from .book_speakers import (VERSION as BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_SCHEMA,
                             build_book, project_to_audio, review_book, scoped_report)
 from .cache import Cache
+from .compact_speakers import VERSION as COMPACT_VERSION, SYSTEM as COMPACT_SYSTEM, SCHEMA as COMPACT_SCHEMA
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import (DIALOGUE_ALGORITHM_VERSION, book_character_names, detect,
@@ -45,6 +46,14 @@ class Pipeline:
 
     def run(self, source: Path, *, command: str, language: str, book_text: Path | None, dry_run: bool,
             include: list[str] | None = None) -> dict[str, Any]:
+        try:
+            return self._run(source, command=command, language=language, book_text=book_text,
+                             dry_run=dry_run, include=include)
+        finally:
+            self.converter.close()
+
+    def _run(self, source: Path, *, command: str, language: str, book_text: Path | None, dry_run: bool,
+             include: list[str] | None = None) -> dict[str, Any]:
         started = time.monotonic()
         if command == "process" and not dry_run:
             # Conversion mode is a promise: fail before hours of ASR when a required voice is missing.
@@ -69,6 +78,7 @@ class Pipeline:
             self.characters, self.voice_fingerprints, command, dry_run, language,
             review_cache_identity(self.llm),
             BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_SCHEMA,
+            COMPACT_VERSION, COMPACT_SYSTEM, COMPACT_SCHEMA,
         )
         checkpoint_path = self.cache.path("checkpoints", run_key)
         checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)
@@ -86,6 +96,9 @@ class Pipeline:
             item = self._one(path, command=command, language=language, book_blocks=book_blocks,
                              book_fingerprint=book_fingerprint, book_cursor=book_cursor, dry_run=dry_run,
                              file_index=file_index, total_files=total_files)
+            # Release VC before the next chapter's ASR/LLM competes for VRAM.
+            # Within the chapter every converted turn shares one loaded model.
+            self.converter.close()
             book_cursor = int(item.pop("_book_cursor", book_cursor))
             results.append(item)
             self._save_checkpoint(checkpoint_path, file_index, book_cursor, results)
@@ -93,6 +106,9 @@ class Pipeline:
                      file_index, total_files, path.name)
         report = summarize(results, self.hardware, {"hits": self.cache.hits, "misses": self.cache.misses},
                            time.monotonic() - started, "faster-whisper", self.converter.name)
+        report["voice_conversion_timings"] = getattr(self.converter, "timings", [])
+        report["resumed_chapters"] = next_index
+        report["timing_note"] = "Tempos por capítulo incluem leituras de cache; capítulos retomados mantêm tempos históricos."
         if command == "analyze":
             imported = merge_detected_characters(self.characters_path, report,
                                                   float(self.config["speaker_confidence_threshold"]))
@@ -106,6 +122,17 @@ class Pipeline:
     def _one(self, path: Path, *, command: str, language: str, book_blocks: list[str],
              book_fingerprint: dict[str, Any] | None, book_cursor: int, dry_run: bool,
              file_index: int, total_files: int) -> dict[str, Any]:
+        stage_started = time.monotonic()
+        stage_hits, stage_misses = self.cache.hits, self.cache.misses
+        stage_timings = {}
+
+        def mark_stage(name):
+            nonlocal stage_started, stage_hits, stage_misses
+            now = time.monotonic()
+            stage_timings[name] = {"seconds": round(now - stage_started, 3),
+                "cache_hits": self.cache.hits - stage_hits, "cache_misses": self.cache.misses - stage_misses}
+            stage_started, stage_hits, stage_misses = now, self.cache.hits, self.cache.misses
+
         info = probe(path)
         fingerprint = self.cache.file_fingerprint(path)
         trans_key = self.cache.digest(fingerprint, self.config.get("transcription", {}), language, self.config.get("device"))
@@ -117,16 +144,19 @@ class Pipeline:
 
         transcript = self.cache.json("transcription", trans_key,
                                      lambda: transcribe(path, self.config, language, transcription_progress))
+        mark_stage("probe_and_transcription")
         alignments: list[dict[str, Any]] = []
         if book_blocks:
             align_key = self.cache.digest(ALIGNMENT_ALGORITHM_VERSION, trans_key, book_fingerprint,
                                           self.config.get("alignment", {}), book_cursor)
             alignments = self.cache.json("alignment", align_key, lambda: align_blocks(
                 book_blocks, transcript, int(self.config.get("alignment", {}).get("block_window", 40)), book_cursor))
+        mark_stage("alignment")
         dialogue_key = self.cache.digest(DIALOGUE_ALGORITHM_VERSION, trans_key, book_fingerprint,
                                          alignments, self.speaker_aliases)
         dialogues = self.cache.json("dialogue_detection", dialogue_key,
                                     lambda: detect(transcript, alignments, self.speaker_aliases, book_blocks))
+        mark_stage("dialogue_detection")
         warnings: list[str] = []
         textual_analysis = None
         book_first = bool(self.config.get("book_first", {}).get("enabled", False) and book_blocks)
@@ -143,6 +173,7 @@ class Pipeline:
                     threshold=float(options.get("automatic_confidence", .90)),
                     max_turns=int(options.get("max_turns_per_window", 24)),
                     max_chars=int(options.get("max_context_characters", 14000)),
+                    protocol=options.get("protocol", "evidence"),
                     progress=lambda index, total: LOG.info(
                         "[BOOK] %s | atribuição textual %d/%d", path.name, index, total))
                 project_to_audio(reviewed, dialogues)
@@ -175,13 +206,14 @@ class Pipeline:
                      llm_review["assigned"], llm_review["suggested_for_review"],
                      llm_review["unresolved"], llm_review["elapsed_seconds"])
             refine_speaker_sequence(dialogues, self.speaker_aliases)
+        mark_stage("speaker_attribution")
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
         self._prevent_overlaps(dialogues)
         result: dict[str, Any] = {"input": str(path), "duration": info.duration, "sample_rate": info.sample_rate,
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
             "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration,
-            "llm_review": llm_review}
+            "llm_review": llm_review, "stage_timings": stage_timings}
         if textual_analysis is not None:
             result["book_speaker_analysis"] = textual_analysis
         if book_blocks:
@@ -195,6 +227,7 @@ class Pipeline:
                      coverage["candidates_not_detected"])
         confident_ids = [int(item["book_paragraph_id"]) for item in alignments if item.get("alignment_confidence", 0) >= 0.5]
         result["_book_cursor"] = max(confident_ids, default=book_cursor) + (1 if confident_ids else 0)
+        mark_stage("planning_and_coverage")
         if command == "analyze" or dry_run:
             for dialogue in dialogues:
                 dialogue["action"] = "would_convert" if dialogue["eligible"] else "skipped"
@@ -221,6 +254,7 @@ class Pipeline:
                 overall = ((file_index - 1) + phase) * 100 / total_files
                 LOG.info("[PROGRESS] %.2f%% | capítulo %d/%d | %s | convertendo falas %d/%d", overall,
                          file_index, total_files, path.name, converted_progress, eligible_total)
+        mark_stage("conversion_with_cuts_and_conforming")
         extension = "." + str(self.config.get("output", {}).get("format", "mp3")).lstrip(".")
         target = self.output / f"{path.stem} Enhanced{extension}"
         overall = ((file_index - 1) + 0.95) * 100 / total_files
@@ -229,6 +263,7 @@ class Pipeline:
         reconstruct(path, replacements, target, str(self.config.get("output", {}).get("bitrate", "320k")))
         result["output"] = str(target)
         result["final_duration"] = probe(target).duration
+        mark_stage("reconstruction_and_export")
         return result
 
     def _eligibility(self, dialogue: dict[str, Any], has_book: bool) -> None:

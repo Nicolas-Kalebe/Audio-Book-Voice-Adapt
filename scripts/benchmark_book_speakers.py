@@ -24,6 +24,7 @@ def main():
     for name in ("book", "transcription", "alignment", "config", "gold", "output"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--without-llm", action="store_true")
+    parser.add_argument("--protocol", choices=("compact", "evidence"), default=None)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Escolha uma pasta de saída nova para garantir cache de respostas vazio")
@@ -60,17 +61,32 @@ def main():
                     "target_dialogues": [{"id": "warmup", "text": "Abra a porta", "paragraph": 0}]})
         warm_seconds = time.perf_counter() - warm_started
     cache = Cache(args.output / "cache")
-    options = config.get("book_first", {})
+    options = dict(config.get("book_first", {}))
+    if args.protocol:
+        options["protocol"] = args.protocol
     reviewed = review_book(model, provider, cache, scope,
                            threshold=float(options.get("automatic_confidence", .90)),
                            max_turns=int(options.get("max_turns_per_window", 24)),
                            max_chars=int(options.get("max_context_characters", 14000)),
+                           protocol=options.get("protocol", "evidence"),
                            progress=lambda index, total: print(f"Livro: bloco {index}/{total}", flush=True))
     found = detect(transcript, alignments, {}, blocks)
     project_to_audio(reviewed, found)
     report = {"files": [{"dialogues": found, "book_speaker_analysis": scoped_report(reviewed, scope)}]}
     metrics = evaluate(gold, report)
-    report.update(benchmark=metrics, version=VERSION, protocol="development_regression_no_aliases_or_overrides",
+    # Score structurally readable proposals separately, before confidence/anchor
+    # policy. Keep the same frozen labels; no opportunistic alias reconciliation.
+    raw_model = copy.deepcopy(reviewed)
+    for turn in raw_model["turns"]:
+        proposal = turn.get("proposal", {})
+        valid = proposal.get("structurally_valid", proposal.get("speaker_entity_id") in raw_model["entities"])
+        identity = proposal.get("speaker_entity_id") if valid and proposal.get("kind") == "speech" else None
+        turn.update(speaker_entity_id=identity, confidence=proposal.get("confidence", 0) if identity else 0,
+                    status="raw_proposal", evidence=[])
+    raw_found = copy.deepcopy(found)
+    project_to_audio(raw_model, raw_found)
+    raw_metrics = evaluate(gold, {"files": [{"dialogues": raw_found}]})
+    report.update(benchmark=metrics, raw_proposal_benchmark=raw_metrics, version=VERSION, protocol="development_regression_no_aliases_or_overrides",
                   model_metadata=model_metadata, configuration=options,
                   review=reviewed["review"], model_load_seconds=round(warm_seconds, 3),
                   book_build_seconds=round(build_seconds, 3), cache={"hits": cache.hits, "misses": cache.misses},

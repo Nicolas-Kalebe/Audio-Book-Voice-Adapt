@@ -176,7 +176,8 @@ def test_provider_failure_keeps_explicit_text_anchors(tmp_path):
     assert len(result["review"]["errors"]) == 1
 
 
-def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tmp_path, monkeypatch):
+@pytest.mark.parametrize("protocol", ["evidence", "compact"])
+def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tmp_path, monkeypatch, protocol):
     from types import SimpleNamespace
     from audiobook_voice_enhancer.pipeline import Pipeline
 
@@ -189,14 +190,14 @@ def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tm
                    "audio_start": i, "audio_end": i + .8, "alignment_confidence": .99} for i in (0, 2)]
     def response(payload):
         iara = next(e["id"] for e in payload["entities"] if e["name"] == "Iara")
-        return {"entities": [], "assignments": [{"id": "book-1", "speaker": iara, "kind": "speech",
+        return {"entities": [], "assignments": [{"id": "T1" if protocol == "compact" else "book-1", "speaker": iara, "kind": "speech",
                    "confidence": .95, "evidence": [citation(0, "disse Iara")]}]}
     pipeline = Pipeline.__new__(Pipeline)
     pipeline.root = tmp_path
     pipeline.cache = Cache(tmp_path / "cache")
     pipeline.speaker_aliases = {}
     pipeline.characters = {"Iara": {"mode": "original"}, "Nilo": {"mode": "original"}}
-    pipeline.config = {"book_first": {"enabled": True}, "speaker_confidence_threshold": .85,
+    pipeline.config = {"book_first": {"enabled": True, "protocol": protocol}, "speaker_confidence_threshold": .85,
                        "alignment_confidence_threshold": .8, "minimum_segment_duration": 0}
     pipeline.llm = TextProvider(response)
     monkeypatch.setattr("audiobook_voice_enhancer.pipeline.probe", lambda _: SimpleNamespace(
@@ -214,6 +215,8 @@ def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tm
     assert result["book_speaker_analysis"]["turns"][1]["status"] == "contextual"
     assert [d["speaker"] for d in result["dialogues"]] == ["Iara", "Nilo"]
     assert all(d["action"] == "skipped" for d in result["dialogues"])
+    assert "speaker_attribution" in result["stage_timings"]
+    assert result["stage_timings"]["probe_and_transcription"]["cache_misses"] == 1
 
 
 @pytest.mark.parametrize("options", [{"max_turns_per_window": 0}, {"max_context_characters": -1},

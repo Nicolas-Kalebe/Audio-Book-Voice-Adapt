@@ -1,5 +1,9 @@
 # Motor textual de personagens — implementação para avaliação
 
+Atualização: a worktree usa agora o protocolo compacto. As exigências de evidência
+por fala descritas abaixo referem-se ao protocolo anterior, `evidence`. Veja
+[a implementação atual e o roteiro de testes](COMPACT_ENGINE_AND_RUNTIME.md).
+
 Esta etapa implementa o núcleo de entidades e turnos do livro e o conecta ao app.
 A qualidade real com Qwen ainda deve ser medida no próximo turno de testes.
 

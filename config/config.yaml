@@ -35,6 +35,8 @@ alignment:
   block_window: 40
 
 voice_conversion:
+  persistent_worker: true
+  worker_timeout_seconds: 600
   enabled: true
   backend: auto
   # Clone Seed-VC here with setup_seedvc.bat, or set an absolute path.
@@ -43,6 +45,7 @@ voice_conversion:
   rvc_path: models/Retrieval-based-Voice-Conversion-WebUI
 
 book_first:
+  protocol: compact
   enabled: true
   automatic_confidence: 0.90
   max_turns_per_window: 24

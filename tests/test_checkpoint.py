@@ -37,7 +37,7 @@ def test_pipeline_reuses_completed_chapter_checkpoint(monkeypatch, tmp_path):
         pipeline.voice_fingerprints = {}
         pipeline.output = tmp_path / "output"
         pipeline.hardware = {}
-        pipeline.converter = SimpleNamespace(name="fake")
+        pipeline.converter = SimpleNamespace(name="fake", close=lambda: None)
         pipeline.llm = SimpleNamespace(model="fake", url="http://local-test")
         return pipeline
 

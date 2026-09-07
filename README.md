@@ -12,6 +12,9 @@ independente de 95% de identificação em livros novos.
 
 O [motor textual experimental](docs/BOOK_FIRST_ENGINE.md) já está integrado à
 análise: identifica turnos no livro e depois associa suas decisões aos recortes.
+O [protocolo compacto e o conversor persistente](docs/COMPACT_ENGINE_AND_RUNTIME.md)
+estão preparados para comparação de acurácia e tempo; a meta de 90 minutos ainda
+não foi demonstrada por uma execução completa.
 As [preferências de trabalho](AGENTS.md) registram a divisão entre turnos de
 implementação e de avaliação.
 
