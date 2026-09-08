@@ -30,8 +30,15 @@ exatamente a simulação offline.
 > cobertura** — a meta. É estimativa: âncora nova muda o que o modelo recebe,
 > então os outros turnos podem se mexer. **A próxima rodada fria decide.**
 
-O gabarito foi auditado contra o livro em 08/09 e **não tem erro conhecido**:
-[docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md).
+O gabarito da Parte 01 foi auditado contra o livro em 08/09 e **não tem erro
+conhecido**: [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md).
+
+**Existe agora um holdout.** `benchmarks/part02_gold.yaml` tem 183 turnos
+(P371–682), anotado antes de qualquer rodada do motor naquele trecho e sem que
+nenhuma regra fosse ajustada contra ele. É a primeira validação externa do
+projeto — e é um regime mais fácil que a Parte 01 (sem multidão, sem papel
+anônimo, 72% de diálogo de duas pessoas), então um número alto lá confirma
+transferência, não dificuldade.
 
 ### Duas regras de produto que mandam em tudo
 
@@ -79,6 +86,7 @@ história está em [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md).
 - [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md) — a última medição e o que ela desmentiu.
 - [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md) — por que o placar mentia, e as duas decisões de produto.
 - [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md) — o gabarito bate com o livro, e o que a auditoria não prova.
+- `benchmarks/part02_gold.yaml` — o holdout. Não ajuste nada contra ele; se ajustar, o projeto perde a única validação externa que tem.
 - [AGENTS.md](AGENTS.md) — as preferências e as regras que não se negociam.
 - [docs/SPEAKER_ATTRIBUTION_HANDOFF.md](docs/SPEAKER_ATTRIBUTION_HANDOFF.md) — histórico dos cinco protocolos. **Os números dele são anteriores à correção do avaliador.**
 - [TECHNICAL_DECISIONS.md](TECHNICAL_DECISIONS.md) — escolhas de transcrição, conversão e GPU.

@@ -6,6 +6,31 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 8 de setembro de 2026 — gabarito da Parte 02, o primeiro holdout
+
+`benchmarks/part02_gold.yaml`: **183 turnos**, P371–682, anotado lendo o EPUB
+**antes de qualquer rodada do motor nesta parte**. Nenhuma regra foi ajustada
+contra ele. É a primeira validação externa que o projeto tem.
+
+| | Parte 01 | Parte 02 |
+|---|---:|---:|
+| Turnos | 255 | 183 |
+| Dubláveis | 213 | **183** |
+| Figurantes | 42 | **0** |
+| Falantes | 27 rótulos | 7 nomes |
+
+**Leia isto antes de comemorar o resultado:** a Parte 02 é um regime **diferente e
+mais fácil**. Não tem cena de multidão, não tem papel anônimo, e 72% das falas
+são Triss ou Ciri num diálogo de duas pessoas — exatamente onde a regra do
+sanduíche funciona. Um número alto aqui **não** cancela a dificuldade da cena do
+carvalho; confirma que o que foi consertado se transfere, e só isso.
+
+Dois turnos (P672, P674) ficaram em `ambiguous_spoken`: o texto não diz qual dos
+bruxos fala, e qualquer um dos cinco presentes conta como certo. Não chutei.
+
+Os defeitos de limite conhecidos estão declarados: P410 e P586, onde a fala não
+fecha com travessão e o parser engole a narração seguinte.
+
 ### 8 de setembro de 2026 — auditoria do gabarito e mais duas âncoras
 
 - **O gabarito bate com o livro.** 49 atribuições explícitas conferidas contra o
@@ -135,23 +160,39 @@ o triplo da folga — abster para não errar deixou de ser de graça.
 
 ## Ganho pré-registrado da PRÓXIMA rodada
 
-A próxima rodada mede o **conserto da âncora**. Escrito antes de ver o resultado:
+Duas coisas a medir, e nesta ordem.
+
+### 1. Parte 01, para confirmar o conserto da âncora
 
 | Precisão sobre dubláveis | Leitura |
 |---|---|
 | **94–96%** | Esperado: confirma a estimativa de 95,17%. |
-| **≥95%** | Meta batida. |
 | **93%** | As âncoras novas não renderam com o modelo no laço; nada regrediu. |
 | **< 93%** | Regressão: âncora nova confundiu o modelo em outros turnos. |
 
-Cobertura esperada **96–98%**. Se cair abaixo de 95%, alguma âncora nova está
-entrando em conflito e virando abstenção.
+### 2. Parte 02, o holdout
 
-Rode as duas, em pastas novas:
+Escrito **antes** de rodar, e é este número que diz se os ganhos foram reais:
+
+| Precisão sobre dubláveis | Leitura |
+|---|---|
+| **≥95%** | Os ganhos da Parte 01 transferiram. Meta batida num trecho novo. |
+| **88–95%** | Transferiram em parte. Comparar as famílias de erro com o CSV. |
+| **80–88%** | A Parte 01 estava sobreajustada; o ganho real é bem menor. |
+| **< 80%** | O motor não generaliza, e o 93% da Parte 01 era ilusão de ajuste. |
+
+Cobertura esperada **≥95%** nos dois. Como a Parte 02 é um regime mais fácil
+(sem multidão, sem anônimo, 72% de diálogo de duas pessoas), **eu esperaria a
+precisão dela ACIMA da Parte 01**. Se vier abaixo, algo está errado de verdade.
+
+Rode as duas partes, com e sem regras, em pastas novas:
 
 ```powershell
-... --protocol compact --output output\ancora-com-regras-<data>
-... --protocol compact --no-turn-consistency --output output\ancora-sem-regras-<data>
+# Parte 01
+... --gold benchmarks\part01_gold.yaml --output output\p01-ancora-<data>
+# Parte 02 (trocar transcricao e alinhamento pelos da Parte 02)
+... --gold benchmarks\part02_gold.yaml --output output\p02-holdout-<data>
+... --gold benchmarks\part02_gold.yaml --no-turn-consistency --output output\p02-sem-regras-<data>
 ```
 
 ## Conferir o teto antes de qualquer campanha

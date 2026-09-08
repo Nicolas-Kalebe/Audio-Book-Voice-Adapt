@@ -17,7 +17,9 @@ from audiobook_voice_enhancer.benchmark import _role_key, load_gold
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from gold_ceiling import ceiling  # noqa: E402
 
-GOLD = Path(__file__).resolve().parents[1] / "benchmarks" / "part01_gold.yaml"
+BENCH = Path(__file__).resolve().parents[1] / "benchmarks"
+GOLD = BENCH / "part01_gold.yaml"
+GABARITOS = [BENCH / "part01_gold.yaml", BENCH / "part02_gold.yaml"]
 
 
 def test_the_ninety_five_percent_target_still_fits_in_the_gold():
@@ -54,3 +56,29 @@ def test_identity_key_ignores_article_accent_order_and_disambiguator(first, seco
 ])
 def test_identity_key_keeps_different_descriptions_apart(first, second):
     assert _role_key(first) != _role_key(second)
+
+
+@pytest.mark.parametrize("caminho", GABARITOS, ids=lambda p: p.stem)
+def test_todo_gabarito_carrega_e_cabe_na_meta(caminho):
+    """Vale para os dois: um gabarito so serve se a meta couber dentro dele."""
+    resultado = ceiling(load_gold(caminho))
+    dublavel, detectados = resultado["dublavel_turns"], resultado["dublavel_detected"]
+    assert dublavel > 0
+    assert detectados >= -(-dublavel * 95 // 100)
+
+
+def test_o_holdout_da_parte_02_nao_foi_usado_para_ajustar_o_motor():
+    """A Parte 02 so vale como validacao externa enquanto isto for verdade.
+
+    Se alguem ajustar regra contra ela, tem de trocar o protocolo aqui — e ai o
+    projeto volta a nao ter holdout nenhum, o que precisa ficar visivel.
+    """
+    gold = load_gold(BENCH / "part02_gold.yaml")
+    assert gold["evaluation_protocol"]["independent_holdout"] is True
+    assert gold["evaluation_protocol"]["status"] == "holdout_congelado_antes_de_medir"
+
+
+def test_os_dois_gabaritos_nao_se_sobrepoem():
+    """Intervalos disjuntos: senao a Parte 02 herdaria o ajuste feito na Parte 01."""
+    um, dois = (load_gold(c)["scope"] for c in GABARITOS)
+    assert um["last_book_paragraph"] < dois["first_book_paragraph"]
