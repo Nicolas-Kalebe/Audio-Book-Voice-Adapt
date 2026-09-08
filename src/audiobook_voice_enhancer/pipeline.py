@@ -14,6 +14,7 @@ from .book_speakers import (VERSION as BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_S
                             build_book, project_to_audio, review_book, scoped_report)
 from .cache import Cache
 from .compact_speakers import VERSION as COMPACT_VERSION, SYSTEM as COMPACT_SYSTEM, SCHEMA as COMPACT_SCHEMA
+from .scene_context import VERSION as SCENE_VERSION, CAST_SYSTEM, CAST_SCHEMA, ATTRIBUTION_SUFFIX
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import (DIALOGUE_ALGORITHM_VERSION, book_character_names, detect,
@@ -79,6 +80,7 @@ class Pipeline:
             review_cache_identity(self.llm),
             BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_SCHEMA,
             COMPACT_VERSION, COMPACT_SYSTEM, COMPACT_SCHEMA,
+            SCENE_VERSION, CAST_SYSTEM, CAST_SCHEMA, ATTRIBUTION_SUFFIX,
         )
         checkpoint_path = self.cache.path("checkpoints", run_key)
         checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)
@@ -174,6 +176,8 @@ class Pipeline:
                     max_turns=int(options.get("max_turns_per_window", 24)),
                     max_chars=int(options.get("max_context_characters", 14000)),
                     protocol=options.get("protocol", "evidence"),
+                    scene_max_chars=int(options.get("scene_context_characters", 36000)),
+                    scene_repair=bool(options.get("scene_repair", True)),
                     progress=lambda index, total: LOG.info(
                         "[BOOK] %s | atribuição textual %d/%d", path.name, index, total))
                 project_to_audio(reviewed, dialogues)

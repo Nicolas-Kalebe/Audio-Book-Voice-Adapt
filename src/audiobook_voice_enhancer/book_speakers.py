@@ -201,12 +201,14 @@ def windows(model: dict, paragraph_range: tuple[int, int] | None, max_turns=24, 
 
 
 def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold=.90,
-                max_turns=24, max_chars=14000, progress=None, protocol="evidence") -> dict:
+                max_turns=24, max_chars=14000, progress=None, protocol="evidence",
+                scene_max_chars=36000, scene_repair=True) -> dict:
     """Review textual turns, including those with no ASR match, in bounded windows."""
-    if protocol == "compact":
+    if protocol in {"compact", "scene"}:
         from .compact_speakers import review_compact
         return review_compact(model, provider, cache, paragraph_range, threshold=threshold,
-                              max_turns=max_turns, max_chars=max_chars, progress=progress)
+                              max_turns=max_turns, max_chars=max_chars, progress=progress,
+                              scene_mode=protocol == "scene", scene_max_chars=scene_max_chars, scene_repair=scene_repair)
     if protocol != "evidence":
         raise ValueError(f"Unknown attribution protocol: {protocol}")
     started = time.monotonic()
@@ -361,4 +363,5 @@ def scoped_report(model: dict, paragraph_range: tuple[int, int]) -> dict:
     identities.update(turn.get("proposal", {}).get("speaker_entity_id") for turn in turns)
     return {"version": VERSION, "book_id": model["book_id"], "paragraph_range": paragraph_range,
             "entities": [entity for identity, entity in model["entities"].items() if identity in identities],
-            "turns": turns, "review": model.get("review")}
+            "turns": turns, "review": model.get("review"),
+            "attribution_protocol": model.get("attribution_protocol"), "scene_context": model.get("scene_context")}

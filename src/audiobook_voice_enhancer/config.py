@@ -34,12 +34,13 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if not isinstance(book_first, dict):
         raise ConfigurationError("book_first deve ser um objeto de configuração")
     if book_first.get("enabled"):
-        if book_first.get("protocol", "evidence") not in {"compact", "evidence"}:
-            raise ConfigurationError("Análise textual: protocol deve ser compact ou evidence")
+        if book_first.get("protocol", "evidence") not in {"compact", "evidence", "scene"}:
+            raise ConfigurationError("Análise textual: protocol deve ser compact, evidence ou scene")
         try:
             valid = (0 <= float(book_first.get("automatic_confidence", .90)) <= 1
                      and int(book_first.get("max_turns_per_window", 24)) > 0
-                     and int(book_first.get("max_context_characters", 14000)) > 0)
+                     and int(book_first.get("max_context_characters", 14000)) > 0
+                     and int(book_first.get("scene_context_characters", 36000)) >= int(book_first.get("max_context_characters", 14000)))
         except (ValueError, TypeError, OverflowError):
             valid = False
         if not valid:

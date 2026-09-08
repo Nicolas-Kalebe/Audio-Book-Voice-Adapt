@@ -39,7 +39,8 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 
 
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
-                   max_turns=24, max_chars=14000, progress=None):
+                   max_turns=24, max_chars=14000, progress=None, scene_mode=False,
+                   scene_max_chars=36000, scene_repair=True):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -50,15 +51,27 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                  structural_rejections=0, raw_speaker_proposals=0, errors=[],
                  confidence_is_calibrated=False)
     result["attribution_protocol"] = VERSION
+    context = None
+    if scene_mode:
+        from .scene_context import SceneContext, VERSION as SCENE_VERSION, ATTRIBUTION_SUFFIX, repair_targets
+        if provider is not None:
+            context = SceneContext(result, provider, cache, scene_max_chars)
+        stats.update(method=SCENE_VERSION, cast_calls=0, repair_calls=0, repair_targets=0, total_llm_calls=0)
+        result["attribution_protocol"] = SCENE_VERSION
     if provider is not None:
         adapted = copy.copy(provider)
         adapted.system_prompt, adapted.response_schema = SYSTEM, SCHEMA
+        if context:
+            adapted.system_prompt += ATTRIBUTION_SUFFIX
         for index, batch in enumerate(batches, 1):
             if progress:
                 progress(index, len(batches))
             if "error" in batch:
                 stats["errors"].append({"scene_id": batch["scene_id"], "error": batch["error"]})
                 continue
+            if context:
+                context.prepare(batch["scene_id"])
+                batch = context.expand(batch)
             permitted = set(range(batch["first"], batch["last"] + 1))
             text = "\n".join(result["blocks"][p] for p in sorted(permitted))
             anchors = {turn["speaker_entity_id"] for turn in batch["turns"]}
@@ -66,16 +79,20 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         if (e["kind"] == "named" or e["scene_id"] == batch["scene_id"])
                         and (e["id"] in anchors or any(re.search(rf"(?<!\w){re.escape(a)}(?!\w)", text, re.I)
                                                      for a in e["aliases"]))]
+            if context:
+                entities = context.entities(batch["scene_id"])
             allowed = {f"E{i}": e["id"] for i, e in enumerate(entities)}
             reverse = {value: key for key, value in allowed.items()}
-            targets = {f"T{i}": turn for i, turn in enumerate(batch["turns"])}
-            payload = {"version": VERSION, "book_id": result["book_id"], "scene_id": batch["scene_id"],
+            targets = {context.turn_ids[turn["id"]] if context else f"T{i}": turn for i, turn in enumerate(batch["turns"])}
+            payload = {"version": stats["method"], "book_id": result["book_id"], "scene_id": batch["scene_id"],
                 "scene_text": [{"paragraph": p, "text": result["blocks"][p]} for p in sorted(permitted)],
                 "entities": [{"id": reverse[e["id"]], "name": e["name"], "kind": e["kind"],
                               "aliases": e["aliases"]} for e in entities],
                 "turns": [{"id": key, "fragments": [{"paragraph": f["paragraph"], "text": f["text"]}
                                                     for f in turn["fragments"]],
                            "anchor": reverse.get(turn["speaker_entity_id"])} for key, turn in targets.items()]}
+            if context:
+                payload.update(context.extra_payload(batch, reverse))
             stats["batches_reviewed"] += 1
             stats["dialogues_reviewed"] += len(targets)
             try:
@@ -83,6 +100,38 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                 if (not isinstance(answer, dict) or not isinstance(answer.get("assignments"), list)
                         or not isinstance(answer.get("entities"), list)):
                     raise ValueError("Invalid compact attribution response")
+                if context:
+                    for key, turn in targets.items():
+                        turn["first_pass_decisions"] = [row for row in answer["assignments"]
+                                                       if isinstance(row, dict) and row.get("id") == key]
+                    revisit = repair_targets(answer, payload, threshold) if scene_repair else []
+                    if revisit:
+                        stats["repair_calls"] += 1
+                        stats["repair_targets"] += len(revisit)
+                        try:
+                            second = cached_infer(adapted, cache, {**payload, "task": "focused_review",
+                                "turns": revisit,
+                                "instruction": "Releia o contexto completo e resolva os turnos indicados. "
+                                "O gatilho é um diagnóstico, não uma resposta. Use o sujeito narrativo "
+                                "e diferencie destinatário de falante. A resposta anterior foi omitida."})
+                            if not isinstance(second, dict) or not isinstance(second.get("assignments"), list):
+                                raise ValueError("Invalid focused review")
+                            selected_ids = {t["id"] for t in revisit}
+                            rows = [r for r in second["assignments"] if isinstance(r, dict)
+                                    and isinstance(r.get("id"), str) and r["id"] in selected_ids]
+                            replacements = {r["id"]: r for r in rows if sum(x["id"] == r["id"] for x in rows) == 1
+                                            and (r.get("speaker") is None or
+                                                 isinstance(r.get("speaker"), str) and r["speaker"] in allowed)
+                                            and r.get("kind") in {"speech", "thought", "citation", "unknown"}
+                                            and type(r.get("confidence")) in {int, float}
+                                            and threshold <= r["confidence"] <= 1}
+                            answer = {**answer, "assignments": [r for r in answer["assignments"]
+                                if not isinstance(r, dict) or not isinstance(r.get("id"), str)
+                                or r["id"] not in replacements] + list(replacements.values())}
+                            for key in replacements:
+                                targets[key]["focused_review"] = replacements[key]
+                        except Exception as exc:
+                            stats["errors"].append({"scene_id": batch["scene_id"], "phase": "focused_review", "error": str(exc)})
                 proposals = [p for p in answer["entities"] if isinstance(p, dict)]
                 proposal_ids = [p.get("id") for p in proposals]
                 for item in proposals:
@@ -105,6 +154,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                                        fresh=kind == "anonymous", origin=span["start"])
                     result["entities"][identity]["mentions"].append(span)
                     allowed[key] = identity
+                    if context:
+                        context.remember(batch["scene_id"], identity)
                 decisions = [d for d in answer["assignments"] if isinstance(d, dict)]
                 for key, turn in targets.items():
                     rows = [d for d in decisions if d.get("id") == key]
@@ -135,7 +186,10 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         continue
                     if turn["status"] == "explicit":
                         if identity != turn["speaker_entity_id"] or kind != "speech":
-                            turn.update(status="conflict", speaker_entity_id=None, confidence=0.0)
+                            if context:
+                                turn["review_issue"] = "llm_disagrees_with_literal_subject"
+                            else:
+                                turn.update(status="conflict", speaker_entity_id=None, confidence=0.0)
                         continue
                     turn.update(kind=kind, evidence=[], confidence=confidence if kind == "speech" else 0.0,
                                 speaker_entity_id=identity if kind == "speech" else None,
@@ -146,5 +200,11 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     selected = [turn for batch in batches for turn in batch["turns"]]
     stats["unresolved"] = sum(turn["speaker_entity_id"] is None and turn["status"] != "non_speech" for turn in selected)
     stats["elapsed_seconds"] = round(time.monotonic() - started, 3)
+    if context:
+        result["scene_context"] = context.audit
+        stats["cast_calls"] = context.audit["cast_calls"]
+        stats["cast_rejections"] = context.audit["cast_rejections"]
+        stats["errors"].extend({**error, "phase": "scene_cast"} for error in context.audit["errors"])
+        stats["total_llm_calls"] = stats["batches_reviewed"] + stats["cast_calls"] + stats["repair_calls"]
     result["review"] = stats
     return result

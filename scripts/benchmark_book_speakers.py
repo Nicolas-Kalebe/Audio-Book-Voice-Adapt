@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -24,10 +25,16 @@ def main():
     for name in ("book", "transcription", "alignment", "config", "gold", "output"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--without-llm", action="store_true")
-    parser.add_argument("--protocol", choices=("compact", "evidence"), default=None)
+    parser.add_argument("--protocol", choices=("compact", "evidence", "scene"), default=None)
+    parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Escolha uma pasta de saída nova para garantir cache de respostas vazio")
+    # Reserve before warmup: two launches cannot both start into the same output.
+    try:
+        args.output.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        parser.error("A pasta já foi reservada por outra execução")
     config = load_config(args.config)
     if not args.without_llm and (config["llm"].get("provider") != "ollama" or
                                 urlsplit(config["llm"]["base_url"]).hostname not in {"localhost", "127.0.0.1", "::1"}):
@@ -64,11 +71,15 @@ def main():
     options = dict(config.get("book_first", {}))
     if args.protocol:
         options["protocol"] = args.protocol
+    if args.no_scene_repair:
+        options["scene_repair"] = False
     reviewed = review_book(model, provider, cache, scope,
                            threshold=float(options.get("automatic_confidence", .90)),
                            max_turns=int(options.get("max_turns_per_window", 24)),
                            max_chars=int(options.get("max_context_characters", 14000)),
                            protocol=options.get("protocol", "evidence"),
+                           scene_max_chars=int(options.get("scene_context_characters", 36000)),
+                           scene_repair=bool(options.get("scene_repair", True)),
                            progress=lambda index, total: print(f"Livro: bloco {index}/{total}", flush=True))
     found = detect(transcript, alignments, {}, blocks)
     project_to_audio(reviewed, found)
@@ -91,6 +102,9 @@ def main():
                   review=reviewed["review"], model_load_seconds=round(warm_seconds, 3),
                   book_build_seconds=round(build_seconds, 3), cache={"hits": cache.hits, "misses": cache.misses},
                   asr_and_conversion_executed=False,
+                  cold_response_cache_valid=cache.hits == 0,
+                  input_sha256={name: hashlib.sha256(getattr(args, name).read_bytes()).hexdigest()
+                                for name in ("book", "transcription", "alignment", "config", "gold")},
                   scoring_note="Comparação literal com gabarito congelado; rótulos anônimos não são reconciliados automaticamente.")
     (args.output / "analysis.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     (args.output / "report.md").write_text(render_markdown(metrics), encoding="utf-8")

@@ -176,7 +176,7 @@ def test_provider_failure_keeps_explicit_text_anchors(tmp_path):
     assert len(result["review"]["errors"]) == 1
 
 
-@pytest.mark.parametrize("protocol", ["evidence", "compact"])
+@pytest.mark.parametrize("protocol", ["evidence", "compact", "scene"])
 def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tmp_path, monkeypatch, protocol):
     from types import SimpleNamespace
     from audiobook_voice_enhancer.pipeline import Pipeline
@@ -189,7 +189,12 @@ def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tm
     alignments = [{"segment_id": i, "book_paragraph_id": i, "book_text": blocks[i],
                    "audio_start": i, "audio_end": i + .8, "alignment_confidence": .99} for i in (0, 2)]
     def response(payload):
+        if payload.get("task") == "scene_cast":
+            return {"entities": []}
         iara = next(e["id"] for e in payload["entities"] if e["name"] == "Iara")
+        if protocol == "scene":
+            return {"entities": [], "assignments": [{"id": turn["id"], "speaker": turn["anchor"] or iara,
+                       "kind": "speech", "confidence": .95} for turn in payload["turns"]]}
         return {"entities": [], "assignments": [{"id": "T1" if protocol == "compact" else "book-1", "speaker": iara, "kind": "speech",
                    "confidence": .95, "evidence": [citation(0, "disse Iara")]}]}
     pipeline = Pipeline.__new__(Pipeline)

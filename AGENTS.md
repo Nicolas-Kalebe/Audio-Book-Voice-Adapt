@@ -16,3 +16,7 @@
   relatórios com texto literário fora do Git. O repositório segue privado.
 - O gabarito da Parte 01 é regressão de desenvolvimento, não teste independente.
   Não afirme que os pesos do Qwen foram treinados por ajustar regras ou prompts.
+- Prioridade definida pelo usuário: identificação correta do falante em pelo
+  menos 90% de todas as falas. Omissões contam como erros. Filtros de conversão
+  ou mais recusas não satisfazem essa meta. Focar no reconhecimento antes de
+  retomar desempenho/conversão. Não anunciar uso geral ou lançamento sem validar.
