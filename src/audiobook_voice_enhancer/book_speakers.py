@@ -104,6 +104,30 @@ def _entity(model: dict, name: str, kind: str, scene: int, paragraph: int, *, fr
     return identity
 
 
+def classify_anonymous(model: dict) -> None:
+    """Marca quem e figurante: descricao anonima que so aparece numa cena.
+
+    Decisao do proprietario em 08/09/2026: "figurante de uma cena so nao precisa
+    de voz". Ele fica com a voz original do narrador, e o relatorio diz o motivo
+    em vez de deixar o turno parecendo uma falha de identificacao.
+
+    Uma descricao anonima que reaparece em outra cena e personagem recorrente e
+    continua elegivel — ainda dependendo de configuracao explicita, como qualquer
+    outro. Identidade anonima e local a cena, entao a recorrencia se mede pela
+    descricao normalizada, nao pelo ID.
+    """
+    scenes: dict[str, set] = {}
+    for entity in model["entities"].values():
+        if entity["kind"] == "anonymous":
+            scenes.setdefault(_role_key(entity["name"]), set()).add(entity["scene_id"])
+    for entity in model["entities"].values():
+        if entity["kind"] != "anonymous":
+            entity["role"] = "nomeado"
+            continue
+        entity["role"] = ("figurante" if len(scenes[_role_key(entity["name"])]) < 2
+                          else "anonimo_recorrente")
+
+
 def _narration(block: str, fragments: list[dict]) -> list[tuple[int, int]]:
     cursor, spans = 0, []
     for part in sorted(fragments, key=lambda item: item["char_start"]):
@@ -369,6 +393,7 @@ def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold
 
 def project_to_audio(model: dict, dialogues: list[dict]) -> None:
     """Attach text decisions without moving, extending or inventing audio cuts."""
+    classify_anonymous(model)
     candidates = {part["candidate_id"]: turn for turn in model["turns"] for part in turn["fragments"]}
     for dialogue in dialogues:
         if dialogue.get("manually_confirmed"):
@@ -383,6 +408,7 @@ def project_to_audio(model: dict, dialogues: list[dict]) -> None:
         identity = turn["speaker_entity_id"]
         entity = model["entities"].get(identity)
         dialogue.update(speaker=entity["display_name"] if entity else None, speaker_entity_id=identity,
+                        speaker_role=(entity or {}).get("role"),
                         speaker_confidence=turn["confidence"], book_turn_id=turn["id"],
                         book_speaker_status=turn["status"], book_speech_kind=turn["kind"],
                         speaker_evidence=turn["evidence"], reason=f"atribuição textual: {turn['status']}")

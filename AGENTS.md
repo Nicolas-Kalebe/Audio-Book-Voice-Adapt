@@ -16,7 +16,22 @@
   relatórios com texto literário fora do Git. O repositório segue privado.
 - O gabarito da Parte 01 é regressão de desenvolvimento, não teste independente.
   Não afirme que os pesos do Qwen foram treinados por ajustar regras ou prompts.
-- Prioridade definida pelo usuário: identificação correta do falante em pelo
-  menos 90% de todas as falas. Omissões contam como erros. Filtros de conversão
-  ou mais recusas não satisfazem essa meta. Focar no reconhecimento antes de
-  retomar desempenho/conversão. Não anunciar uso geral ou lançamento sem validar.
+- Prioridade **revista pelo proprietário em 08/09/2026**: *"é melhor que não mude
+  uma voz se não tem certeza, deixe sem atribuição"* e *"figurante de uma cena só
+  não precisa de voz"*. Isto substitui a regra anterior, que mandava contar
+  omissões como erro e proibia filtros de conversão.
+  - Abstenção é a **saída segura**, não erro: o turno mantém a voz do narrador.
+    O único defeito que conta é **voz trocada errada**.
+  - Figurante — descrição anônima que aparece numa cena só — não ganha voz.
+    Esses turnos saem do denominador que decide o produto (`by_class.dublavel`),
+    continuam visíveis para auditoria e nunca são escondidos.
+  - A meta virou um **par**, e os dois lados valem juntos, porque precisão alta
+    com cobertura baixa é abster em tudo: é a mesma trava que a proibição de
+    filtros exercia antes. **Números ainda a confirmar com o proprietário —
+    proposta do assistente, não palavra dele: precisão ≥95% sobre o que for
+    atribuído, cobertura ≥80% dos turnos dubláveis.**
+  - Antes de qualquer campanha, rodar `scripts/gold_ceiling.py`: mede em 30s, sem
+    GPU, se a meta é alcançável pelo gabarito. Cinco campanhas foram comparadas
+    contra um teto de 81,57% sem que ninguém tivesse conferido.
+  - Focar no reconhecimento antes de retomar desempenho/conversão. Não anunciar
+    uso geral ou lançamento sem validar.

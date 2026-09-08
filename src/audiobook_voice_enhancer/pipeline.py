@@ -282,6 +282,11 @@ class Pipeline:
         dialogue["character_configured"] = character is not None
         if not speaker: reasons.append("speaker unidentified")
         elif not character: reasons.append("character not configured")
+        # Figurante de uma cena so fica com a voz do narrador por decisao de
+        # produto, nao por falha de identificacao. Configurar o papel na mao
+        # continua valendo: a checagem acima ja deixou passar quem tem ficha.
+        if dialogue.get("speaker_role") == "figurante" and not character:
+            reasons.append("figurante de uma cena so")
         mode = str((character or {}).get("mode", self.config.get("characters", {}).get("default_mode", "original")))
         dialogue["character_mode"] = mode
         if character and mode in {"original", "ignore"}: reasons.append(f"character mode is {mode}")

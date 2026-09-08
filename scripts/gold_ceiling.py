@@ -53,11 +53,14 @@ def oracle_report(gold: dict) -> dict:
 def ceiling(gold: dict) -> dict:
     metrics = evaluate(gold, oracle_report(gold))
     total = metrics["gold_source_turns"]
+    dublavel = next(item for item in metrics["by_class"] if item["class"] == "dublavel")
     return {"gold_source_turns": total,
             "literal_ceiling": metrics["speaker_correct_turns"],
             "identity_ceiling": metrics["speaker_correct_turns_by_identity"],
             "literal_ceiling_accuracy": metrics["end_to_end_accuracy"],
             "identity_ceiling_accuracy": metrics["end_to_end_accuracy_by_identity"],
+            "dublavel_turns": dublavel["total"],
+            "dublavel_ceiling": dublavel["correct_by_identity"],
             "unreachable_labels": metrics["confusion"]}
 
 
@@ -68,14 +71,17 @@ def main() -> int:
     args = parser.parse_args()
     result = ceiling(load_gold(args.gold))
     total = result["gold_source_turns"]
-    need = -(-int(total * args.target * 100) // 100)
-    print(f"Turnos no gabarito: {total}")
+    dublavel = result["dublavel_turns"]
+    need = -(-int(dublavel * args.target * 100) // 100)
+    print(f"Turnos no gabarito: {total}, dos quais {dublavel} sao dublaveis "
+          f"({total - dublavel} figurantes de uma cena so, que nao ganham voz).")
     print(f"Teto com oraculo perfeito, comparacao literal:    "
           f"{result['literal_ceiling']}/{total} ({result['literal_ceiling_accuracy'] * 100:.2f}%)")
     print(f"Teto com oraculo perfeito, comparacao por identidade: "
           f"{result['identity_ceiling']}/{total} ({result['identity_ceiling_accuracy'] * 100:.2f}%)")
-    print(f"Meta de {args.target * 100:.0f}% exige {need} turnos.")
-    if result["identity_ceiling"] < need:
+    print(f"Teto sobre os dublaveis: {result['dublavel_ceiling']}/{dublavel}")
+    print(f"Meta de {args.target * 100:.0f}% sobre dublaveis exige {need} turnos.")
+    if result["dublavel_ceiling"] < need:
         print("\nA META NAO E ALCANCAVEL com este gabarito e estas regras de nomenclatura.")
         print("Rotulos que um oraculo perfeito ainda erraria:")
         for item in result["unreachable_labels"]:

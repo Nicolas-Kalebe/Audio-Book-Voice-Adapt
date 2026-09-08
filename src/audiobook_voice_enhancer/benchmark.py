@@ -166,11 +166,22 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
                             for key, value in gold.get("expected_fragment_count_overrides", {}).items()})
     text_expectations = {int(key): str(value)
                          for key, value in gold.get("boundary_text_expectations", {}).items()}
+    figurante_labels = {_fold(label) for label in (gold.get("anonymous_role_labels") or [])}
+
+    def turn_class(expected: str) -> str:
+        """Figurante de uma cena so nao ganha voz; nao entra na conta que decide
+        o produto. Decisao do proprietario em 08/09/2026."""
+        return "figurante" if _fold(expected) in figurante_labels else "dublavel"
+
     total_source_turns = len(turns)
     assigned = 0
     correct = 0
     identity_correct = 0
+    wrong_turns = 0
+    identity_wrong = 0
+    abstained = 0
     literal_only_misses: list[dict[str, Any]] = []
+    by_class: dict[str, Counter[str]] = {"dublavel": Counter(), "figurante": Counter()}
     correct_and_complete = 0
     wrong: list[dict[str, Any]] = []
     confusion: Counter[tuple[str, str]] = Counter()
@@ -189,6 +200,8 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     for key, turn in ordered_turns:
         scene_counter = scene_counts[scene_for(turn["paragraph"])]
         scene_counter["total"] += 1
+        klass = by_class[turn_class(turn["speaker"])]
+        klass["total"] += 1
         split_name = next((name for name, scenes in split_scenes.items()
                            if scene_for(turn["paragraph"]) in scenes), None)
         if split_name:
@@ -203,6 +216,7 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
             dynamically_missing.append({"id": turn["id"], "book_paragraph_id": turn["paragraph"],
                                         "speaker": expected, "text": turn.get("text", "")})
             confusion[(expected, "NAO DETECTADA")] += 1
+            klass["missing"] += 1
             continue
         detected_turns += 1
         scene_counter["detected"] += 1
@@ -210,11 +224,19 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
             split_counts[split_name]["detected"] += 1
         primary = next((item for item in items if int(item.get("fragment_index", 0)) == 0), items[0])
         predicted = primary.get("speaker")
+        klass["detected"] += 1
         if predicted:
             scene_counter["assigned"] += 1
             assigned += 1
+            klass["assigned"] += 1
             if split_name:
                 split_counts[split_name]["assigned"] += 1
+        else:
+            # Abster nao e erro: e a saida segura do produto, que mantem a voz
+            # do narrador. Fica contada em separado, nunca somada com a troca
+            # de voz errada.
+            abstained += 1
+            klass["abstained"] += 1
         is_correct = _fold(predicted) == _fold(expected)
         if turn["acceptable"] and _fold(predicted) in turn["acceptable"]:
             is_correct = True
@@ -224,9 +246,15 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         by_identity = is_correct or same_identity(predicted, expected)
         if by_identity:
             identity_correct += 1
+            klass["correct_identity"] += 1
             if not is_correct:
                 literal_only_misses.append({"id": turn["id"], "paragraph": turn["paragraph"],
                                             "expected": expected, "predicted": predicted})
+        elif predicted:
+            identity_wrong += 1
+            klass["wrong_identity"] += 1
+        if predicted and not is_correct:
+            wrong_turns += 1
 
         expected_count = expected_counts.get(turn["paragraph"], 1)
         indices = {int(item.get("fragment_index", 0)) for item in items}
@@ -245,6 +273,7 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         if is_correct:
             scene_counter["correct"] += 1
             correct += 1
+            klass["correct"] += 1
             if split_name:
                 split_counts[split_name]["correct"] += 1
             per_speaker_correct[expected] += 1
@@ -311,6 +340,22 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         "speaker_correct_turns_by_identity": identity_correct,
         "end_to_end_accuracy_by_identity": identity_correct / total_source_turns,
         "literal_only_misses": literal_only_misses,
+        # Desfecho em tres, nunca em dois: trocar a voz errada e abster sao
+        # coisas diferentes para quem escuta, e so uma delas e defeito.
+        "speaker_wrong_turns": wrong_turns,
+        "speaker_wrong_turns_by_identity": identity_wrong,
+        "speaker_abstained_turns": abstained,
+        "precision_when_assigned_by_identity": identity_correct / assigned if assigned else 0.0,
+        "by_class": [{
+            "class": name, "total": counts["total"], "detected": counts["detected"],
+            "assigned": counts["assigned"], "abstained": counts["abstained"],
+            "missing": counts["missing"], "correct": counts["correct"],
+            "correct_by_identity": counts["correct_identity"],
+            "wrong_by_identity": counts["wrong_identity"],
+            "precision_by_identity": (counts["correct_identity"] / counts["assigned"]
+                                      if counts["assigned"] else 0.0),
+            "coverage": counts["assigned"] / counts["total"] if counts["total"] else 0.0,
+        } for name, counts in by_class.items()],
         "speaker_accuracy_all_detected": correct / detected_turns,
         "speaker_accuracy_when_assigned": correct / assigned if assigned else 0.0,
         "automatic_attribution_coverage": assigned / detected_turns,
@@ -358,7 +403,8 @@ def render_markdown(result: dict[str, Any]) -> str:
         f"({pct(result['speaker_accuracy_all_detected'])}).",
         f"- Acuracia apenas entre respostas emitidas: **{pct(result['speaker_accuracy_when_assigned'])}**.",
         f"- Acuracia ponta a ponta: **{result['speaker_correct_turns']}/{result['gold_source_turns']}** "
-        f"({pct(result['end_to_end_accuracy'])}).",
+        f"({pct(result['end_to_end_accuracy'])}) — comparacao literal, abstencao contada como erro. "
+        f"Metrica historica, mantida para comparar com as rodadas antigas.",
         f"- Acuracia ponta a ponta por identidade: **{result.get('speaker_correct_turns_by_identity', 0)}/"
         f"{result['gold_source_turns']}** ({pct(result.get('end_to_end_accuracy_by_identity', 0))}) "
         f"— conta como acerto o papel anonimo descrito com outras palavras; "
@@ -366,8 +412,27 @@ def render_markdown(result: dict[str, Any]) -> str:
         f"- Personagem e limite ambos corretos: **{result['speaker_correct_and_complete_turns']}/"
         f"{result['gold_source_turns']}** ({pct(result['speaker_and_boundary_end_to_end_accuracy'])}).",
         "",
-        "A metrica principal e a acuracia ponta a ponta: omissoes e recusas contam como erro. "
-        "Acuracia apenas entre respostas emitidas pode parecer boa mesmo com baixa cobertura.",
+        "",
+        "## O que decide o produto",
+        "",
+        "Regra do proprietario, 08/09/2026: **e melhor nao trocar uma voz do que trocar errado** — "
+        "sem certeza, o turno fica sem atribuicao e mantem a voz do narrador. Logo abstencao **nao** "
+        "e erro, e sim a saida segura; o defeito e a voz trocada errada. E **figurante de uma cena so "
+        "nao precisa de voz**, entao esses turnos saem da conta que decide o produto.",
+        "",
+        f"- Voz trocada errada: **{result.get('speaker_wrong_turns_by_identity', 0)}** turnos. "
+        f"Este e o unico numero que representa defeito audivel.",
+        f"- Sem atribuicao (mantem o narrador): **{result.get('speaker_abstained_turns', 0)}** turnos.",
+        f"- Precisao sobre o que foi atribuido: **{pct(result.get('precision_when_assigned_by_identity', 0))}**.",
+        "",
+        "| Classe | Total | Atribuidos | Corretos | Errados | Sem atribuicao | Precisao | Cobertura |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        *[f"| {item['class']} | {item['total']} | {item['assigned']} | {item['correct_by_identity']} | "
+          f"{item['wrong_by_identity']} | {item['abstained']} | {pct(item['precision_by_identity'])} | "
+          f"{pct(item['coverage'])} |" for item in result.get("by_class", [])],
+        "",
+        "A linha `dublavel` e a que vale. `figurante` fica visivel para auditoria, nunca escondida, "
+        "mas nenhum desses turnos vira voz nova.",
         "",
         "## Por personagem ou papel",
         "",

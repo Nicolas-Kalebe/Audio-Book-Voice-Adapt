@@ -50,6 +50,7 @@ def main() -> int:
     analysis = json.loads(args.analysis.read_text(encoding="utf-8"))
     metrics = analysis.get("benchmark") or evaluate(gold, analysis)
     anonymous = {str(label) for label in (gold.get("anonymous_role_labels") or [])}
+    klass = lambda expected: "figurante" if expected in anonymous else "dublavel"
 
     scene_of = {}
     for chapter in analysis.get("files", []):
@@ -69,6 +70,7 @@ def main() -> int:
             "id": item["id"], "esperado": item["expected"],
             "emitido": item["predicted"] or "", "acertou_literal": 0,
             "acertou_identidade": int(saved), "sugestao_da_ia": item.get("suggestion") or "",
+            "classe": klass(item["expected"]),
             "familia": "so_o_rotulo_difere" if saved
                        else family(item["expected"], item["predicted"], anonymous),
             "texto": (item.get("text") or "").replace("\n", " ")[:200],
@@ -78,7 +80,7 @@ def main() -> int:
             "paragrafo": item["book_paragraph_id"], "cena": scene_of.get(item["book_paragraph_id"], ""),
             "id": item["id"], "esperado": item["speaker"], "emitido": "NAO DETECTADA",
             "acertou_literal": 0, "acertou_identidade": 0, "sugestao_da_ia": "",
-            "familia": "nao_detectada",
+            "classe": klass(item["speaker"]), "familia": "nao_detectada",
             "texto": (item.get("text") or "").replace("\n", " ")[:200],
         })
     # Os acertos entram tambem: sem eles nao da para fatiar por cena nem por
@@ -95,7 +97,8 @@ def main() -> int:
                 "paragrafo": paragraph, "cena": scene_of.get(paragraph, ""),
                 "id": str(item["id"]), "esperado": item["speaker"], "emitido": item["speaker"],
                 "acertou_literal": 1, "acertou_identidade": 1,
-                "sugestao_da_ia": item.get("llm_suggestion") or "", "familia": "correto",
+                "sugestao_da_ia": item.get("llm_suggestion") or "",
+                "classe": klass(item["speaker"]), "familia": "correto",
                 "texto": (item.get("text") or "").replace("\n", " ")[:200],
             })
     rows.sort(key=lambda row: (str(row["cena"]), row["paragrafo"]))
@@ -109,11 +112,20 @@ def main() -> int:
         writer.writerows(rows)
 
     total = metrics["gold_source_turns"]
-    print(f"Corretas (literal):    {metrics['speaker_correct_turns']}/{total} "
+    print("O QUE DECIDE O PRODUTO — voz errada e o defeito; abster mantem o narrador")
+    print(f"  Voz trocada errada:      {metrics.get('speaker_wrong_turns_by_identity', 0):3d} turnos")
+    print(f"  Sem atribuicao (seguro): {metrics.get('speaker_abstained_turns', 0):3d} turnos")
+    for item in metrics.get("by_class", []):
+        print(f"  {item['class']:10s} precisao {item['precision_by_identity'] * 100:6.2f}%  "
+              f"cobertura {item['coverage'] * 100:6.2f}%  "
+              f"({item['correct_by_identity']} certos, {item['wrong_by_identity']} errados, "
+              f"{item['abstained']} sem atribuicao, de {item['total']})")
+    print(f"\nMetrica historica (abstencao contada como erro):")
+    print(f"  literal    {metrics['speaker_correct_turns']}/{total} "
           f"({metrics['end_to_end_accuracy'] * 100:.2f}%)")
     identity = metrics.get("speaker_correct_turns_by_identity")
     if identity is not None:
-        print(f"Corretas (identidade): {identity}/{total} "
+        print(f"  identidade {identity}/{total} "
               f"({metrics['end_to_end_accuracy_by_identity'] * 100:.2f}%)")
     print(f"\n{len(rows)} turnos para revisar em {args.output}\n")
     print("Familia do erro                 Turnos")

@@ -108,6 +108,32 @@ próxima rodada fria tem de reestabelecer a linha de base sob a métrica corrigi
 fica indistinguível do ganho desta correção. Comando único e ganho
 pré-registrado em [`../RODAR.md`](../RODAR.md).
 
+## As duas decisões do proprietário — 8 de setembro de 2026
+
+Depois de ver este diagnóstico, o proprietário decidiu duas coisas que mudam o
+que o placar mede:
+
+**1. "É melhor que não mude uma voz se não tem certeza. Deixe sem atribuição."**
+Abstenção deixa de ser erro e passa a ser a saída segura: o turno mantém a voz do
+narrador. O único defeito que conta é voz trocada errada. Isto resolve a
+contradição que quatro das sete vozes do conselho apontaram — o `AGENTS.md` mandava
+contar omissão como erro enquanto o `TECHNICAL_DECISIONS.md` dizia que voz errada
+é pior que voz original; juntas, as duas obrigavam o modelo a chutar.
+
+A trava contra o abuso óbvio (abster em tudo para a precisão parecer alta) passa a
+ser a **cobertura**, medida ao lado da precisão. Antes esse papel era da proibição
+de "filtros de conversão".
+
+**2. "Figurante de uma cena só não precisa de voz."**
+`classify_anonymous` marca como `figurante` toda descrição anônima que aparece numa
+cena só, e o planejador registra isso como motivo explícito de não converter em vez
+de deixar o turno parecendo falha de identificação. Descrição que reaparece em
+outra cena vira `anonimo_recorrente` e continua elegível, ainda dependendo de
+configuração explícita.
+
+O denominador que decide o produto caiu de 255 para **213 turnos dubláveis**; os 42
+figurantes ficam visíveis na linha `figurante` do placar, nunca escondidos.
+
 ## A lição de método
 
 Rodar `scripts/gold_ceiling.py` custa trinta segundos e não precisa de GPU.

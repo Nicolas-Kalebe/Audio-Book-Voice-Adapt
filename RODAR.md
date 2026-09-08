@@ -52,18 +52,31 @@ problema, apague a coluna `texto` antes de mandar — o resto basta.
 
 ## Ganho pré-registrado
 
-Escrito **antes** de ver o resultado, para o número não ser explicado depois:
+Escrito **antes** de ver o resultado, para o número não ser explicado depois.
 
-| Faixa (coluna por identidade) | Leitura |
+A régua mudou em 08/09/2026 por decisão sua: abstenção é a saída segura, não
+erro, e figurante de uma cena só sai da conta. O placar agora lidera com o par
+**precisão × cobertura** sobre os **213 turnos dubláveis** (os outros 42 são
+figurante).
+
+| Precisão sobre dubláveis | Leitura |
 |---|---|
-| **188–205 / 255** | Esperado. A correção liberou os papéis anônimos que o motor já reconhecia. |
-| **> 205 / 255** | Melhor que o previsto. |
-| **178–187 / 255** | A correção mal moveu: o motor reconhece o papel anônimo pior do que eu supus. |
-| **≤ 177 / 255** | Regressão. A fusão de anônimos por descrição está juntando gente diferente — reverter com `anonymous_scope: mention`. |
+| **80–90%** | Esperado. A correção de rótulo liberou os papéis que o motor já reconhecia. |
+| **> 90%** | Melhor que o previsto; o gargalo restante é cobertura, não troca errada. |
+| **< 80%** | O motor troca voz errada demais. É aí que entram guarda de vocativo e alternância. |
 
-A coluna literal também aparece no placar. Ela vai continuar mais baixa que a de
-identidade; a diferença entre as duas é a lista `literal_only_misses`, e cada
-turno dela deve ser auditado antes de virar acerto oficial.
+| Cobertura sobre dubláveis | Leitura |
+|---|---|
+| **85–95%** | Esperado, dado o limiar de 0,90 do compacto. |
+| **< 80%** | Está abstendo demais: baixar o limiar rende mais que regra nova. |
+
+A **voz trocada errada** é o número que representa defeito audível. Se ele cair
+abaixo de 20 turnos, o produto já está utilizável mesmo antes dos 90%.
+
+As duas métricas históricas (literal e por identidade, com abstenção contada como
+erro) continuam no placar para comparar com as rodadas antigas. **A de identidade
+deve ficar entre 188 e 205 de 255**; abaixo de 178 é regressão, e reverte com
+`anonymous_scope: mention`.
 
 ## Conferir o teto antes de qualquer campanha
 
