@@ -7,7 +7,8 @@ from .alignment import map_phrase_to_words, normalize
 
 
 DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v27-auditable-recovery"
-SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
+SPEECH_VERBS = (r"esbravejou|bradou|piou|piaram|apoiaram|apoiou|indagou|indagaram|vociferou|"
+                r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                 r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
                 r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
                 r"protestou|refutou|concordou|discordou|admitiu|explicou|esclareceu|resmungou|"
@@ -35,6 +36,15 @@ ROLE = (r"artesã|artesão|artista|anão|anã|bardo|bruxo|bruxa|cavaleiro|cavale
         r"albergueiro|albergueira|filhas?")
 ROLE_SPEECH_VERB = rf"(?:{SPEECH_VERB}|piou|piaram|latiu|apoiaram|indagou)"
 NON_NAMES = {"a", "as", "e", "ele", "ela", "em", "eu", "o", "os", "the", "um", "uma", "você", "vocês"}
+# Palavras que NAO podem separar o verbo de fala do nome. Sem esta lista,
+# "disse que Ana estava certa" ancoraria a fala na Ana, que so e assunto.
+ATTR_STOPWORDS = (r"que|se|para|por|com|sem|como|quando|porque|enquanto|então|entao|ao|aos|à|às|"
+                  r"de|do|da|dos|das|em|no|na|nos|nas|e|mas|ou|lhe|lhes|me|te|ele|ela|eles|elas|"
+                  r"isso|isto|aquilo|tudo|nada|muito|pouco|mais|menos|já|ja|ainda|só|so|também|"
+                  r"tambem|depois|antes|logo|num|numa|nuns|numas|um|uma|uns|umas|seu|sua|meu|minha")
+# Cargo ou titulo entre o artigo e o nome: "observou o chanceler Vilibert".
+# E construcao comum em portugues, e sem ela o falante fica sem ancora nenhuma.
+TITLE_GAP = rf"(?:(?!(?i:{ATTR_STOPWORDS})\b)[a-zà-ÿ][\wà-ÿ'-]+\s+){{0,2}}"
 
 
 def _is_possessed_name(prefix: str) -> bool:

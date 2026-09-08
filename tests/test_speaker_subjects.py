@@ -93,20 +93,34 @@ def test_compact_reference_option_keeps_schema_and_known_candidates(tmp_path):
     assert result['entities'][result['turns'][1]['speaker_entity_id']]['name'] == 'Luma'
 
 
-def test_plain_compact_remains_an_unchanged_control(tmp_path):
+def test_plain_compact_now_anchors_the_name_behind_a_title(tmp_path):
+    """"disse a capitã Luma" ancora sozinho, sem a opcao source_subjects.
+
+    Era esta descoberta que justificava o `source_subjects`, e ele a pagava caro:
+    oferecia tambem as descricoes sem nome como candidatos, e o modelo passou a
+    tratar cada uma como pessoa nova. A ancora resolve a metade que funciona —
+    cargo entre o artigo e o nome — sem a metade que fragmentava identidades.
+
+    O turno nao carrega `source_subject` e o protocolo segue sendo o compacto:
+    prompt e schema intactos, uma chamada por janela.
+    """
     model = build_book(['— Abra — disse a capitã Luma.'])
+    seen = {}
+
     class Provider(LLMProvider):
         model = 'plain-control-fixture'
 
         def infer(self, payload):
             assert self.system_prompt == SYSTEM and self.response_schema == SCHEMA
             assert 'source_subject' not in payload['turns'][0]
-            assert payload['entities'] == []
+            seen['entities'] = payload['entities']
             return {'entities': [], 'assignments': []}
 
     result = review_book(model, Provider(), Cache(tmp_path), protocol='compact')
     assert result['review']['errors'] == []
-    assert result['turns'][0]['speaker_entity_id'] is None
+    assert [e['name'] for e in seen['entities']] == ['Luma']
+    assert result['turns'][0]['status'] == 'explicit'
+    assert model['entities'][result['turns'][0]['speaker_entity_id']]['name'] == 'Luma'
 
 
 def test_reference_option_cannot_silently_run_with_another_protocol(tmp_path):

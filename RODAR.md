@@ -6,6 +6,32 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 8 de setembro de 2026 — âncora atravessa o cargo até o nome
+
+- A regex de atribuição só aceitava `verbo + artigo + Nome`. O livro escreve
+  `observou o chanceler Vilibert`, com **cargo no meio**, e isso deixava o
+  falante sem âncora nenhuma. `TITLE_GAP`, em `dialogue.py`, atravessa até duas
+  palavras que não sejam funcionais.
+- Cinco verbos de fala entraram: `esbravejou`, `bradou`, `indagou`, `piaram`,
+  `apoiaram`, `vociferou`, `apoiou`, `indagaram`.
+- **Âncoras corretas: 35 → 46. Falsas: 1 → 0.**
+- Reaplicado sobre a rodada fria: precisão **93,17% → 95,15%** (estimado),
+  cobertura 96,71%. **Precisa de rodada fria para confirmar**, porque âncora nova
+  muda o payload do modelo.
+- Efeito colateral: o `compact` puro passou a descobrir o nome atrás do título, que
+  era o que o experimento `source_subjects` tentava — sem a parte dele que
+  fragmentava identidades. `tests/test_speaker_subjects.py` foi atualizado.
+
+### 8 de setembro de 2026 — as duas rodadas frias voltaram
+
+| | Precisão | Cobertura | Corretos | Errados |
+|---|---:|---:|---:|---:|
+| `--no-turn-consistency` | 87,02% | 97,65% | 181 | 27 |
+| com as regras | **93,17%** | 96,24% | 191 | 14 |
+
+As duas reproduzem exatamente a simulação offline, e o resultado caiu dentro da
+faixa pré-registrada de 92–94%.
+
 ### 8 de setembro de 2026 — regras de coerência de turno
 
 - `turn_consistency.py`: duas regras aplicadas **depois** que o modelo responde.
@@ -95,29 +121,23 @@ o triplo da folga — abster para não errar deixou de ser de graça.
 
 ## Ganho pré-registrado da PRÓXIMA rodada
 
-A rodada de 08/09 já voltou: 85,10% de precisão e 97,65% de cobertura sobre os
-dubláveis (ver `docs/RESULTADO-PART01.md`). Sobre ela foram aplicadas as regras
-de coerência, medidas offline em `scripts/simulate_rules.py`.
-
-A próxima rodada fria tem de confirmar, com o modelo no laço:
+A próxima rodada mede o **conserto da âncora**. Escrito antes de ver o resultado:
 
 | Precisão sobre dubláveis | Leitura |
 |---|---|
-| **92–94%** | Esperado: reproduz a medição offline. |
-| **≥95%** | Meta batida nesse lado. |
-| **87–92%** | As regras rendem menos com o modelo no laço do que na simulação. |
-| **< 87%** | Regressão. Desligar com `--no-turn-consistency` e comparar. |
+| **94–96%** | Esperado: confirma a estimativa de 95,15%. |
+| **≥95%** | Meta batida. |
+| **93%** | As âncoras novas não renderam com o modelo no laço; nada regrediu. |
+| **< 93%** | Regressão: âncora nova confundiu o modelo em outros turnos. |
 
-| Cobertura sobre dubláveis | Leitura |
-|---|---|
-| **96–98%** | Esperado. |
-| **< 95%** | A regra de vocativo está abstendo demais. |
+Cobertura esperada **96–98%**. Se cair abaixo de 95%, alguma âncora nova está
+entrando em conflito e virando abstenção.
 
-Rode **as duas**, em pastas diferentes, para isolar o efeito das regras:
+Rode as duas, em pastas novas:
 
 ```powershell
-... --protocol compact --output output\com-regras-<data>
-... --protocol compact --no-turn-consistency --output output\sem-regras-<data>
+... --protocol compact --output output\ancora-com-regras-<data>
+... --protocol compact --no-turn-consistency --output output\ancora-sem-regras-<data>
 ```
 
 ## Conferir o teto antes de qualquer campanha

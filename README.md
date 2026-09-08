@@ -18,9 +18,15 @@ comando, e o que mandar de volta. O que mudou e por quê fica em
 | Cobertura sobre falas dubláveis | **96,24%** | 95% |
 | Detecção das falas | 253/255 (99,2%) | resolvido |
 
-Os números vêm da rodada fria de 08/09 (`--protocol compact`, Qwen 3 8B local)
-com as regras de coerência aplicadas em cima. A cobertura já bate a meta; falta
-precisão, e **faltam 4 acertos**.
+Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
+com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem
+exatamente a simulação offline.
+
+> **Pendente de confirmação:** o conserto do parser de âncoras (cargo entre o
+> artigo e o nome) levou as âncoras corretas de 35 para 46, sem nenhuma falsa.
+> Reaplicado sobre a rodada fria, dá **95,15% de precisão e 96,71% de cobertura**
+> — a meta. É estimativa: âncora nova muda o que o modelo recebe, então os outros
+> turnos podem se mexer. **A próxima rodada fria decide.**
 
 ### Duas regras de produto que mandam em tudo
 
@@ -34,12 +40,23 @@ precisão, e **faltam 4 acertos**.
 As duas estão em [AGENTS.md](AGENTS.md) e substituem a regra antiga, que mandava
 contar omissão como erro e perseguir 90% sobre todas as 255 falas.
 
-### O que falta, e a causa tem nome
+### O que faltava, e a causa tinha nome
 
-Dos 20 turnos ainda pendentes, **12 estão na cena do carvalho**: o parser não
-encontra **nenhuma âncora explícita de fala para o Vilibert** no livro inteiro
-(`disse Sheldon` aparece 8 vezes, `disse Vilibert` nenhuma), então o modelo
-entrega as falas dele a quem tem âncora.
+Doze dos vinte turnos pendentes estavam na cena do carvalho, e **não era o
+modelo**: o livro atribui as falas do Vilibert todas as vezes — `observou o
+chanceler Vilibert`, `urrou o chanceler Vilibert` — e o parser não enxergava,
+porque a regex de âncora só aceitava `verbo + artigo + Nome` e ali há um **cargo
+no meio**. Sem âncora, o modelo entregava as falas dele a quem tinha.
+
+Consertado, junto com cinco verbos de fala que faltavam (`esbravejou`, `bradou`,
+`indagou`, `piaram`, `apoiaram`). O risco do conserto é o oposto — aceitar
+palavra demais faria `disse que Ana estava certa` ancorar na Ana — e por isso há
+uma lista de palavras funcionais e `tests/test_ancora_com_titulo.py`.
+
+Sobra a coreferência por descrição: `sorriu o feiticeiro`, `refutou a guerreira`,
+`retrucou o anão`. São cinco turnos, e exigem ligar a descrição ao nome que o
+próprio texto já apresentou (`o feiticeiro Radcliffe` ensina quem é `o
+feiticeiro`). Ainda não feito.
 
 ### Antes de qualquer campanha com GPU
 

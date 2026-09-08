@@ -64,6 +64,46 @@ exatamente isso.
 Os outros dois grupos: quatro na cena 12 e quatro na cena 13, onde três já viraram
 abstenção pela regra de vocativo — que é o comportamento pedido, não defeito.
 
+## Confirmação: as duas rodadas frias
+
+O proprietário rodou com e sem as regras, cache vazio nas duas:
+
+| | Precisão | Cobertura | Corretos | Errados | Sem atribuição |
+|---|---:|---:|---:|---:|---:|
+| `--no-turn-consistency` | 87,02% | 97,65% | 181 | 27 | 3 |
+| com as regras | **93,17%** | 96,24% | 191 | 14 | 6 |
+
+Batem **exatamente** com a simulação offline, o que era esperado: as regras são
+pós-processamento determinístico. O resultado caiu dentro da faixa pré-registrada
+de 92–94%.
+
+## A causa dos 12 erros da cena do carvalho não era o modelo
+
+O livro atribui as falas do Vilibert **todas as vezes**:
+
+```
+P92:  — Comenta-se – observou o chanceler Vilibert – que Yennefer…
+P116: — Tenho de admitir – falou o chanceler Vilibert…
+P120: — Querem nosso sangue! – urrou o chanceler Vilibert.
+P134: — Nilfgaard é governado… – esbravejou o chanceler Vilibert.
+```
+
+A regex de âncora aceitava `verbo + artigo + Nome`. Aqui há um **cargo entre o
+artigo e o nome**, e ela não atravessava. Resultado: o Vilibert não recebia uma
+única atribuição explícita no livro inteiro, e o modelo entregava as falas dele a
+quem tinha âncora — `disse Sheldon` aparece 8 vezes.
+
+Corrigido com `TITLE_GAP` (até duas palavras não funcionais entre o artigo e o
+nome) mais os verbos que faltavam. **Âncoras corretas: 35 → 46. Falsas: 1 → 0.**
+
+Reaplicado sobre a rodada fria: **95,15% de precisão, 96,71% de cobertura**. É
+estimativa — âncora nova muda o payload do modelo, então os outros turnos podem
+se mexer — e a próxima rodada fria decide.
+
+Sobram cinco turnos de coreferência por descrição (`sorriu o feiticeiro`,
+`refutou a guerreira`, `retrucou o anão`), que exigem ligar a descrição ao nome
+que o próprio texto apresentou.
+
 ## Limite honesto destes números
 
 As regras foram ajustadas **contra o mesmo gabarito que as pontua**. Foram 13

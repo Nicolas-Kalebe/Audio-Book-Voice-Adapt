@@ -13,7 +13,7 @@ import unicodedata
 from typing import Any
 
 from .book_inventory import dialogue_inventory
-from .dialogue import NAME, SPEECH_VERB, _scene_numbers
+from .dialogue import NAME, SPEECH_VERB, TITLE_GAP, _scene_numbers
 from .llm import _confidence, cached_infer
 
 VERSION = "book-speakers-v3-complete-turn-context"
@@ -195,7 +195,8 @@ def build_book(blocks: list[str], aliases: dict[str, str] | None = None,
         model["scenes"].append({"id": scene, "first_paragraph": min(ids), "last_paragraph": max(ids)})
     # Only grammatical speech tags are automatic anchors. Action proximity is
     # contextual evidence for the language model, not an identity rule here.
-    after = re.compile(rf"\b(?i:{SPEECH_VERB})\s+(?:(?i:o|a|the)\s+)?(?P<name>{NAME})(?=$|[\s,.!?;:—–])")
+    after = re.compile(rf"\b(?i:{SPEECH_VERB})\s+(?:(?i:o|a|os|as|the)\s+)?{TITLE_GAP}"
+                       rf"(?P<name>{NAME})(?=$|[\s,.!?;:—–])")
     before = re.compile(rf"(?P<name>{NAME})\s+(?i:{SPEECH_VERB})\s*:")
     named_mentions: list[tuple[str, dict]] = []
     for paragraph, block in enumerate(blocks):
