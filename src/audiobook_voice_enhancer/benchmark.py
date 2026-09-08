@@ -19,6 +19,36 @@ def _text_key(value: str | None) -> str:
     return " ".join(re.findall(r"\w+", _fold(value)))
 
 
+# Palavras funcionais: nao distinguem uma pessoa de outra dentro de uma descricao.
+ROLE_STOPWORDS = {"a", "as", "o", "os", "um", "uma", "uns", "umas", "de", "do", "da",
+                  "dos", "das", "e", "com", "que", "the", "of", "and", "with"}
+
+
+def _role_key(value: str | None) -> str:
+    """Compara papeis anonimos por identidade, nao por grafia.
+
+    Remove o desambiguador entre colchetes que o motor anexa quando dois rotulos
+    colidem, dobra acentos, ignora artigos/preposicoes e a ordem das palavras.
+    Nao aproxima descricoes diferentes: 'elfo alto' e 'elfo louro' seguem distintos.
+    """
+    stripped = re.sub(r"\s*\[[^\]]*\]\s*$", "", value or "")
+    words = sorted(word for word in re.findall(r"\w+", _fold(stripped))
+                   if word not in ROLE_STOPWORDS)
+    return " ".join(words)
+
+
+def _role_aliases(gold: dict[str, Any]) -> dict[str, set[str]]:
+    """Descritores do livro que um humano aceitou como o mesmo papel do gabarito.
+
+    Cada entrada e uma decisao revisada e congelada, escrita no gabarito antes da
+    rodada. Nao ha reconciliacao automatica depois de ver as respostas do modelo.
+    """
+    table: dict[str, set[str]] = {}
+    for label, accepted in (gold.get("role_aliases") or {}).items():
+        table[_fold(label)] = {_role_key(label), *(_role_key(item) for item in accepted)}
+    return table
+
+
 def load_gold(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
@@ -52,6 +82,16 @@ def _flatten_gold(gold: dict[str, Any]) -> tuple[dict[str, str], dict[str, str],
 
 def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     spoken, non_spoken, acceptable = _flatten_gold(gold)
+    role_aliases = _role_aliases(gold)
+
+    def same_identity(predicted: str | None, expected: str) -> bool:
+        """Igualdade por identidade: mesma pessoa, escrita de outro jeito."""
+        if not predicted:
+            return False
+        key = _role_key(predicted)
+        return bool(key) and (key == _role_key(expected)
+                              or key in role_aliases.get(_fold(expected), set()))
+
     files = analysis.get("files", [])
     candidates = [item for file_result in files for item in file_result.get("dialogues", [])]
     by_id = {str(item["id"]): item for item in candidates}
@@ -129,6 +169,8 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     total_source_turns = len(turns)
     assigned = 0
     correct = 0
+    identity_correct = 0
+    literal_only_misses: list[dict[str, Any]] = []
     correct_and_complete = 0
     wrong: list[dict[str, Any]] = []
     confusion: Counter[tuple[str, str]] = Counter()
@@ -176,6 +218,15 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         is_correct = _fold(predicted) == _fold(expected)
         if turn["acceptable"] and _fold(predicted) in turn["acceptable"]:
             is_correct = True
+        # Pontuacao por identidade, ao lado da literal e nunca no lugar dela.
+        # Um papel anonimo escrito com outras palavras conta como acerto aqui e
+        # como erro na coluna literal; as duas ficam visiveis no relatorio.
+        by_identity = is_correct or same_identity(predicted, expected)
+        if by_identity:
+            identity_correct += 1
+            if not is_correct:
+                literal_only_misses.append({"id": turn["id"], "paragraph": turn["paragraph"],
+                                            "expected": expected, "predicted": predicted})
 
         expected_count = expected_counts.get(turn["paragraph"], 1)
         indices = {int(item.get("fragment_index", 0)) for item in items}
@@ -257,6 +308,9 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         "complete_turn_recall": complete_detected_turns / total_source_turns,
         "speaker_assigned_turns": assigned,
         "speaker_correct_turns": correct,
+        "speaker_correct_turns_by_identity": identity_correct,
+        "end_to_end_accuracy_by_identity": identity_correct / total_source_turns,
+        "literal_only_misses": literal_only_misses,
         "speaker_accuracy_all_detected": correct / detected_turns,
         "speaker_accuracy_when_assigned": correct / assigned if assigned else 0.0,
         "automatic_attribution_coverage": assigned / detected_turns,
@@ -305,6 +359,10 @@ def render_markdown(result: dict[str, Any]) -> str:
         f"- Acuracia apenas entre respostas emitidas: **{pct(result['speaker_accuracy_when_assigned'])}**.",
         f"- Acuracia ponta a ponta: **{result['speaker_correct_turns']}/{result['gold_source_turns']}** "
         f"({pct(result['end_to_end_accuracy'])}).",
+        f"- Acuracia ponta a ponta por identidade: **{result.get('speaker_correct_turns_by_identity', 0)}/"
+        f"{result['gold_source_turns']}** ({pct(result.get('end_to_end_accuracy_by_identity', 0))}) "
+        f"— conta como acerto o papel anonimo descrito com outras palavras; "
+        f"{len(result.get('literal_only_misses', []))} turnos separam as duas colunas.",
         f"- Personagem e limite ambos corretos: **{result['speaker_correct_and_complete_turns']}/"
         f"{result['gold_source_turns']}** ({pct(result['speaker_and_boundary_end_to_end_accuracy'])}).",
         "",

@@ -26,6 +26,29 @@ split:
 # Anotacao feita a partir do texto literario e de suas atribuicoes narrativas.
 # Os IDs sao os IDs do relatorio atual. Agrupar por falante deixa o arquivo
 # revisavel sem copiar o texto protegido do livro para o repositorio.
+# Rotulos que descrevem um papel, nao um nome proprio. Servem para calcular o teto
+# do gabarito (scripts/gold_ceiling.py) e para a coluna de acerto por identidade.
+anonymous_role_labels:
+  - Elfo alto e louro
+  - Gnomo dos artigos metalicos
+  - Cavaleiro de Cintra nao identificado
+  - Sacerdote gordo
+  - Guerreiro ruivo de Skellige
+  - Filhas de Vilibert
+  - Druida grisalho
+  - Elfa do gorro de arminho
+  - Jovem aprendiz de artesao
+  - Taberneiro
+  - Membro anonimo da multidao
+  - Campones anonimo
+  - Capanga de Rience com lanterna
+  - Bruxo nao identificado de Kaer Morhen
+
+# Descritores do livro aceitos por revisao humana como o mesmo papel acima.
+# Cada linha e uma decisao congelada, escrita ANTES da rodada. Preencher apos ler
+# o texto; nunca depois de ver as respostas do modelo.
+role_aliases: {}
+
 spoken_by:
   Geralt:
     - 40-0

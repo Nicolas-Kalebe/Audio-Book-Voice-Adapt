@@ -9,6 +9,7 @@ import copy
 import hashlib
 import re
 import time
+import unicodedata
 from typing import Any
 
 from .book_inventory import dialogue_inventory
@@ -53,6 +54,25 @@ def _key(value: str) -> str:
     return " ".join(value.split()).casefold()
 
 
+# Palavras funcionais: nao distinguem uma pessoa de outra dentro de uma descricao.
+ROLE_STOPWORDS = {"a", "as", "o", "os", "um", "uma", "uns", "umas", "de", "do", "da",
+                  "dos", "das", "e", "com", "que", "the", "of", "and", "with"}
+
+
+def _role_key(value: str) -> str:
+    """Chave de correferencia para descricoes anonimas dentro de uma cena.
+
+    Dobra acentos, ignora artigos/preposicoes e a ordem das palavras, de modo que
+    'o elfo alto e louro' e 'elfo louro, alto' sejam a mesma pessoa. Nao funde
+    descricoes diferentes e nao infere correferencia por profissao: 'elfo alto' e
+    'elfo louro' continuam sendo duas identidades.
+    """
+    folded = unicodedata.normalize("NFKD", value or "")
+    folded = "".join(char for char in folded if not unicodedata.combining(char)).casefold()
+    words = sorted(word for word in re.findall(r"\w+", folded) if word not in ROLE_STOPWORDS)
+    return " ".join(words) or _key(value)
+
+
 def _id(*parts: Any) -> str:
     return hashlib.sha256(repr(parts).encode("utf-8")).hexdigest()[:20]
 
@@ -60,15 +80,27 @@ def _id(*parts: Any) -> str:
 def _entity(model: dict, name: str, kind: str, scene: int, paragraph: int, *, fresh=False, origin=0) -> str:
     name = re.sub(r"^(?:um|uma|uns|umas|o|a|os|as|the|an?)\s+", "", name.strip(), flags=re.I).strip()
     canonical = model["aliases"].get(_key(name), name) if kind == "named" else name
-    identity = _id(model["book_id"], kind, _key(canonical),
-                   scene if kind == "anonymous" else None, (paragraph, origin) if fresh else None)
+    # Escopo do anonimo. "scene": a mesma descricao literal dentro de uma cena e a
+    # mesma pessoa, entao o gnomo que fala cinco vezes tem uma identidade e uma voz.
+    # "mention": comportamento antigo, uma identidade por ocorrencia; preservado
+    # para reproduzir os experimentos anteriores.
+    if kind == "anonymous" and model.get("anonymous_scope", "scene") == "scene":
+        identity = _id(model["book_id"], kind, _role_key(canonical), scene, None)
+    else:
+        identity = _id(model["book_id"], kind, _key(canonical),
+                       scene if kind == "anonymous" else None, (paragraph, origin) if fresh else None)
     if identity not in model["entities"]:
         label = canonical[0].upper() + canonical[1:]
-        if kind == "anonymous":
-            label += f" [cena {scene + 1}, P{paragraph}:{origin}]"
-        model["entities"][identity] = {"id": identity, "name": canonical, "display_name": label,
-                                       "kind": kind, "scene_id": scene if kind == "anonymous" else None,
-                                       "aliases": [canonical], "mentions": []}
+        # O rotulo exibido e o texto do livro. Cena e offset so entram quando um
+        # rotulo igual ja pertence a outra identidade, para nao colidir na tela.
+        taken = any(other["display_name"] == label for other in model["entities"].values())
+        location = f"cena {scene + 1}, P{paragraph}:{origin}" if kind == "anonymous" else None
+        model["entities"][identity] = {
+            "id": identity, "name": canonical,
+            "display_name": f"{label} [{location}]" if taken and location else label,
+            "disambiguator": location, "kind": kind,
+            "scene_id": scene if kind == "anonymous" else None,
+            "aliases": [canonical], "mentions": []}
     return identity
 
 
@@ -83,10 +115,11 @@ def _narration(block: str, fragments: list[dict]) -> list[tuple[int, int]]:
     return spans
 
 
-def build_book(blocks: list[str], aliases: dict[str, str] | None = None) -> dict[str, Any]:
+def build_book(blocks: list[str], aliases: dict[str, str] | None = None,
+               anonymous_scope: str = "scene") -> dict[str, Any]:
     model = {"version": VERSION, "book_id": _id(blocks), "blocks": blocks,
              "aliases": {_key(key): value for key, value in (aliases or {}).items()},
-             "entities": {}, "turns": [], "scenes": []}
+             "anonymous_scope": anonymous_scope, "entities": {}, "turns": [], "scenes": []}
     inventory = dialogue_inventory(blocks)
     scene_ids = _scene_numbers(blocks)
     parts_by_paragraph: dict[int, list[dict]] = {}

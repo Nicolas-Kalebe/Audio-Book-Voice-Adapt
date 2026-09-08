@@ -28,12 +28,27 @@ def test_possessed_name_is_not_the_speaking_group():
     assert model['turns'][1]['source_subjects'][0]['quote'] == 'as filhas de Luma'
 
 
-def test_repeated_description_keeps_distinct_source_references():
-    model = build_book(['— Abra — disse um guarda alto.', '— Feche — disse outro guarda.', '— Venha — disse um guarda alto.'])
+def test_same_description_in_one_scene_is_one_person():
+    """A mesma descricao repetida na cena e a mesma pessoa; outra descricao nao.
+
+    Sem isso, o mesmo figurante recebe uma identidade por mencao e o audiobook
+    lhe da uma voz diferente a cada fala.
+    """
+    model = build_book(['— Abra — disse um guarda alto.', '— Feche — disse um guarda gordo.', '— Venha — disse um guarda alto.'])
     seed_subjects(model)
-    first, last = model['turns'][0], model['turns'][2]
-    assert first['source_subjects'][0]['entity_id'] != last['source_subjects'][0]['entity_id']
+    first, other, last = (t['source_subjects'][0]['entity_id'] for t in model['turns'])
+    assert first == last
+    assert other != first
     assert all(t['speaker_entity_id'] is None for t in model['turns'])
+
+
+def test_mention_scope_restores_one_identity_per_occurrence():
+    """O comportamento antigo continua a uma linha de configuracao de distancia."""
+    model = build_book(['— Abra — disse um guarda alto.', '— Venha — disse um guarda alto.'],
+                       anonymous_scope='mention')
+    seed_subjects(model)
+    first, last = (t['source_subjects'][0]['entity_id'] for t in model['turns'])
+    assert first != last
 
 
 @pytest.mark.parametrize('text', [

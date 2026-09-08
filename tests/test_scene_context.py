@@ -71,14 +71,28 @@ def test_cast_description_resolves_literal_subject_but_does_not_change_other_sce
     assert model["turns"][2]["speaker_entity_id"] is None
 
 
-def test_same_description_different_mentions_are_not_merged(tmp_path):
+def test_same_description_in_one_scene_collapses_to_one_identity(tmp_path):
+    """Duas mencoes de "guarda" na cena sao a mesma pessoa, nao duas identidades."""
     model = build_book(["Um guarda chegou.", "Outro guarda chegou.", "— Olá — disse o guarda."])
     provider = Provider(lambda _: {"entities": [person("guarda", (0, "guarda"), kind="anonymous"),
                                                person("guarda", (1, "guarda"), kind="anonymous")]})
     context = SceneContext(model, provider, Cache(tmp_path))
     context.prepare(model["turns"][0]["scene_id"])
+    assert len(context.entities(model["turns"][0]["scene_id"])) == 1
+    # Consequencia assumida: com um unico "guarda" no elenco, o sujeito literal
+    # "disse o guarda" deixa de ser ambiguo e vira ancora. O preco de fundir por
+    # descricao literal e este; a protecao que resta e a do teste seguinte.
+    assert model["entities"][model["turns"][0]["speaker_entity_id"]]["name"] == "guarda"
+
+
+def test_different_descriptions_still_stay_separate(tmp_path):
+    """Fundir e por descricao literal, nunca por profissao compartilhada."""
+    model = build_book(["Um guarda alto chegou.", "Um guarda gordo chegou.", "— Olá — disse o guarda."])
+    provider = Provider(lambda _: {"entities": [person("guarda alto", (0, "guarda alto"), kind="anonymous"),
+                                               person("guarda gordo", (1, "guarda gordo"), kind="anonymous")]})
+    context = SceneContext(model, provider, Cache(tmp_path))
+    context.prepare(model["turns"][0]["scene_id"])
     assert len(context.entities(model["turns"][0]["scene_id"])) == 2
-    assert model["turns"][0]["speaker_entity_id"] is None
 
 
 def test_literal_short_full_name_link_is_local(tmp_path):
