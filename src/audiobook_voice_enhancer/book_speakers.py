@@ -104,6 +104,40 @@ def _entity(model: dict, name: str, kind: str, scene: int, paragraph: int, *, fr
     return identity
 
 
+def merge_partial_names(model: dict) -> dict[str, str]:
+    """Nome curto que e prefixo de exatamente UM nome completo e a mesma pessoa.
+
+    "Radcliffe" e "Radcliffe de Oxenfurt" eram duas entidades no catalogo e uma
+    pessoa no livro, e isso custava quatro turnos por nomenclatura, nao por
+    identificacao — o mesmo defeito do rotulo de anonimo.
+
+    Exigir candidato UNICO preserva a doutrina de nao fundir por primeiro nome
+    compartilhado: com "Iara Silva" e "Iara Costa" no catalogo, "Iara" tem dois
+    candidatos e nao funde com nenhum.
+    """
+    named = [e for e in model["entities"].values() if e["kind"] == "named"]
+    links: dict[str, str] = {}
+    for short in named:
+        tokens = _key(short["name"]).split()
+        longer = [e for e in named if e["id"] != short["id"]
+                  and _key(e["name"]).split()[:len(tokens)] == tokens
+                  and len(_key(e["name"]).split()) > len(tokens)]
+        if len(longer) == 1:
+            links[short["id"]] = longer[0]["id"]
+    for short_id, full_id in links.items():
+        short, full = model["entities"][short_id], model["entities"][full_id]
+        full["aliases"] = sorted({*full["aliases"], *short["aliases"]})
+        full["mentions"].extend(m for m in short["mentions"] if m not in full["mentions"])
+        del model["entities"][short_id]
+    for turn in model["turns"]:
+        if turn["speaker_entity_id"] in links:
+            turn["speaker_entity_id"] = links[turn["speaker_entity_id"]]
+        proposal = turn.get("proposal") or {}
+        if proposal.get("speaker_entity_id") in links:
+            proposal["speaker_entity_id"] = links[proposal["speaker_entity_id"]]
+    return links
+
+
 def classify_anonymous(model: dict) -> None:
     """Marca quem e figurante: descricao anonima que so aparece numa cena.
 
@@ -259,7 +293,8 @@ def windows(model: dict, paragraph_range: tuple[int, int] | None, max_turns=24, 
 
 def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold=.90,
                 max_turns=24, max_chars=14000, progress=None, protocol="evidence",
-                scene_max_chars=36000, scene_repair=True, source_subjects=False) -> dict:
+                scene_max_chars=36000, scene_repair=True, source_subjects=False,
+                turn_consistency=True) -> dict:
     """Review textual turns, including those with no ASR match, in bounded windows."""
     if source_subjects and protocol != 'compact':
         raise ValueError('source_subjects is supported only by compact')
@@ -268,7 +303,8 @@ def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold
         return review_compact(model, provider, cache, paragraph_range, threshold=threshold,
                               max_turns=max_turns, max_chars=max_chars, progress=progress,
                               scene_mode=protocol == "scene", scene_max_chars=scene_max_chars, scene_repair=scene_repair,
-                              lightweight=protocol == "lightweight", source_subjects=source_subjects)
+                              lightweight=protocol == "lightweight", source_subjects=source_subjects,
+                              turn_consistency=turn_consistency)
     if protocol != "evidence":
         raise ValueError(f"Unknown attribution protocol: {protocol}")
     started = time.monotonic()
@@ -393,6 +429,7 @@ def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold
 
 def project_to_audio(model: dict, dialogues: list[dict]) -> None:
     """Attach text decisions without moving, extending or inventing audio cuts."""
+    merge_partial_names(model)
     classify_anonymous(model)
     candidates = {part["candidate_id"]: turn for turn in model["turns"] for part in turn["fragments"]}
     for dialogue in dialogues:

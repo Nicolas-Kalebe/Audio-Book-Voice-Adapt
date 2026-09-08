@@ -46,6 +46,9 @@ voice_conversion:
 
 book_first:
   protocol: compact
+  # Pos-processamento deterministico da sequencia de turnos: vocativo e sanduiche.
+  # Nao chama o modelo. Medido na Parte 01: precisao de 87,02% para 93,17%.
+  turn_consistency: true
   scene_context_characters: 36000
   scene_repair: true
   enabled: true

@@ -63,28 +63,32 @@ outros 42 são figurante de uma cena só e não ganham voz).
 A trava mais apertada é a **cobertura**. O motor hoje abstém cerca de 16 vezes,
 o triplo da folga — abster para não errar deixou de ser de graça.
 
-## Ganho pré-registrado
+## Ganho pré-registrado da PRÓXIMA rodada
 
-Escrito **antes** de ver o resultado, para o número não ser explicado depois.
+A rodada de 08/09 já voltou: 85,10% de precisão e 97,65% de cobertura sobre os
+dubláveis (ver `docs/RESULTADO-PART01.md`). Sobre ela foram aplicadas as regras
+de coerência, medidas offline em `scripts/simulate_rules.py`.
+
+A próxima rodada fria tem de confirmar, com o modelo no laço:
 
 | Precisão sobre dubláveis | Leitura |
 |---|---|
+| **92–94%** | Esperado: reproduz a medição offline. |
 | **≥95%** | Meta batida nesse lado. |
-| **80–95%** | Esperado nesta rodada. Guarda de vocativo e alternância entram aqui. |
-| **< 80%** | O motor troca voz errada demais; regra nova antes de mexer em limiar. |
+| **87–92%** | As regras rendem menos com o modelo no laço do que na simulação. |
+| **< 87%** | Regressão. Desligar com `--no-turn-consistency` e comparar. |
 
 | Cobertura sobre dubláveis | Leitura |
 |---|---|
-| **≥95%** | Meta batida nesse lado; improvável já nesta rodada. |
-| **85–95%** | Esperado. Baixar o limiar de 0,90 é o botão mais barato daqui. |
-| **< 85%** | Está abstendo demais: mexer no limiar rende mais que regra nova. |
+| **96–98%** | Esperado. |
+| **< 95%** | A regra de vocativo está abstendo demais. |
 
-A **voz trocada errada** é o único número que representa defeito audível.
+Rode **as duas**, em pastas diferentes, para isolar o efeito das regras:
 
-As duas métricas históricas (literal e por identidade, com abstenção contada como
-erro) continuam no placar para comparar com as rodadas antigas. **A de identidade
-deve ficar entre 188 e 205 de 255**; abaixo de 178 é regressão, e reverte com
-`anonymous_scope: mention`.
+```powershell
+... --protocol compact --output output\com-regras-<data>
+... --protocol compact --no-turn-consistency --output output\sem-regras-<data>
+```
 
 ## Conferir o teto antes de qualquer campanha
 
