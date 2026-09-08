@@ -39,6 +39,30 @@ e boa parte dos **49 dos 77 erros concentrados na cena de multidão** relatados 
 [`SOURCE_SUBJECTS.md`](SOURCE_SUBJECTS.md): a cena de multidão é onde moram os
 papéis anônimos.
 
+## A cena de multidão era, em boa parte, o mesmo defeito
+
+`SOURCE_SUBJECTS.md` registra que **49 dos 77 erros** do compacto estavam "na cena
+com muitos interlocutores", e a conclusão tirada dali foi que o gargalo era o
+raciocínio do modelo em cenas de elenco grande.
+
+Os parágrafos do gabarito dizem outra coisa. A cena do carvalho ocupa mais ou
+menos P70–P148, e dentro dela moram **34 turnos de papel anônimo**: Elfo alto e
+louro (9), Gnomo dos artigos metálicos (5), Sacerdote gordo (4), Guerreiro ruivo
+de Skellige (4), Filhas de Vilibert (3), Druida grisalho (3), Elfa do gorro de
+arminho (2), Jovem aprendiz de artesão (2), Camponês anônimo (1) e Membro anônimo
+da multidão (1). Todos os 34 pontuavam zero **por construção do avaliador**, e
+não por falha de identificação.
+
+Ou seja: dos 49 erros da cena de multidão, até 34 podiam ser artefato do
+instrumento. Sobram ~15 erros reais ali. A conta que dizia "mesmo consertando
+vocativo e alternância o motor para em 206/255, logo a meta é inalcançável"
+partia desse 49 contaminado e não se sustenta.
+
+Quanto exatamente cada coisa vale só a rodada fria dirá — o motor pode reconhecer
+mal a descrição do papel mesmo com o rótulo corrigido. Mas a leitura de que a
+cena de multidão é um problema de raciocínio do modelo estava, no mínimo,
+superdimensionada.
+
 ## O segundo defeito, este de produto
 
 `_entity(..., fresh=True, origin=span["start"])` criava uma identidade nova a
