@@ -340,7 +340,12 @@ def _scene_numbers(book_blocks: list[str] | None) -> dict[int, int]:
     result: dict[int, int] = {}
     for index, block in enumerate(book_blocks or []):
         cleaned = block.strip()
-        if cleaned in {"—", "–", "-", "*", "***", "•"} or re.match(r"^(?:capítulo|chapter)\b", cleaned, re.I):
+        # The inventory treats an unfinished dash turn's next paragraph as
+        # continuation. Scene segmentation must preserve that same decision,
+        # including when the continuation starts with the word "Capítulo".
+        heading = (re.match(r"^(?:capítulo|chapter)\b", cleaned, re.I)
+                   and _continued_dash_turn(book_blocks, index) is None)
+        if cleaned in {"—", "–", "-", "*", "***", "•"} or heading:
             scene += 1
         result[index] = scene
     return result

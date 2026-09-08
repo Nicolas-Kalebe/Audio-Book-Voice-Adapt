@@ -202,7 +202,8 @@ class SceneContext:
 
     def expand(self, batch):
         scene = self.scenes[batch["scene_id"]]
-        first, last = scene["first_paragraph"], scene["last_paragraph"]
+        first = min(scene["first_paragraph"], batch["first"])
+        last = max(scene["last_paragraph"], batch["last"])
         blocks = self.model["blocks"]
         if sum(len(b) for b in blocks[first:last + 1]) <= self.max_chars:
             return {**batch, "first": first, "last": last, "complete_scene": True}

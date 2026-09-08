@@ -76,9 +76,9 @@ $benchmarkArgs = @(
   '--alignment', '../../cache/alignment/ae2e108189c7ea7e77b5600b4a2cf1eed1a8532bd0fd14f37574396d2026881a.json',
   '--config', 'config/config.yaml', '--gold', 'benchmarks/part01_gold.yaml'
 )
-& '../../.venv/Scripts/python.exe' @benchmarkArgs --protocol compact --output output/compact-control-20260908
+& '../../.venv/Scripts/python.exe' @benchmarkArgs --protocol compact --output output/compact-context-fixed-20260908
 # Aguardar a conclusão antes do próximo comando.
-& '../../.venv/Scripts/python.exe' @benchmarkArgs --protocol lightweight --output output/lightweight-control-20260908
+& '../../.venv/Scripts/python.exe' @benchmarkArgs --protocol lightweight --output output/lightweight-context-fixed-20260908
 ```
 
 Conferir os hashes de livro, transcrição, alinhamento e gabarito; mesma configuração
@@ -96,3 +96,28 @@ Verificação: 163 testes passaram. O ensaio da Parte 01 sem LLM também conclui
 38 âncoras corretas entre 39 atribuições, contra 35 corretas entre 36 na referência
 sem LLM anterior. Isso verifica a integração e três âncoras adicionais; não mede
 o reconhecimento contextual do novo protocolo com Qwen.
+
+## Correção após o primeiro teste real
+
+O controle `compact-control-20260908` concluiu com 176/255, zero cache hits e
+252,969 segundos. O `lightweight-control-20260908` falhou antes da chamada do
+bloco 11 com `KeyError: 295`. Não tem pontuação final válida.
+
+A continuação de uma fala começava pela palavra “Capítulo”. O inventário agrupou
+os dois parágrafos como um turno, mas a segmentação de cenas tratou o segundo como
+um cabeçalho. A janela então omitiu o contexto da continuação. A falha existia
+também no contexto do compacto, embora ele não acessasse o mapa que causou a exceção.
+
+A segmentação agora respeita a continuação reconhecida pelo inventário. A montagem
+das janelas inclui todos os parágrafos do turno mesmo diante de uma fronteira de
+cena inconsistente. Se o turno completo exceder o orçamento, gera `context_limit`
+com o turno intacto. A expansão do protocolo por cena preserva esse intervalo.
+A versão do motor foi incrementada para invalidar os checkpoints anteriores.
+
+170 testes passaram, incluindo reprodução do erro, cabeçalhos reais por extenso,
+turnos entre cenas e orçamento insuficiente. O contexto do livro foi inspecionado
+sem Qwen, e a montagem de entradas lightweight foi exercitada com respostas
+simuladas. Como as janelas mudaram para ambos os métodos, o próximo turno deve
+repetir **compact e lightweight** nas pastas inéditas indicadas acima. Não comparar
+diretamente o novo lightweight com o controle de janelas antigas para isolar seu
+efeito. Relatórios anteriores permanecem disponíveis como histórico.
