@@ -19,6 +19,8 @@ A etapa atual testa [referências literais do narrador no compacto](docs/SOURCE_
 Os experimentos `scene` e `lightweight` regrediram e permanecem só para reprodução.
 O padrão é `compact`, com 178/255 (69,80%) na Parte 01 de desenvolvimento.
 A meta de 90% de todas as falas ainda não foi atingida.
+Para uma revisão externa do histórico, das medições e do estado do código, consulte
+[SPEAKER_ATTRIBUTION_HANDOFF.md](docs/SPEAKER_ATTRIBUTION_HANDOFF.md).
 As [preferências de trabalho](AGENTS.md) registram a divisão entre turnos de
 implementação e de avaliação.
 
