@@ -29,7 +29,10 @@
   "Geralt": {
     "gender": "male",
     "age_group": "adult",
-    "aliases": ["Lobo", "Lobo Branco"],
+    "aliases": [
+      "Lobo",
+      "Lobo Branco"
+    ],
     "mode": "original",
     "pitch_shift": 0
   },
@@ -92,8 +95,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 24,
-      "high_confidence_mentions": 2,
+      "mentions": 5,
+      "high_confidence_mentions": 5,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": false
@@ -103,8 +106,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 10,
-      "high_confidence_mentions": 1,
+      "mentions": 7,
+      "high_confidence_mentions": 7,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": false
@@ -169,8 +172,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 45,
-      "high_confidence_mentions": 3,
+      "mentions": 54,
+      "high_confidence_mentions": 54,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": true
@@ -204,8 +207,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 28,
-      "high_confidence_mentions": 1,
+      "mentions": 4,
+      "high_confidence_mentions": 4,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": false
@@ -259,8 +262,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 54,
-      "high_confidence_mentions": 2,
+      "mentions": 21,
+      "high_confidence_mentions": 21,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": false
@@ -270,8 +273,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 24,
-      "high_confidence_mentions": 1,
+      "mentions": 13,
+      "high_confidence_mentions": 13,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": false
@@ -325,9 +328,9 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 22,
-      "high_confidence_mentions": 4,
-      "confidence": 0.98,
+      "mentions": 2,
+      "high_confidence_mentions": 2,
+      "confidence": 0.95,
       "review_required": false,
       "reviewed": false
     }
@@ -336,8 +339,8 @@
     "mode": "original",
     "detection": {
       "automatic": true,
-      "mentions": 12,
-      "high_confidence_mentions": 2,
+      "mentions": 4,
+      "high_confidence_mentions": 4,
       "confidence": 0.98,
       "review_required": false,
       "reviewed": false
@@ -479,6 +482,39 @@
       "cohesion": 0.867,
       "sample_rate": 44100,
       "manifest": "C:\\Users\\cur1ousfox\\Documents\\repositorios\\Audio-Book-Voice-Adapt\\cache\\voice_bank\\400a48bee3010bd74325\\manifest.json"
+    }
+  },
+  "Radcliffe de Oxenfurt": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 6,
+      "high_confidence_mentions": 6,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Rayla de Líria": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 4,
+      "high_confidence_mentions": 4,
+      "confidence": 0.96,
+      "review_required": false,
+      "reviewed": false
+    }
+  },
+  "Vilibert": {
+    "mode": "original",
+    "detection": {
+      "automatic": true,
+      "mentions": 6,
+      "high_confidence_mentions": 6,
+      "confidence": 0.98,
+      "review_required": false,
+      "reviewed": false
     }
   }
 }
