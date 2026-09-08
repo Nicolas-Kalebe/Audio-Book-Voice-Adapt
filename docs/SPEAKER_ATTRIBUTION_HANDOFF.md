@@ -1,5 +1,15 @@
 # Handoff: investigação de identificação de falantes
 
+> **AVISO — 8 de setembro de 2026:** os números deste documento foram medidos com
+> um avaliador que tinha um teto de **208/255 (81,57%)**: 42 turnos de papel
+> anônimo nunca podiam casar, porque o motor emitia o rótulo com um sufixo de
+> cena. A meta de 90% era aritmeticamente inalcançável. O teto foi corrigido para
+> 250/255 (98,04%). **O `178/255` abaixo não é linha de base** e as cinco
+> campanhas comparadas na tabela usaram um instrumento com esse limite. Leia
+> [`TETO-DO-GABARITO.md`](TETO-DO-GABARITO.md) antes de agir sobre qualquer
+> número daqui, e confira o teto com `scripts/gold_ceiling.py` antes de queimar
+> GPU.
+
 Este documento dá contexto suficiente para outra IA revisar o motor sem depender
 dos relatórios locais ignorados pelo Git. Ele descreve a Parte 01 usada como
 regressão de desenvolvimento, as hipóteses medidas e o que os resultados permitem
@@ -130,9 +140,11 @@ EPUB → book_inventory.py / book_speakers.py → turnos e entidades
 
 ## O que a próxima revisão deve fazer
 
-1. Tratar o compacto de 178/255 como baseline congelada e executar qualquer mudança
-   em saída nova, com o mesmo livro/transcrição/alinhamento/gabarito e cache LLM
-   vazio. Uma mudança por experimento.
+1. **Reestabelecer a linha de base sob a métrica corrigida.** O 178/255 foi medido
+   com o avaliador de teto 208; não serve de referência. Rodar `scripts/gold_ceiling.py`
+   (trinta segundos, sem GPU) e depois uma rodada fria em saída nova, com o mesmo
+   livro/transcrição/alinhamento/gabarito e cache LLM vazio, antes de qualquer regra
+   nova. Uma mudança por experimento; ver `RODAR.md`.
 2. Investigar decisões entre candidatos que já existem, em vez de ampliar catálogo,
    cenário ou schema. A próxima hipótese deve explicar como melhora cenas com muitos
    interlocutores sem criar nomes descritivos paralelos.
