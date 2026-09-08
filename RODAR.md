@@ -6,6 +6,34 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 8 de setembro de 2026 — coerência de turno v2 após o primeiro holdout
+
+A Parte 02 voltou com **91,53% de precisão e 96,72% de cobertura**. Portanto, a
+versão anterior transferiu apenas em parte e não atingiu 95×95. Como os erros
+foram lidos para desenvolver esta versão, a Parte 02 deixou de ser holdout; seus
+rótulos continuam congelados e ela passa a ser desenvolvimento.
+
+`turn-consistency-v2` amplia a correção local com quatro evidências
+estruturais, sem nomes ou respostas específicos do livro:
+
+- vocativos recíprocos identificam os dois lados de uma resposta;
+- uma inversão de dois turnos só é corrigida quando seis turnos sustentam a fase;
+- personagem referido como terceira pessoa não pode ser o falante contextual;
+- turnos compostos longos são preservados como monólogo, evitando os falsos
+  positivos da regra de sanduíche.
+
+Também foram adicionados `scripts/simulate_consistency_engine.py` e
+`scripts/inspect_speaker_sequences.py`. A reaplicação offline, sem Qwen, produz:
+
+| Desenvolvimento | Precisão | Cobertura | Corretos | Errados |
+|---|---:|---:|---:|---:|
+| Parte 01 | 93,20% | 96,71% | 192 | 14 |
+| Parte 02 | **95,53%** | **97,81%** | 171 | 8 |
+
+Esses números servem para detectar regressão da implementação. A rodada fria
+ainda precisa confirmar o caminho completo, e a Parte 3 deve ser o próximo
+holdout intocado.
+
 ### 8 de setembro de 2026 — gabarito da Parte 02, o primeiro holdout
 
 `benchmarks/part02_gold.yaml`: **183 turnos**, P371–682, anotado lendo o EPUB
@@ -158,7 +186,7 @@ outros 42 são figurante de uma cena só e não ganham voz).
 A trava mais apertada é a **cobertura**. O motor hoje abstém cerca de 16 vezes,
 o triplo da folga — abster para não errar deixou de ser de graça.
 
-## Ganho pré-registrado da PRÓXIMA rodada
+## Pré-registro histórico já medido
 
 Duas coisas a medir, e nesta ordem.
 
@@ -170,7 +198,7 @@ Duas coisas a medir, e nesta ordem.
 | **93%** | As âncoras novas não renderam com o modelo no laço; nada regrediu. |
 | **< 93%** | Regressão: âncora nova confundiu o modelo em outros turnos. |
 
-### 2. Parte 02, o holdout
+### 2. Parte 02, então ainda holdout
 
 Escrito **antes** de rodar, e é este número que diz se os ganhos foram reais:
 
@@ -185,13 +213,30 @@ Cobertura esperada **≥95%** nos dois. Como a Parte 02 é um regime mais fácil
 (sem multidão, sem anônimo, 72% de diálogo de duas pessoas), **eu esperaria a
 precisão dela ACIMA da Parte 01**. Se vier abaixo, algo está errado de verdade.
 
+Esse pré-registro foi encerrado em 8 de setembro: o resultado real da Parte 02
+foi **91,53% de precisão e 96,72% de cobertura**. Depois de consultar seus erros
+para criar a coerência v2, ela passou a ser conjunto de desenvolvimento. Não se
+deve voltar a apresentar uma execução nela como validação independente.
+
+## Próxima rodada fria
+
+No turno de testes, rode novamente as Partes 01 e 02 em diretórios vazios para
+confirmar a integração completa do `turn-consistency-v2`. Esta rodada é uma
+**regressão fria**, não um novo teste de generalização. A simulação determinística
+prevê 93,20% × 96,71% na Parte 01 e 95,53% × 97,81% na Parte 02. Diferença maior
+que um ponto percentual indica divergência entre o simulador e o pipeline real.
+
+O próximo teste válido de generalização será uma Parte 03 (ou outro livro)
+intocada: primeiro criar e congelar o gabarito, só depois executar o motor. A meta
+continua sendo precisão ≥95% e cobertura ≥95%.
+
 Rode as duas partes, com e sem regras, em pastas novas:
 
 ```powershell
 # Parte 01
 ... --gold benchmarks\part01_gold.yaml --output output\p01-ancora-<data>
-# Parte 02 (trocar transcricao e alinhamento pelos da Parte 02)
-... --gold benchmarks\part02_gold.yaml --output output\p02-holdout-<data>
+# Parte 02 (agora conjunto de desenvolvimento)
+... --gold benchmarks\part02_gold.yaml --output output\p02-regressao-v2-<data>
 ... --gold benchmarks\part02_gold.yaml --no-turn-consistency --output output\p02-sem-regras-<data>
 ```
 

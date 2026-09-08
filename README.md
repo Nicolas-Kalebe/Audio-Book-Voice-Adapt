@@ -22,6 +22,14 @@ Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
 com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem
 exatamente a simulação offline.
 
+A primeira rodada realmente externa, na Parte 02, ficou em **91,53% de precisão
+e 96,72% de cobertura**: cobertura aprovada, precisão reprovada. Depois de ler
+esses erros, `turn-consistency-v2` passou a tratar vocativos recíprocos, inversão
+local de fase, referência ao próprio personagem em terceira pessoa e monólogos
+compostos. Reaplicada offline sobre as respostas frias já existentes, a versão
+candidata marca **95,53% × 97,81% na Parte 02** e **93,20% × 96,71% na Parte 01**.
+Isso é desenvolvimento, não uma nova medição fria nem prova de generalização.
+
 > **Pendente de confirmação:** três consertos no parser de âncoras — cargo entre
 > o artigo e o nome, preposição com pronome (`respondeu por ela Geralt`) e cargo
 > sem nome resolvido pelo próprio livro (`o feiticeiro Radcliffe` ensina quem é
@@ -33,12 +41,10 @@ exatamente a simulação offline.
 O gabarito da Parte 01 foi auditado contra o livro em 08/09 e **não tem erro
 conhecido**: [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md).
 
-**Existe agora um holdout.** `benchmarks/part02_gold.yaml` tem 183 turnos
-(P371–682), anotado antes de qualquer rodada do motor naquele trecho e sem que
-nenhuma regra fosse ajustada contra ele. É a primeira validação externa do
-projeto — e é um regime mais fácil que a Parte 01 (sem multidão, sem papel
-anônimo, 72% de diálogo de duas pessoas), então um número alto lá confirma
-transferência, não dificuldade.
+**A Parte 02 não é mais holdout.** Seus 183 rótulos continuam congelados, mas os
+erros da primeira rodada foram usados para criar a versão 2. Ela agora é um
+segundo conjunto de desenvolvimento. A próxima validação honesta será uma parte
+nova, com gabarito congelado antes de qualquer resultado do motor.
 
 ### Duas regras de produto que mandam em tudo
 
@@ -86,7 +92,7 @@ história está em [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md).
 - [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md) — a última medição e o que ela desmentiu.
 - [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md) — por que o placar mentia, e as duas decisões de produto.
 - [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md) — o gabarito bate com o livro, e o que a auditoria não prova.
-- `benchmarks/part02_gold.yaml` — o holdout. Não ajuste nada contra ele; se ajustar, o projeto perde a única validação externa que tem.
+- `benchmarks/part02_gold.yaml` — gabarito congelado da Parte 02, agora marcado como desenvolvimento após o primeiro teste externo.
 - [AGENTS.md](AGENTS.md) — as preferências e as regras que não se negociam.
 - [docs/SPEAKER_ATTRIBUTION_HANDOFF.md](docs/SPEAKER_ATTRIBUTION_HANDOFF.md) — histórico dos cinco protocolos. **Os números dele são anteriores à correção do avaliador.**
 - [TECHNICAL_DECISIONS.md](TECHNICAL_DECISIONS.md) — escolhas de transcrição, conversão e GPU.

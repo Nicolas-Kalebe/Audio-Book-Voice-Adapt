@@ -238,7 +238,12 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
             except Exception as exc:
                 stats["errors"].append({"scene_id": batch["scene_id"], "error": str(exc)})
     if turn_consistency:
+        # A coerencia precisa enxergar os mesmos aliases que a projecao final.
+        # Sem isto, um vocativo por sobrenome pode apontar para a entidade curta
+        # enquanto a resposta do modelo aponta para o nome completo.
+        from .book_speakers import merge_partial_names
         from .turn_consistency import apply_consistency
+        merge_partial_names(result)
         stats["turn_consistency"] = apply_consistency(result)
     selected = [turn for batch in batches for turn in batch["turns"]]
     stats["unresolved"] = sum(turn["speaker_entity_id"] is None and turn["status"] != "non_speech" for turn in selected)

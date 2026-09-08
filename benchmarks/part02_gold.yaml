@@ -2,14 +2,18 @@ version: 1
 name: Parte 02 - O Sangue dos Elfos
 language: pt-BR
 evaluation_protocol:
-  status: holdout_congelado_antes_de_medir
-  independent_holdout: true
+  status: holdout_consumido_em_2026-09-08
+  independent_holdout: false
   annotation_review: assistant_authored_not_independently_audited
   note: >-
     Anotado lendo o EPUB no intervalo P371-682, ANTES de qualquer rodada do motor
     nesta parte. Nenhuma regra, prompt ou limiar foi ajustado contra este gabarito,
     e nenhuma saida do Qwen foi consultada para escrever os rotulos. Por isso ele
-    serve como validacao externa das melhorias desenvolvidas na Parte 01.
+    serviu como a primeira validacao externa das melhorias desenvolvidas na Parte
+    01. Depois da primeira medicao (91,53% de precisao e 96,72% de cobertura), os
+    erros foram consultados para desenvolver turn-consistency-v2. Os rotulos
+    abaixo continuam congelados, mas esta parte agora e desenvolvimento e NAO e
+    mais holdout. A proxima afirmacao de generalizacao exige uma parte intocada.
     Segue sendo escrito por assistente, nao por um segundo revisor humano: onde o
     livro nao diz quem fala, o rotulo e leitura de contexto e pode estar errado.
     Os dois turnos sem atribuicao possivel estao em ambiguous_spoken, nao chutados.

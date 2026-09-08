@@ -67,15 +67,11 @@ def test_todo_gabarito_carrega_e_cabe_na_meta(caminho):
     assert detectados >= -(-dublavel * 95 // 100)
 
 
-def test_o_holdout_da_parte_02_nao_foi_usado_para_ajustar_o_motor():
-    """A Parte 02 so vale como validacao externa enquanto isto for verdade.
-
-    Se alguem ajustar regra contra ela, tem de trocar o protocolo aqui — e ai o
-    projeto volta a nao ter holdout nenhum, o que precisa ficar visivel.
-    """
+def test_a_parte_02_esta_marcada_como_holdout_consumido():
+    """O ajuste posterior não pode apagar que esta validação foi consumida."""
     gold = load_gold(BENCH / "part02_gold.yaml")
-    assert gold["evaluation_protocol"]["independent_holdout"] is True
-    assert gold["evaluation_protocol"]["status"] == "holdout_congelado_antes_de_medir"
+    assert gold["evaluation_protocol"]["independent_holdout"] is False
+    assert gold["evaluation_protocol"]["status"] == "holdout_consumido_em_2026-09-08"
 
 
 def test_os_dois_gabaritos_nao_se_sobrepoem():

@@ -1,4 +1,4 @@
-"""As duas propriedades de dialogo que corrigem a sequencia depois do modelo.
+"""Propriedades de dialogo que corrigem a sequencia depois do modelo.
 
 Vocativo: quem e chamado dentro da fala e o destinatario, nunca o falante.
 Sanduiche: tres turnos seguidos da mesma pessoa nao e dialogo.
@@ -34,6 +34,14 @@ def test_a_name_called_inside_the_line_is_the_addressee(text):
 def test_a_name_merely_mentioned_is_not_a_vocative(text):
     """Confundir mencao com chamamento troca acerto por recuo."""
     assert not is_addressed(text, "Eskel")
+
+
+def test_a_name_that_opens_a_statement_is_a_topic_not_a_vocative():
+    assert not is_addressed("Rience. Ele fugiu pela janela.", "Rience")
+
+
+def test_a_surname_can_be_used_as_a_vocative():
+    assert is_addressed("Pare com isso, Merigold!", "Triss Merigold")
 
 
 def _two_person_scene(speakers):
@@ -82,6 +90,43 @@ def test_without_a_supported_alternative_the_turn_abstains():
     apply_consistency(model)
     assert turn["speaker_entity_id"] is None
     assert turn["status"] == "unresolved"
+
+
+def test_reciprocal_vocatives_resolve_both_sides_of_a_reply():
+    model = _two_person_scene(["Bia", "Ana"])
+    turns = sorted(model["turns"], key=lambda t: t["fragments"][0]["paragraph"])
+    turns[0]["fragments"][0]["text"] = "Bia!"
+    turns[1]["fragments"][0]["text"] = "Ana?"
+    apply_consistency(model)
+    assert [turn["speaker_entity_id"] for turn in turns] == ["Ana", "Bia"]
+
+
+def test_a_long_compound_monologue_is_not_broken_by_the_sandwich_rule():
+    model = _two_person_scene(["Ana", "Bia", "Bia", "Bia", "Ana"])
+    middle = sorted(model["turns"], key=lambda t: t["fragments"][0]["paragraph"])[2]
+    middle["fragments"] = [
+        {**middle["fragments"][0], "text": "a" * 140},
+        {**middle["fragments"][0], "text": "b" * 140},
+    ]
+    apply_consistency(model)
+    assert middle["speaker_entity_id"] == "Bia"
+
+
+def test_a_two_turn_phase_slip_is_repaired_only_with_context_on_both_sides():
+    model = _two_person_scene(["Ana", "Bia", "Bia", "Ana", "Ana", "Bia"])
+    apply_consistency(model)
+    got = [turn["speaker_entity_id"] for turn in model["turns"]]
+    assert got == ["Ana", "Bia", "Ana", "Bia", "Ana", "Bia"]
+
+
+def test_a_third_person_reference_cannot_be_the_contextual_speaker():
+    model = _two_person_scene(["Ana", "Bia", "Cid"])
+    turns = model["turns"]
+    turns[1]["status"] = "explicit"
+    turns[2]["fragments"][0]["text"] = "Cid trouxe a chave."
+    apply_consistency(model)
+    assert turns[2]["speaker_entity_id"] == "Bia"
+    assert turns[2]["consistency_rule"] == "referencia_em_terceira_pessoa"
 
 
 def test_short_name_links_to_a_single_full_name():

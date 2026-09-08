@@ -125,6 +125,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--analysis", required=True, type=Path)
     parser.add_argument("--gold", type=Path, default=Path("benchmarks/part01_gold.yaml"))
+    parser.add_argument("--details", action="store_true")
     args = parser.parse_args()
 
     analysis = json.loads(args.analysis.read_text(encoding="utf-8"))
@@ -187,6 +188,15 @@ def main() -> int:
         changes = rule(turns, entities)
         gained, lost = report(changes)
         print(f"\n{name}: {len(changes)} disparos, GANHOS {gained}, PERDAS {lost}")
+        if args.details:
+            for turn_id, identity in changes.items():
+                turn = next(turn for turn in turns if turn["id"] == turn_id)
+                before = entities.get(current[turn_id], {}).get("display_name", "-")
+                after = entities.get(identity, {}).get("display_name", "-")
+                text_length = sum(len(fragment["text"]) for fragment in turn["fragments"])
+                print(f"  P{turn['fragments'][0]['paragraph']}: {before} -> {after}; "
+                      f"esperado={expected.get(turn_id, '-')}; fragmentos={len(turn['fragments'])}; "
+                      f"caracteres={text_length}")
         rescore(changes, links, f"nome + {name}")
 
     combined = {**rule_vocative(turns, entities), **rule_sandwich(turns, entities)}
