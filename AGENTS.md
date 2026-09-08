@@ -16,6 +16,12 @@
   relatórios com texto literário fora do Git. O repositório segue privado.
 - O gabarito da Parte 01 é regressão de desenvolvimento, não teste independente.
   Não afirme que os pesos do Qwen foram treinados por ajustar regras ou prompts.
+- **Quem mexe, escreve.** Toda mudança de motor, métrica ou regra atualiza o
+  `README.md` (bloco "Estado atual", com os números de agora) e o `RODAR.md`
+  (registro "O que mudou" e as faixas pré-registradas) **no mesmo commit**.
+  Ordem do proprietário: quem chega depois tem de saber o que fazer e o que
+  mudou sem perguntar. Número velho em documento é pior que documento nenhum —
+  foi assim que o `178/255` sobreviveu à correção que o invalidou.
 - Prioridade **revista pelo proprietário em 08/09/2026**: *"é melhor que não mude
   uma voz se não tem certeza, deixe sem atribuição"* e *"figurante de uma cena só
   não precisa de voz"*. Isto substitui a regra anterior, que mandava contar

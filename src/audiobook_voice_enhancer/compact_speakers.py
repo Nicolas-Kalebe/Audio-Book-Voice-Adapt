@@ -40,7 +40,8 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
-                   scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False):
+                   scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False,
+                   turn_consistency=True):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -236,6 +237,9 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                     stats["assigned"] += int(kind == "speech")
             except Exception as exc:
                 stats["errors"].append({"scene_id": batch["scene_id"], "error": str(exc)})
+    if turn_consistency:
+        from .turn_consistency import apply_consistency
+        stats["turn_consistency"] = apply_consistency(result)
     selected = [turn for batch in batches for turn in batch["turns"]]
     stats["unresolved"] = sum(turn["speaker_entity_id"] is None and turn["status"] != "non_speech" for turn in selected)
     stats["elapsed_seconds"] = round(time.monotonic() - started, 3)

@@ -1,7 +1,37 @@
 # Rodar a próxima medição
 
-Uma rodada só. Nada de lógica de identificação mudou nesta versão — o que está
-sendo medido é a correção de rótulo e identidade do commit anterior.
+Este arquivo é o ponto de entrada de quem vai continuar. Quem mexe no motor
+atualiza **este arquivo e o README no mesmo commit** — quem chega depois não tem
+como adivinhar o que mudou.
+
+## O que mudou, do mais novo para o mais velho
+
+### 8 de setembro de 2026 — regras de coerência de turno
+
+- `turn_consistency.py`: duas regras aplicadas **depois** que o modelo responde.
+  Vocativo (quem é chamado dentro da fala não é quem fala) e sanduíche (três
+  turnos seguidos da mesma pessoa não é diálogo). Não chamam o modelo, não mudam
+  prompt nem schema. Desligar com `--no-turn-consistency` ou
+  `book_first.turn_consistency: false`.
+- `merge_partial_names`: nome curto que é prefixo de **um único** nome completo é
+  a mesma pessoa. `Radcliffe` e `Radcliffe de Oxenfurt` eram duas entidades.
+- Medido sobre a rodada fria: precisão de 85,10% → 87,02% → **93,17%**, cobertura
+  96,24%. Detalhe em [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
+- `scripts/simulate_rules.py`: testa regra nova sobre um `analysis.json` que já
+  existe, sem GPU, e reporta **ganhos e perdas separados**.
+
+### 8 de setembro de 2026 — duas decisões de produto
+
+- Abstenção virou a saída segura, não erro. O placar separa o desfecho em três.
+- Figurante de uma cena só não ganha voz. Denominador caiu de 255 para 213.
+- Meta passou a ser **95% de precisão e 95% de cobertura** sobre os dubláveis.
+
+### 8 de setembro de 2026 — o teto do gabarito
+
+- Papel anônimo saía rotulado com sufixo de cena e nunca casava: um motor
+  perfeito marcava 81,57%, e a meta de 90% era impossível. Teto corrigido para
+  98,04%. `scripts/gold_ceiling.py` mede isso em 30s, sem GPU.
+- **O `178/255` dos documentos antigos não é linha de base.**
 
 ## Antes de rodar
 
@@ -63,28 +93,32 @@ outros 42 são figurante de uma cena só e não ganham voz).
 A trava mais apertada é a **cobertura**. O motor hoje abstém cerca de 16 vezes,
 o triplo da folga — abster para não errar deixou de ser de graça.
 
-## Ganho pré-registrado
+## Ganho pré-registrado da PRÓXIMA rodada
 
-Escrito **antes** de ver o resultado, para o número não ser explicado depois.
+A rodada de 08/09 já voltou: 85,10% de precisão e 97,65% de cobertura sobre os
+dubláveis (ver `docs/RESULTADO-PART01.md`). Sobre ela foram aplicadas as regras
+de coerência, medidas offline em `scripts/simulate_rules.py`.
+
+A próxima rodada fria tem de confirmar, com o modelo no laço:
 
 | Precisão sobre dubláveis | Leitura |
 |---|---|
+| **92–94%** | Esperado: reproduz a medição offline. |
 | **≥95%** | Meta batida nesse lado. |
-| **80–95%** | Esperado nesta rodada. Guarda de vocativo e alternância entram aqui. |
-| **< 80%** | O motor troca voz errada demais; regra nova antes de mexer em limiar. |
+| **87–92%** | As regras rendem menos com o modelo no laço do que na simulação. |
+| **< 87%** | Regressão. Desligar com `--no-turn-consistency` e comparar. |
 
 | Cobertura sobre dubláveis | Leitura |
 |---|---|
-| **≥95%** | Meta batida nesse lado; improvável já nesta rodada. |
-| **85–95%** | Esperado. Baixar o limiar de 0,90 é o botão mais barato daqui. |
-| **< 85%** | Está abstendo demais: mexer no limiar rende mais que regra nova. |
+| **96–98%** | Esperado. |
+| **< 95%** | A regra de vocativo está abstendo demais. |
 
-A **voz trocada errada** é o único número que representa defeito audível.
+Rode **as duas**, em pastas diferentes, para isolar o efeito das regras:
 
-As duas métricas históricas (literal e por identidade, com abstenção contada como
-erro) continuam no placar para comparar com as rodadas antigas. **A de identidade
-deve ficar entre 188 e 205 de 255**; abaixo de 178 é regressão, e reverte com
-`anonymous_scope: mention`.
+```powershell
+... --protocol compact --output output\com-regras-<data>
+... --protocol compact --no-turn-consistency --output output\sem-regras-<data>
+```
 
 ## Conferir o teto antes de qualquer campanha
 

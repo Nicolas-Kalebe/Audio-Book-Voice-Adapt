@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--protocol", choices=("compact", "evidence", "scene", "lightweight"), default=None)
     parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
     parser.add_argument('--source-subjects', action='store_true', help='Testa referências literais do narrador no compacto')
+    parser.add_argument('--no-turn-consistency', action='store_true',
+                        help='Desliga o pós-processamento de vocativo e sanduíche, para isolar seu efeito')
     args = parser.parse_args()
     if args.source_subjects and args.protocol != 'compact':
         parser.error('--source-subjects exige --protocol compact')
@@ -78,6 +80,8 @@ def main():
         options["scene_repair"] = False
     if args.source_subjects:
         options['source_subjects'] = True
+    if args.no_turn_consistency:
+        options['turn_consistency'] = False
     reviewed = review_book(model, provider, cache, scope,
                            threshold=float(options.get("automatic_confidence", .90)),
                            max_turns=int(options.get("max_turns_per_window", 24)),
@@ -86,6 +90,7 @@ def main():
                            source_subjects=bool(options.get('source_subjects', False)),
                            scene_max_chars=int(options.get("scene_context_characters", 36000)),
                            scene_repair=bool(options.get("scene_repair", True)),
+                           turn_consistency=bool(options.get("turn_consistency", True)),
                            progress=lambda index, total: print(f"Livro: bloco {index}/{total}", flush=True))
     found = detect(transcript, alignments, {}, blocks)
     project_to_audio(reviewed, found)
