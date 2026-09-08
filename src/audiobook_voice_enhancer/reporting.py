@@ -12,7 +12,8 @@ from .dialogue import turn_representatives
 def summarize(files: list[dict[str, Any]], hardware: dict[str, Any], cache: dict[str, int], elapsed: float,
               transcription_backend: str, vc_backend: str) -> dict[str, Any]:
     dialogues = [dialogue for item in files for dialogue in item.get("dialogues", [])]
-    turns = turn_representatives(dialogues)
+    # Turn IDs are local to a file (especially transcript-only chapters).
+    turns = [turn for item in files for turn in turn_representatives(item.get("dialogues", []))]
     detected = Counter(dialogue.get("speaker") or "unknown" for dialogue in turns)
     converted = [dialogue for dialogue in dialogues if dialogue.get("action") == "converted"]
     planned = [dialogue for dialogue in dialogues if dialogue.get("action") == "would_convert"]

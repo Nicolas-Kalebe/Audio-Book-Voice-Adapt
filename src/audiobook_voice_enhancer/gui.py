@@ -307,6 +307,8 @@ class App(Tk):
             "llm_confidence": DoubleVar(value=llm.get("automatic_confidence", .98)),
             "llm_critic": BooleanVar(value=llm.get("critic_enabled", True)),
             "llm_consensus": DoubleVar(value=llm.get("consensus_confidence", .90)),
+            "book_first": BooleanVar(value=self.config_data.get("book_first", {}).get("enabled", False)),
+            "book_threshold": DoubleVar(value=self.config_data.get("book_first", {}).get("automatic_confidence", .90)),
         }
         left = ttk.Frame(tab, style="Panel.TFrame")
         right = ttk.Frame(tab, style="Panel.TFrame")
@@ -323,11 +325,14 @@ class App(Tk):
                                      ("Provedor LLM", "llm_provider", ("ollama", "openai-compatible")),
                                      ("URL da IA local", "llm_url", None), ("Modelo contextual", "llm_model", ("qwen3:8b",)),
                                      ("Confiança automática da IA", "llm_confidence", None),
-                                     ("Confiança com consenso", "llm_consensus", None)))
+                                     ("Piso adicional da 2ª leitura", "llm_consensus", None),
+                                     ("Confiança da análise textual", "book_threshold", None)))
         ttk.Checkbutton(right, text="Usar IA contextual do livro (sem comparação de voz)",
                         variable=self.setting_vars["llm_enabled"]).pack(anchor="w", pady=(12, 4))
-        ttk.Checkbutton(right, text="Usar segunda leitura crítica antes de aceitar",
+        ttk.Checkbutton(right, text="Segunda leitura (motor anterior)",
                         variable=self.setting_vars["llm_critic"]).pack(anchor="w", pady=4)
+        ttk.Checkbutton(right, text="Analisar falas pelo texto (experimental)",
+                        variable=self.setting_vars["book_first"]).pack(anchor="w", pady=4)
         button_row = ttk.Frame(tab, style="Panel.TFrame")
         button_row.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(24, 0))
         self._button(button_row, "Salvar configurações", self._save_settings, accent=True).pack(side="left")
@@ -1110,9 +1115,12 @@ class App(Tk):
             alignment = float(self.setting_vars["alignment"].get())
             llm_confidence = float(self.setting_vars["llm_confidence"].get())
             llm_consensus = float(self.setting_vars["llm_consensus"].get())
-            if not all(0 <= value <= 1 for value in (speaker, alignment, llm_confidence, llm_consensus)):
+            book_threshold = float(self.setting_vars["book_threshold"].get())
+            if not all(0 <= value <= 1 for value in (speaker, alignment, llm_confidence, llm_consensus, book_threshold)):
                 raise ValueError("Confianças devem ficar entre 0 e 1.")
             data = self.config_data
+            data.setdefault("book_first", {}).update(enabled=bool(self.setting_vars["book_first"].get()),
+                                                      automatic_confidence=book_threshold)
             data["device"] = self.setting_vars["device"].get()
             data["speaker_confidence_threshold"] = speaker
             data["alignment_confidence_threshold"] = alignment

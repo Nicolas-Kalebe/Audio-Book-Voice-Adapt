@@ -141,9 +141,12 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     split_scenes = {name: {int(scene) for scene in detail.get("scenes", [])}
                     for name, detail in gold.get("split", {}).items()}
     split_counts = {name: Counter() for name in split_scenes}
+    scene_counts = defaultdict(Counter)
 
     ordered_turns = sorted(turns.items(), key=lambda pair: (pair[1]["paragraph"], pair[0]))
     for key, turn in ordered_turns:
+        scene_counter = scene_counts[scene_for(turn["paragraph"])]
+        scene_counter["total"] += 1
         split_name = next((name for name, scenes in split_scenes.items()
                            if scene_for(turn["paragraph"]) in scenes), None)
         if split_name:
@@ -152,6 +155,7 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
                        key=lambda item: (int(item.get("fragment_index", 0)), float(item.get("start", 0))))
         expected = turn["speaker"]
         if not items:
+            scene_counter["missing"] += 1
             if split_name:
                 split_counts[split_name]["missing"] += 1
             dynamically_missing.append({"id": turn["id"], "book_paragraph_id": turn["paragraph"],
@@ -159,11 +163,13 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
             confusion[(expected, "NAO DETECTADA")] += 1
             continue
         detected_turns += 1
+        scene_counter["detected"] += 1
         if split_name:
             split_counts[split_name]["detected"] += 1
         primary = next((item for item in items if int(item.get("fragment_index", 0)) == 0), items[0])
         predicted = primary.get("speaker")
         if predicted:
+            scene_counter["assigned"] += 1
             assigned += 1
             if split_name:
                 split_counts[split_name]["assigned"] += 1
@@ -186,6 +192,7 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
                                      "found_fragments": sorted(indices)})
 
         if is_correct:
+            scene_counter["correct"] += 1
             correct += 1
             if split_name:
                 split_counts[split_name]["correct"] += 1
@@ -232,6 +239,10 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "gold": gold["name"],
+        "evaluation_protocol": gold.get("evaluation_protocol", {
+            "status": "unverified", "independent_holdout": False,
+            "note": "Protocolo independente nao documentado neste gabarito.",
+        }),
         "candidates_in_report": len(candidates),
         "spoken_candidate_regions": sum(len(items) for items in candidates_by_turn.values()),
         "non_spoken_candidates": false_turn_candidates,
@@ -253,6 +264,10 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
         "speaker_and_boundary_end_to_end_accuracy": correct_and_complete / total_source_turns,
         "speaker_correct_and_complete_turns": correct_and_complete,
         "per_character": per_character,
+        "per_scene": [{"scene_id": scene, "total": counts["total"], "correct": counts["correct"],
+                       "assigned": counts["assigned"], "missing": counts["missing"],
+                       "end_to_end_accuracy": counts["correct"] / counts["total"]}
+                      for scene, counts in sorted(scene_counts.items())],
         "split_metrics": split_metrics,
         "wrong_or_unassigned": wrong,
         "confusion": [
@@ -268,9 +283,13 @@ def evaluate(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
 def render_markdown(result: dict[str, Any]) -> str:
     pct = lambda value: f"{value * 100:.2f}%"
     lines = [
-        "# Baseline auditavel - Parte 01",
+        f"# Baseline auditavel - {result['gold']}",
         "",
         "## Resultado executivo",
+        "",
+        f"Protocolo: {result.get('evaluation_protocol', {}).get('status', 'unverified')}. "
+        f"{result.get('evaluation_protocol', {}).get('note', '')}",
+        "Os limites completos abaixo verificam cobertura textual, nao substituem auditoria dos cortes no audio.",
         "",
         f"- Turnos falados no gabarito: **{result['gold_source_turns']}**.",
         f"- Turnos encontrados: **{result['detected_source_turns']}**; perdidos: **{result['missing_source_turns']}**.",
@@ -299,6 +318,11 @@ def render_markdown(result: dict[str, Any]) -> str:
     ]
     for item in result["per_character"]:
         lines.append(f"| {item['speaker']} | {item['correct']} | {item['total']} | {pct(item['recall'])} |")
+    if result.get("per_scene"):
+        lines.extend(["", "## Por cena", "", "| Cena (ID) | Corretas | Total | Ponta a ponta |",
+                      "|---|---:|---:|---:|"])
+        for item in result["per_scene"]:
+            lines.append(f"| {item['scene_id']} | {item['correct']} | {item['total']} | {pct(item['end_to_end_accuracy'])} |")
     lines.extend(["", "## Principais confusoes", "", "| Esperado | Motor atual | Quantidade |", "|---|---|---:|"])
     for item in result["confusion"]:
         lines.append(f"| {item['expected']} | {item['predicted']} | {item['count']} |")

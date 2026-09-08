@@ -1,5 +1,21 @@
 # Motor contextual por cena — Parte 01
 
+## Retificação metodológica — 6 de setembro de 2026
+
+Este é um resultado histórico de desenvolvimento, não um teste independente.
+As cenas 13–14 foram inspecionadas durante os ajustes: o nome `test_locked` não
+corresponde mais a um conjunto intocado. Os 98,11% abaixo não estimam acurácia em
+novos livros. O gabarito foi produzido pelo assistente e ainda precisa de auditoria
+independente. “Treino” significa ajuste de regras/prompts, não treinamento dos pesos.
+
+A crítica antiga via a primeira proposta do mesmo modelo; concordância não era
+validação independente. A versão em desenvolvimento passa a ocultar essa proposta
+e não reduz o limiar automático por consenso. Continua sendo o mesmo modelo:
+duas leituras não transformam confiança declarada em probabilidade calibrada.
+
+Os números e tempos abaixo pertencem à v25, não à versão nova. A rodada de 178,17 s
+também reutilizou respostas intermediárias do cache; não é medição a frio.
+
 ## Resultado
 
 Teste executado com `qwen3:8b`, EPUB completo e áudio da Parte 01. A transcrição e o
@@ -45,8 +61,8 @@ A meta global de 95% ainda não foi atingida. O principal gargalo é a cena de m
 do conjunto de treino: o mesmo participante anônimo reaparece como “gnomo narigudo”,
 “gnomo dos artigos” ou outra descrição, e há várias entradas curtas sem atribuição.
 Também restam quatro falas curtas não detectadas pelo alinhamento. O resultado de
-98,11% no teste bloqueado mostra que o novo método funciona muito bem em conversas
-normais, mas não autoriza declarar 95% para qualquer capítulo.
+98,11% no subconjunto consultado durante o desenvolvimento é apenas regressão
+local; não permite concluir desempenho em conversas de outros livros.
 
 Durante a revisão do gabarito, P275 e P276 estavam invertidos. O texto mostra que
 P275 é Yennefer e P276 é Jaskier; o gabarito foi corrigido antes do relatório final.

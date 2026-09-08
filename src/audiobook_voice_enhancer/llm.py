@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import time
@@ -50,6 +51,8 @@ SCENE_SCHEMA: dict[str, Any] = {
 
 class LLMProvider:
     model: str
+    system_prompt = SYSTEM
+    response_schema = SCENE_SCHEMA
 
     def infer(self, payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
@@ -65,16 +68,25 @@ class OllamaProvider(LLMProvider):
             f"{self.url}/api/chat", timeout=self.timeout,
             json={
                 "model": self.model, "stream": False, "think": self.reasoning,
-                "format": SCENE_SCHEMA, "keep_alive": "10m",
+                "format": self.response_schema, "keep_alive": "10m",
                 "options": {"temperature": 0, "seed": 42, "num_ctx": 32768, "num_predict": 4096},
                 "messages": [
-                    {"role": "system", "content": SYSTEM},
+                    {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
             },
         )
         response.raise_for_status()
-        result = json.loads(response.json()["message"]["content"])
+        body = response.json()
+        self.last_diagnostics = {key: body.get(key) for key in (
+            "done", "done_reason", "total_duration", "load_duration", "prompt_eval_count",
+            "prompt_eval_duration", "eval_count", "eval_duration")}
+        self.last_diagnostics["raw_content"] = body["message"]["content"]
+        try:
+            result = json.loads(body["message"]["content"])
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON; done_reason={body.get('done_reason')}; "
+                             f"eval_count={body.get('eval_count')}: {exc}") from exc
         if not isinstance(result, dict):
             raise ValueError("O LLM não devolveu um objeto JSON")
         return result
@@ -91,7 +103,7 @@ class OpenAICompatibleProvider(LLMProvider):
             json={
                 "model": self.model, "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": SYSTEM},
+                    {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
                 "temperature": 0,
@@ -115,9 +127,52 @@ def build_provider(config: dict[str, Any]) -> LLMProvider | None:
                                     config.get("api_key_env", "OPENAI_API_KEY"), timeout)
 
 
+def review_cache_identity(provider: LLMProvider | None) -> tuple[Any, ...]:
+    return ("scene-speaker-review-v5-blind", type(provider).__name__,
+            getattr(provider, "url", None), getattr(provider, "model", None),
+            getattr(provider, "reasoning", None), SYSTEM, SCENE_SCHEMA)
+
+
 def cached_infer(provider: LLMProvider, cache: Cache, payload: dict[str, Any]) -> dict[str, Any]:
-    key = cache.digest("scene-speaker-review-v4", provider.model, getattr(provider, "reasoning", None), payload)
-    return cache.json("llm", key, lambda: provider.infer(payload))
+    key = cache.digest(review_cache_identity(provider), provider.system_prompt, provider.response_schema, payload)
+    def invoke():
+        provider.last_diagnostics = {}
+        started = time.monotonic()
+        error = None
+        try:
+            return provider.infer(payload)
+        except Exception as exc:
+            error = str(exc)
+            raise
+        finally:
+            diagnostics = {**provider.last_diagnostics, "error": error,
+                           "elapsed_seconds": time.monotonic() - started}
+            cache.path("llm_diagnostics", key).write_text(
+                json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding="utf-8")
+    return cache.json("llm", key, invoke)
+
+
+def _confidence(value: Any) -> float:
+    try:
+        score = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return score if not isinstance(value, bool) and math.isfinite(score) and 0 <= score <= 1 else 0.0
+
+
+def _decisions(assignments: list[Any]) -> dict[str, dict[str, Any]]:
+    """Conflicting/duplicate IDs and malformed speakers cannot become anchors."""
+    result: dict[str, dict[str, Any]] = {}
+    duplicates: set[str] = set()
+    for item in assignments:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            continue
+        identifier = item["id"]
+        if identifier in result:
+            duplicates.add(identifier)
+        result[identifier] = item
+    return {key: item for key, item in result.items() if key not in duplicates
+            and (item.get("speaker") is None or isinstance(item.get("speaker"), str))}
 
 
 def _speaker_is_directly_addressed(text: str, speaker: str) -> bool:
@@ -139,7 +194,7 @@ def review_scenes(provider: LLMProvider, cache: Cache, dialogues: list[dict[str,
     turns = turn_representatives(dialogues)
     pending_by_scene: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for dialogue in turns:
-        if (dialogue.get("dialogue_style") != "quote"
+        if (not dialogue.get("manually_confirmed") and dialogue.get("dialogue_style") != "quote"
                 and (not dialogue.get("speaker") or float(dialogue.get("speaker_confidence", 0)) < threshold)):
             pending_by_scene[int(dialogue.get("scene_id", -1))].append(dialogue)
 
@@ -165,6 +220,8 @@ def review_scenes(provider: LLMProvider, cache: Cache, dialogues: list[dict[str,
         "dialogues_reviewed": 0, "assigned": 0,
         "suggested_for_review": 0, "unresolved": 0, "critic_batches": 0,
         "critic_agreements": 0, "critic_disagreements": 0, "errors": [],
+        "review_method": "blind_second_reading" if critic_enabled else "single_reading",
+        "confidence_is_calibrated": False,
     }
     for position, (scene_id, pending) in enumerate(batches, 1):
         if progress:
@@ -193,10 +250,6 @@ def review_scenes(provider: LLMProvider, cache: Cache, dialogues: list[dict[str,
             if any(_speaker_is_directly_addressed(item.get("text", ""), name) for item in whole_scene):
                 local_speakers.add(name)
         allowed = local_speakers if len(local_speakers) >= 2 else known
-        batch_speakers = {str(item["speaker"]) for item in scene_dialogues
-                          if item.get("speaker") and float(item.get("speaker_confidence", 0)) >= .9}
-        batch_speakers.update(role for item in scene_dialogues for role in _addressed_roles(item.get("text", "")))
-        safe_consensus = len(batch_speakers) == 2
         payload = {
             "task": ("Atribua cada target_dialogue usando somente este trecho local. "
                      "Personagens apenas mencionados como ausentes não estão presentes e não podem falar."),
@@ -211,13 +264,13 @@ def review_scenes(provider: LLMProvider, cache: Cache, dialogues: list[dict[str,
             ],
             "target_dialogues": [
                 {"id": str(item["id"]), "paragraph": item.get("book_paragraph_id"),
-                 "text": item.get("text", ""), "current_speaker": item.get("speaker")}
+                 "text": item.get("text", "")}
                 for item in pending
             ],
             "chronological_dialogues": [
                 {"id": str(item["id"]), "paragraph": item.get("book_paragraph_id"),
-                 "text": item.get("text", ""), "speaker_if_anchored": item.get("speaker"),
-                 "anchor_reason": item.get("reason", "") if item.get("speaker") else "",
+                 "text": item.get("text", ""), "speaker_if_anchored": item.get("speaker") if item not in pending else None,
+                 "anchor_reason": item.get("reason", "") if item.get("speaker") and item not in pending else "",
                  "is_target": item in pending}
                 for item in scene_dialogues
             ],
@@ -229,33 +282,33 @@ def review_scenes(provider: LLMProvider, cache: Cache, dialogues: list[dict[str,
             assignments = answer.get("assignments", [])
             if not isinstance(assignments, list):
                 raise ValueError("campo assignments ausente na resposta")
-            by_id = {str(item.get("id")): item for item in assignments if isinstance(item, dict)}
+            by_id = _decisions(assignments)
             critic_by_id: dict[str, dict[str, Any]] = {}
             if critic_enabled:
                 critic_payload = dict(payload)
                 critic_payload["task"] = (
-                    "Audite cada proposed_assignment de forma independente. Releia toda a sequência. "
-                    "Corrija trocas de falante, nomes que são apenas destinatários e falsas alegações de "
-                    "atribuição explícita. Use null quando a evidência não bastar."
+                    "Faça uma segunda leitura do texto, sem acesso a propostas anteriores. "
+                    "Para cada target_dialogue procure evidências contra cada candidato: "
+                    "ausência na cena, nome usado como destinatário e sujeito de outro verbo. "
+                    "Atribua somente quando o texto sustentar a identidade; caso contrário, use null."
                 )
-                critic_payload["proposed_assignments"] = assignments
+                critic_payload["review_pass"] = "blind_second_reading"
                 critic_answer = cached_infer(provider, cache, critic_payload)
                 critic_assignments = critic_answer.get("assignments", [])
                 if not isinstance(critic_assignments, list):
                     raise ValueError("campo assignments ausente na crítica")
-                critic_by_id = {str(item.get("id")): item for item in critic_assignments
-                                if isinstance(item, dict)}
+                critic_by_id = _decisions(critic_assignments)
                 stats["critic_batches"] += 1
             for dialogue in pending:
                 decision = by_id.get(str(dialogue["id"]), {})
                 speaker = decision.get("speaker")
-                confidence = min(1.0, max(0.0, float(decision.get("confidence", 0) or 0)))
+                confidence = _confidence(decision.get("confidence", 0))
                 reason = str(decision.get("reason", "")).strip()
                 agreed = False
                 if critic_enabled:
                     critique = critic_by_id.get(str(dialogue["id"]), {})
                     critic_speaker = critique.get("speaker")
-                    critic_confidence = min(1.0, max(0.0, float(critique.get("confidence", 0) or 0)))
+                    critic_confidence = _confidence(critique.get("confidence", 0))
                     agreed = bool(speaker and critic_speaker == speaker)
                     if agreed:
                         confidence = min(confidence, critic_confidence)
@@ -275,8 +328,9 @@ def review_scenes(provider: LLMProvider, cache: Cache, dialogues: list[dict[str,
                     dialogue["llm_suggestion"] = speaker
                     dialogue["llm_confidence"] = round(confidence, 4)
                     dialogue["llm_reason"] = reason
-                acceptance_threshold = consensus_threshold if agreed and safe_consensus else automatic_threshold
-                if speaker and confidence >= acceptance_threshold and (agreed or not critic_enabled):
+                # Agreement from the same model is not calibrated correctness.
+                acceptance_threshold = max(automatic_threshold, consensus_threshold) if agreed else automatic_threshold
+                if speaker and confidence > 0 and confidence >= acceptance_threshold and (agreed or not critic_enabled):
                     dialogue["speaker"] = speaker
                     dialogue["speaker_confidence"] = round(confidence, 4)
                     dialogue["reason"] = f"IA contextual do livro: {reason}"

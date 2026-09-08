@@ -6,6 +6,22 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
+A [revisão do motor para uso geral](docs/ENGINE_REASSESSMENT.md) descreve a direção
+textual, as melhorias verificadas e os limites das métricas. Ainda não há validação
+independente de 95% de identificação em livros novos.
+
+O [motor textual experimental](docs/BOOK_FIRST_ENGINE.md) já está integrado à
+análise: identifica turnos no livro e depois associa suas decisões aos recortes.
+O [protocolo compacto e o conversor persistente](docs/COMPACT_ENGINE_AND_RUNTIME.md)
+estão preparados para comparação de acurácia e tempo; a meta de 90 minutos ainda
+não foi demonstrada por uma execução completa.
+A etapa atual testa [referências literais do narrador no compacto](docs/SOURCE_SUBJECTS.md).
+Os experimentos `scene` e `lightweight` regrediram e permanecem só para reprodução.
+O padrão é `compact`, com 178/255 (69,80%) na Parte 01 de desenvolvimento.
+A meta de 90% de todas as falas ainda não foi atingida.
+As [preferências de trabalho](AGENTS.md) registram a divisão entre turnos de
+implementação e de avaliação.
+
 ## Requisitos
 
 - Windows 11, Python 3.11 para a aplicação e Python 3.10 para Seed-VC

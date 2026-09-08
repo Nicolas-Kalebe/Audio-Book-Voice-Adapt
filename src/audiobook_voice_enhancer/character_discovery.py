@@ -30,11 +30,13 @@ def build_alias_map(characters: dict[str, dict[str, Any]]) -> dict[str, str]:
     return aliases
 
 
-def _valid_character_name(value: Any) -> str | None:
-    name = " ".join(str(value or "").split()).strip(".,:;!?—–-\"'()[]{}")
+def _valid_character_name(value: Any, *, structured: bool = False) -> str | None:
+    name = " ".join(str(value or "").split())
+    if not structured:
+        name = name.strip(".,:;!?—–-\"'()[]{}")
     if not name or name.casefold() in IGNORED_NAMES or name.startswith("__"):
         return None
-    if len(name) > 80 or len(name.split()) > 4 or not name[0].isupper():
+    if len(name) > (160 if structured else 80) or len(name.split()) > (16 if structured else 4) or not name[0].isupper():
         return None
     return name
 
@@ -43,7 +45,7 @@ def discover_characters(report: dict[str, Any], confidence_threshold: float = 0.
     observations: dict[str, list[float]] = defaultdict(list)
     for item in report.get("files", []):
         for dialogue in turn_representatives(item.get("dialogues", [])):
-            name = _valid_character_name(dialogue.get("speaker"))
+            name = _valid_character_name(dialogue.get("speaker"), structured=bool(dialogue.get("speaker_entity_id")))
             if name:
                 observations[name].append(float(dialogue.get("speaker_confidence", 0)))
     discovered: dict[str, dict[str, Any]] = {}

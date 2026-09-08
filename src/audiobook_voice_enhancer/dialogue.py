@@ -3,10 +3,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .alignment import map_phrase_to_words
+from .alignment import map_phrase_to_words, normalize
 
 
-DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v25-stable-roles"
+DIALOGUE_ALGORITHM_VERSION = "book-context-speaker-engine-v27-auditable-recovery"
 SPEECH_VERBS = (r"disse|perguntou|respondeu|gritou|murmurou|sussurrou|exclamou|retrucou|declarou|"
                 r"afirmou|falou|berrou|urrou|rosnou|vociferou|insistiu|interrompeu|interveio|"
                 r"comentou|observou|anunciou|acrescentou|continuou|prosseguiu|repetiu|replicou|"
@@ -244,12 +244,108 @@ def _continued_dash_turn(book_blocks: list[str] | None, paragraph: int) -> int |
     return paragraph - 1
 
 
+def _recover_short_dialogue_alignments(
+    transcript: dict[str, Any], alignments: list[dict[str, Any]], book_blocks: list[str] | None,
+) -> list[dict[str, Any]]:
+    """Recover short turns only between exact, chronological text anchors.
+
+    This is conservative lexical recovery, not forced alignment. A unique word
+    somewhere in neighboring ASR segments is insufficient evidence of timing.
+    """
+    if not book_blocks or not alignments:
+        return alignments
+    aligned = {int(item["book_paragraph_id"]) for item in alignments}
+    segments_by_paragraph: dict[int, set[Any]] = {}
+    for item in alignments:
+        segments_by_paragraph.setdefault(int(item["book_paragraph_id"]), set()).add(item["segment_id"])
+    by_segment = {item["id"]: item for item in transcript.get("segments", [])}
+    recovered: list[dict[str, Any]] = []
+    scenes = _scene_numbers(book_blocks)
+    for paragraph in range(1, len(book_blocks) - 1):
+        if paragraph in aligned:
+            continue
+        fragments = _dash_speech_fragments(book_blocks[paragraph])
+        if len(fragments) != 1:
+            continue
+        phrase_tokens = normalize(fragments[0].group(1)).split()
+        if not 1 <= len(phrase_tokens) <= 4:
+            continue
+        # Do not jump across another unaligned turn or a scene boundary.
+        if not {paragraph - 1, paragraph + 1} <= aligned:
+            continue
+        if not scenes[paragraph - 1] == scenes[paragraph] == scenes[paragraph + 1]:
+            continue
+        local_segment_ids = (segments_by_paragraph[paragraph - 1]
+                             | segments_by_paragraph[paragraph + 1])
+        local_segments = [by_segment[key] for key in local_segment_ids if key in by_segment]
+        if not local_segments:
+            continue
+        lower = min(float(segment["start"]) for segment in local_segments)
+        upper = max(float(segment["end"]) for segment in local_segments)
+        local_segments = [segment for segment in by_segment.values()
+                          if float(segment["end"]) >= lower and float(segment["start"]) <= upper]
+        left_tokens = normalize(book_blocks[paragraph - 1]).split()[-4:]
+        right_tokens = normalize(book_blocks[paragraph + 1]).split()[:4]
+        if min(len(left_tokens), len(right_tokens)) < 2:
+            continue
+
+        # Book sentence boundaries need not coincide with ASR segment boundaries.
+        timed_words = sorted(((segment, index, word) for segment in local_segments
+                              for index, word in enumerate(segment.get("words", []))),
+                             key=lambda entry: float(entry[2]["start"]))
+        normalized = [normalize(entry[2].get("word", "")) for entry in timed_words]
+
+        def occurrences(tokens: list[str]) -> list[tuple[int, int]]:
+            return [(index, index + len(tokens)) for index in range(len(normalized) - len(tokens) + 1)
+                    if normalized[index:index + len(tokens)] == tokens]
+
+        left_matches, right_matches = occurrences(left_tokens), occurrences(right_tokens)
+        if len(left_matches) != 1 or len(right_matches) != 1:
+            continue
+        _, left_end = left_matches[0]
+        right_start, _ = right_matches[0]
+        after = float(timed_words[left_end - 1][2]["end"])
+        before = float(timed_words[right_start][2]["start"])
+        if not 0 < before - after <= 12:
+            continue
+        matches: list[tuple[dict[str, Any], int, int]] = []
+        for start, end in occurrences(phrase_tokens):
+            segment, word_start, first_word = timed_words[start]
+            end_segment, word_end, last_word = timed_words[end - 1]
+            begin, finish = float(first_word["start"]), float(last_word["end"])
+            if after <= begin < finish <= before and segment["id"] == end_segment["id"]:
+                matches.append((segment, word_start, word_end + 1))
+        if len(matches) != 1:
+            continue
+        segment, start, end = matches[0]
+        recovered.append({
+            "segment_id": segment["id"], "book_paragraph_id": paragraph,
+            "audio_start": segment["words"][start]["start"],
+            "audio_end": segment["words"][end - 1]["end"],
+            "alignment_confidence": .86, "book_text": book_blocks[paragraph],
+            "recovered_short_dialogue": True,
+            "recovery_word_range": [start, end],
+            "recovery_anchors": [paragraph - 1, paragraph + 1],
+        })
+    # Reject competing claims instead of letting book iteration order decide.
+    unique = [item for item in recovered if not any(
+        other is not item and float(item["audio_start"]) < float(other["audio_end"])
+        and float(other["audio_start"]) < float(item["audio_end"])
+        for other in recovered)]
+    return [*alignments, *unique]
+
+
 def _scene_numbers(book_blocks: list[str] | None) -> dict[int, int]:
     scene = 0
     result: dict[int, int] = {}
     for index, block in enumerate(book_blocks or []):
         cleaned = block.strip()
-        if cleaned in {"—", "–", "-", "*", "***", "•"} or re.match(r"^(?:capítulo|chapter)\b", cleaned, re.I):
+        # The inventory treats an unfinished dash turn's next paragraph as
+        # continuation. Scene segmentation must preserve that same decision,
+        # including when the continuation starts with the word "Capítulo".
+        heading = (re.match(r"^(?:capítulo|chapter)\b", cleaned, re.I)
+                   and _continued_dash_turn(book_blocks, index) is None)
+        if cleaned in {"—", "–", "-", "*", "***", "•"} or heading:
             scene += 1
         result[index] = scene
     return result
@@ -528,24 +624,17 @@ def _resolve_role_coreference(dialogues: list[dict[str, Any]]) -> None:
             continue
         owners.setdefault((int(item.get("scene_id", -1)), str(role)), set()).add(str(speaker))
     unique = {key: next(iter(values)) for key, values in owners.items() if len(values) == 1}
-    role_labels = {
-        key: max(values, key=lambda value: (
-            bool(re.search(r"\b(?:de|do|da|dos|das)\b", value, re.I)),
-            len(value.split()), len(value),
-        ))
-        for key, values in anonymous.items()
-    }
     for item in dialogues:
         if item.get("reason") != "personagem anônimo descrito explicitamente":
             continue
         key = (int(item.get("scene_id", -1)), str(item.get("attribution_role")))
         owner = unique.get(key)
-        if owner:
+        if owner and len(anonymous.get(key, set())) == 1 and str(item["speaker"]).casefold() == key[1].casefold():
             item["speaker"] = owner
             item["speaker_confidence"] = .94
             item["reason"] = "papel ligado a um único personagem nomeado nesta cena"
-        elif key in role_labels:
-            item["speaker"] = role_labels[key]
+        elif len(anonymous.get(key, set())) > 1:
+            item["coreference_requires_review"] = True
 
 
 def propagate_speaker_inside_turn(dialogues: list[dict[str, Any]]) -> None:
@@ -607,13 +696,14 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
            speaker_aliases: dict[str, str] | None = None,
            book_blocks: list[str] | None = None) -> list[dict[str, Any]]:
     aliases = _book_aliases(book_blocks, speaker_aliases or {})
+    alignments = _recover_short_dialogue_alignments(transcript, list(alignments or []), book_blocks)
     scenes = _scene_numbers(book_blocks)
     role_owners = _scene_role_owners(book_blocks, aliases, scenes)
     segments = transcript.get("segments", [])
     segment_by_id = {item["id"]: item for item in segments}
-    aligned_ids = {item["segment_id"] for item in (alignments or [])}
+    aligned_ids = {item["segment_id"] for item in alignments}
     paragraph_groups: dict[int, list[dict[str, Any]]] = {}
-    for item in alignments or []:
+    for item in alignments:
         paragraph_groups.setdefault(int(item["book_paragraph_id"]), []).append(item)
 
     # One EPUB paragraph usually spans several Whisper segments. Treat all of
@@ -621,8 +711,16 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
     units: list[tuple[float, str, list[dict[str, Any]], float, bool, int]] = []
     for paragraph_id, group in paragraph_groups.items():
         group.sort(key=lambda item: float(item["audio_start"]))
-        grouped_segments = [segment_by_id[item["segment_id"]] for item in group
-                            if item["segment_id"] in segment_by_id]
+        grouped_segments = []
+        for item in group:
+            if item["segment_id"] not in segment_by_id:
+                continue
+            segment = segment_by_id[item["segment_id"]]
+            if item.get("recovered_short_dialogue"):
+                first, last = item["recovery_word_range"]
+                segment = {**segment, "words": segment.get("words", [])[first:last],
+                           "recovered_short_dialogue": True}
+            grouped_segments.append(segment)
         if not grouped_segments:
             continue
         confidence = min(float(item["alignment_confidence"]) for item in group)
@@ -683,10 +781,17 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
             scene_roles = role_owners.get(scenes.get(unit_id, 0), {})
             role_is_known = attribution_role in scene_roles
             role_speaker = scene_roles.get(attribution_role or "")
+            role_label = _anonymous_role_label(context, speech_end, attribution_role) if attribution_role else None
+            # A descriptive/new person is not the named owner merely because
+            # both share an occupation. Keep generic definite-role memory only.
+            if role_speaker and ((role_label and role_label.casefold() != attribution_role.casefold())
+                                 or re.search(rf"\b(?:um|uma|uns|umas)\s+(?:\w+\s+){{0,2}}{attribution_role}\b",
+                                              context[speech_end:], re.I)):
+                role_speaker = None
+                role_is_known = False
             if not speaker and role_speaker:
                 speaker, speaker_score, reason = role_speaker, 0.94, "memória de papel do personagem nesta cena"
             if not speaker and attribution_role and not role_is_known:
-                role_label = _anonymous_role_label(context, speech_end, attribution_role)
                 if role_label:
                     speaker, speaker_score, reason = role_label, 0.96, "personagem anônimo descrito explicitamente"
             introduced = _self_identified_speaker(text, aliases)
@@ -703,6 +808,7 @@ def detect(transcript: dict[str, Any], alignments: list[dict[str, Any]] | None =
                               "start": start, "end": end, "speaker": speaker,
                               "speaker_confidence": round(speaker_score, 4), "alignment_confidence": round(confidence, 4),
                               "source": "book" if is_aligned else "transcript", "reason": reason,
+                              "timing_method": "exact_short_turn_between_anchors" if owner.get("recovered_short_dialogue") else "asr_word_match",
                               "book_paragraph_id": unit_id if is_aligned else None,
                               "book_context": book_blocks[max(0, unit_id - 2):unit_id + 3] if is_aligned and book_blocks else [context],
                               "scene_id": scenes.get(unit_id, 0) if is_aligned else -1,
@@ -750,5 +856,5 @@ class TextMatch:
     def start(self, _: int | None = None) -> int:
         return self._start
 
-    def end(self) -> int:
+    def end(self, _: int | None = None) -> int:
         return self._end

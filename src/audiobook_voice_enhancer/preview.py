@@ -32,7 +32,12 @@ def generate_preview(root: Path, source: Path, character_name: str, config_path:
     raw = output / f"{slug}-converted-raw.wav"
     converted = output / f"{slug}-converted.wav"
     extract_segment(source, original, start, end)
-    select_converter(config, root).convert(original, reference, raw, character)
+    converter = select_converter(config, root)
+    try:
+        converter.convert(original, reference, raw, character)
+    finally:
+        if hasattr(converter, "close"):
+            converter.close()
     crossfade = config.get("crossfade", {})
     fade = min(int(crossfade.get("max_ms", 150)), max(int(crossfade.get("min_ms", 30)), round(duration * 100)))
     conform_segment(raw, original, converted, duration, fade)

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import shutil
+import json
+import queue
 import subprocess
 import sys
+import tempfile
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -20,12 +25,19 @@ class VoiceConverter:
     def convert(self, source: Path, reference: Path, output: Path, character: dict[str, Any]) -> None:
         raise NotImplementedError
 
+    def close(self) -> None:
+        """Release session resources, including GPU memory."""
+
 
 class SeedVCConverter(VoiceConverter):
     name = "seedvc"
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, persistent: bool = True, timeout: float = 600):
         self.root = root.resolve()
+        self.persistent, self.timeout = persistent, timeout
+        self._process = None
+        self._log = None
+        self.timings: list[dict] = []
 
     def available(self) -> bool:
         return (self.root / "inference.py").is_file()
@@ -33,6 +45,87 @@ class SeedVCConverter(VoiceConverter):
     def convert(self, source: Path, reference: Path, output: Path, character: dict[str, Any]) -> None:
         if not self.available():
             raise VoiceConversionError(f"Seed-VC não instalado em {self.root}; execute setup_seedvc.bat")
+        if self.persistent:
+            self._convert_persistent(source, reference, output, character)
+            return
+        self._convert_cli(source, reference, output, character)
+
+    def _start(self):
+        private_python = self.root / ".venv" / "Scripts" / "python.exe"
+        python = str(private_python) if private_python.is_file() else sys.executable
+        self._log = tempfile.TemporaryFile(mode="w+b")
+        try:
+            self._process = subprocess.Popen(
+                [python, "-u", str(Path(__file__).with_name("seedvc_worker.py")), str(self.root)],
+                cwd=self.root, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self._log,
+                text=True, encoding="utf-8", errors="replace", bufsize=1,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except Exception:
+            self._log.close()
+            self._log = None
+            raise
+        responses = self._responses = queue.Queue()
+        stream = self._process.stdout
+
+        def read_responses():
+            try:
+                for line in stream:
+                    if line.startswith("__ABVA_WORKER__"):
+                        responses.put(json.loads(line[len("__ABVA_WORKER__"):]))
+            except Exception as exc:
+                responses.put({"ok": False, "error": str(exc)})
+            finally:
+                responses.put({"ok": False, "error": "Worker encerrou sem resposta"})
+
+        self._reader = threading.Thread(target=read_responses, daemon=True)
+        self._reader.start()
+
+    def _convert_persistent(self, source, reference, output, character):
+        started = time.monotonic()
+        cold = self._process is None
+        try:
+            if cold:
+                self._start()
+            request = {"source": str(source.resolve()), "reference": str(reference.resolve()),
+                       "output": str(output.resolve()), "pitch_shift": int(float(character.get("pitch_shift", 0)))}
+            self._process.stdin.write(json.dumps(request, ensure_ascii=True) + "\n")
+            self._process.stdin.flush()
+            response = self._responses.get(timeout=self.timeout)
+            if not response.get("ok") or not output.is_file() or output.stat().st_size <= 44:
+                raise VoiceConversionError(response.get("error", "Worker não produziu WAV válido"))
+            self.timings.append({"cold_start": cold, "elapsed_seconds": time.monotonic() - started,
+                                 "worker_seconds": response.get("seconds")})
+        except BaseException as exc:
+            detail = ""
+            if self._log:
+                self._log.seek(0, 2)
+                self._log.seek(max(0, self._log.tell() - 2000))
+                detail = self._log.read().decode("utf-8", errors="replace")
+            self.close()
+            if not isinstance(exc, Exception):
+                raise
+            reason = f"tempo limite de {self.timeout}s excedido" if isinstance(exc, queue.Empty) else str(exc)
+            raise VoiceConversionError(f"Seed-VC worker: {reason}\n{detail}") from exc
+
+    def close(self):
+        process, self._process = self._process, None
+        if process:
+            try:
+                process.stdin.close()
+            except (OSError, ValueError):
+                pass
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+            self._reader.join(timeout=2)
+            process.stdout.close()
+        if self._log:
+            self._log.close()
+            self._log = None
+
+    def _convert_cli(self, source, reference, output, character):
         staging = output.parent / f".{output.stem}-seedvc"
         staging.mkdir(parents=True, exist_ok=True)
         private_python = self.root / ".venv" / "Scripts" / "python.exe"
@@ -80,7 +173,9 @@ class RVCConverter(VoiceConverter):
 def select_converter(config: dict[str, Any], root: Path) -> VoiceConverter:
     vc = config.get("voice_conversion", {})
     choices: dict[str, VoiceConverter] = {
-        "seedvc": SeedVCConverter(root / vc.get("seedvc_path", "models/seed-vc")),
+        "seedvc": SeedVCConverter(root / vc.get("seedvc_path", "models/seed-vc"),
+                                 persistent=bool(vc.get("persistent_worker", True)),
+                                 timeout=float(vc.get("worker_timeout_seconds", 600))),
         "openvoice": OpenVoiceConverter(root / vc.get("openvoice_path", "models/OpenVoice")),
         "rvc": RVCConverter(root / vc.get("rvc_path", "models/Retrieval-based-Voice-Conversion-WebUI")),
     }

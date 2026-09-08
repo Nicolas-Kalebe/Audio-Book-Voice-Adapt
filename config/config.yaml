@@ -35,12 +35,23 @@ alignment:
   block_window: 40
 
 voice_conversion:
+  persistent_worker: true
+  worker_timeout_seconds: 600
   enabled: true
   backend: auto
   # Clone Seed-VC here with setup_seedvc.bat, or set an absolute path.
   seedvc_path: models/seed-vc
   openvoice_path: models/OpenVoice
   rvc_path: models/Retrieval-based-Voice-Conversion-WebUI
+
+book_first:
+  protocol: compact
+  scene_context_characters: 36000
+  scene_repair: true
+  enabled: true
+  automatic_confidence: 0.90
+  max_turns_per_window: 24
+  max_context_characters: 14000
 
 llm:
   enabled: true
@@ -52,7 +63,7 @@ llm:
   reasoning: false
   # IA local costuma superestimar certeza; somente evidência quase explícita entra automaticamente.
   automatic_confidence: 0.98
-  # Consenso usa limiar menor somente em blocos com exatamente dois participantes.
+  # Segunda leitura sem ver a proposta anterior. Consenso não reduz automatic_confidence.
   critic_enabled: true
   consensus_confidence: 0.90
 

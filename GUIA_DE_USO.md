@@ -1,5 +1,29 @@
 # Guia de uso — Audio-Book-Voice-Adapt
 
+## Como ler a cobertura da análise
+
+O modo **Analisar falas pelo texto (experimental)**, em Configurações, acrescenta
+`book_speaker_analysis` aos relatórios. Ele registra personagens por identidade,
+evidências e turnos que ainda não têm áudio localizado. Consulte o
+[guia do motor textual](docs/BOOK_FIRST_ENGINE.md) para configurar e avaliar esse modo.
+
+Nos relatórios JSON/HTML, cada capítulo com livro tem `book_dialogue_coverage`:
+quantos candidatos do texto foram localizados no áudio, quantos ficaram sem
+detecção e os parágrafos correspondentes. Não é preciso rodar outro comando;
+essa informação sai ao analisar com a nova versão.
+
+“Localizado” não significa personagem correto nem corte perfeito. O inventário
+conta fragmentos, inclui aspas que podem ser pensamentos e avalia apenas o
+intervalo de parágrafos alcançado pelo alinhamento. A contagem de falas por
+personagem continua agrupando fragmentos do mesmo turno, separadamente por capítulo.
+
+Nas configurações, a segunda leitura da IA não vê a primeira proposta. O
+“Piso adicional da 2ª leitura” nunca reduz a “Confiança automática da IA”:
+vale o maior dos dois quando a segunda leitura está ativa e concorda.
+Esses valores são filtros, não garantias estatísticas de acerto.
+
+Detalhes e resultados: [revisão do motor](docs/ENGINE_REASSESSMENT.md).
+
 ## O que você precisa
 
 1. O audiobook em MP3, M4A, FLAC, WAV, OPUS, OGG ou AAC.
