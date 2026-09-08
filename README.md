@@ -6,23 +6,63 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-A [revisão do motor para uso geral](docs/ENGINE_REASSESSMENT.md) descreve a direção
-textual, as melhorias verificadas e os limites das métricas. Ainda não há validação
-independente de 95% de identificação em livros novos.
+## Estado atual — 8 de setembro de 2026
 
-O [motor textual experimental](docs/BOOK_FIRST_ENGINE.md) já está integrado à
-análise: identifica turnos no livro e depois associa suas decisões aos recortes.
-O [protocolo compacto e o conversor persistente](docs/COMPACT_ENGINE_AND_RUNTIME.md)
-estão preparados para comparação de acurácia e tempo; a meta de 90 minutos ainda
-não foi demonstrada por uma execução completa.
-A etapa atual testa [referências literais do narrador no compacto](docs/SOURCE_SUBJECTS.md).
-Os experimentos `scene` e `lightweight` regrediram e permanecem só para reprodução.
-O padrão é `compact`, com 178/255 (69,80%) na Parte 01 de desenvolvimento.
-A meta de 90% de todas as falas ainda não foi atingida.
-Para uma revisão externa do histórico, das medições e do estado do código, consulte
-[SPEAKER_ATTRIBUTION_HANDOFF.md](docs/SPEAKER_ATTRIBUTION_HANDOFF.md).
-As [preferências de trabalho](AGENTS.md) registram a divisão entre turnos de
-implementação e de avaliação.
+**Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
+comando, e o que mandar de volta. O que mudou e por quê fica em
+[docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
+
+| | Onde está | Meta |
+|---|---:|---:|
+| Precisão sobre falas dubláveis | **93,17%** | 95% |
+| Cobertura sobre falas dubláveis | **96,24%** | 95% |
+| Detecção das falas | 253/255 (99,2%) | resolvido |
+
+Os números vêm da rodada fria de 08/09 (`--protocol compact`, Qwen 3 8B local)
+com as regras de coerência aplicadas em cima. A cobertura já bate a meta; falta
+precisão, e **faltam 4 acertos**.
+
+### Duas regras de produto que mandam em tudo
+
+1. **É melhor não trocar uma voz do que trocar errado.** Sem certeza, o turno
+   fica sem atribuição e mantém a voz do narrador. Abstenção é a saída segura,
+   não erro — o único defeito que conta é voz trocada errada.
+2. **Figurante de uma cena só não precisa de voz.** Esses 42 turnos saem do
+   denominador que decide o produto; sobram 213 dubláveis. Ficam visíveis na
+   linha `figurante` do placar, nunca escondidos.
+
+As duas estão em [AGENTS.md](AGENTS.md) e substituem a regra antiga, que mandava
+contar omissão como erro e perseguir 90% sobre todas as 255 falas.
+
+### O que falta, e a causa tem nome
+
+Dos 20 turnos ainda pendentes, **12 estão na cena do carvalho**: o parser não
+encontra **nenhuma âncora explícita de fala para o Vilibert** no livro inteiro
+(`disse Sheldon` aparece 8 vezes, `disse Vilibert` nenhuma), então o modelo
+entrega as falas dele a quem tem âncora.
+
+### Antes de qualquer campanha com GPU
+
+```bat
+.venv\Scripts\python scripts\gold_ceiling.py
+```
+
+Trinta segundos, sem GPU. Diz se a meta cabe no gabarito. Cinco campanhas foram
+comparadas contra um teto de 81,57% sem que ninguém tivesse conferido — a
+história está em [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md).
+
+### Documentos, na ordem em que servem
+
+- [RODAR.md](RODAR.md) — o que rodar agora, o que mandar de volta, o registro do que mudou.
+- [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md) — a última medição e o que ela desmentiu.
+- [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md) — por que o placar mentia, e as duas decisões de produto.
+- [AGENTS.md](AGENTS.md) — as preferências e as regras que não se negociam.
+- [docs/SPEAKER_ATTRIBUTION_HANDOFF.md](docs/SPEAKER_ATTRIBUTION_HANDOFF.md) — histórico dos cinco protocolos. **Os números dele são anteriores à correção do avaliador.**
+- [TECHNICAL_DECISIONS.md](TECHNICAL_DECISIONS.md) — escolhas de transcrição, conversão e GPU.
+- [GUIA_DE_USO.md](GUIA_DE_USO.md) — onde colocar cada arquivo.
+
+Os experimentos `scene`, `lightweight` e `source_subjects` regrediram e ficam só
+para reprodução. O padrão é `compact` com `turn_consistency`.
 
 ## Requisitos
 
@@ -237,10 +277,24 @@ ambíguas e turnos cortados antes da continuação. Para comparar uma nova `outp
 .venv\Scripts\python scripts\evaluate_part01_gold.py
 ```
 
-O baseline completo e sua leitura humana ficam em `benchmarks/PART01_BASELINE_REPORT.md`; a primeira
-correção medida está em `benchmarks/PART01_FULL_TURNS_REPORT.md`. A métrica
-principal conta omissões como erro e também informa separadamente se os limites inteiros da fala foram
-encontrados; assim, recusar os casos difíceis ou cortar apenas a primeira frase não infla a acurácia.
+O placar lidera com o par **precisão × cobertura** sobre as falas dubláveis, e separa
+o desfecho em três — correto, voz trocada errada, sem atribuição — porque abster e
+errar não são a mesma coisa para quem escuta. As duas métricas antigas, que contam
+omissão como erro, continuam no relatório para comparar com as rodadas anteriores;
+os relatórios `benchmarks/PART01_*.md` são anteriores à correção do avaliador.
+
+Para ver turno a turno o que errou, sem GPU:
+
+```bat
+.venv\Scripts\python scripts\dump_errors.py --analysis output\<pasta>\analysis.json --output output\<pasta>\erros.csv
+```
+
+E para testar uma regra nova sobre uma rodada que já existe, com ganhos e perdas
+separados — delta líquido esconde troca de dez por oito:
+
+```bat
+.venv\Scripts\python scripts\simulate_rules.py --analysis output\<pasta>\analysis.json
+```
 
 ## Saídas e auditoria
 

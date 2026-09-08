@@ -1,7 +1,37 @@
 # Rodar a próxima medição
 
-Uma rodada só. Nada de lógica de identificação mudou nesta versão — o que está
-sendo medido é a correção de rótulo e identidade do commit anterior.
+Este arquivo é o ponto de entrada de quem vai continuar. Quem mexe no motor
+atualiza **este arquivo e o README no mesmo commit** — quem chega depois não tem
+como adivinhar o que mudou.
+
+## O que mudou, do mais novo para o mais velho
+
+### 8 de setembro de 2026 — regras de coerência de turno
+
+- `turn_consistency.py`: duas regras aplicadas **depois** que o modelo responde.
+  Vocativo (quem é chamado dentro da fala não é quem fala) e sanduíche (três
+  turnos seguidos da mesma pessoa não é diálogo). Não chamam o modelo, não mudam
+  prompt nem schema. Desligar com `--no-turn-consistency` ou
+  `book_first.turn_consistency: false`.
+- `merge_partial_names`: nome curto que é prefixo de **um único** nome completo é
+  a mesma pessoa. `Radcliffe` e `Radcliffe de Oxenfurt` eram duas entidades.
+- Medido sobre a rodada fria: precisão de 85,10% → 87,02% → **93,17%**, cobertura
+  96,24%. Detalhe em [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
+- `scripts/simulate_rules.py`: testa regra nova sobre um `analysis.json` que já
+  existe, sem GPU, e reporta **ganhos e perdas separados**.
+
+### 8 de setembro de 2026 — duas decisões de produto
+
+- Abstenção virou a saída segura, não erro. O placar separa o desfecho em três.
+- Figurante de uma cena só não ganha voz. Denominador caiu de 255 para 213.
+- Meta passou a ser **95% de precisão e 95% de cobertura** sobre os dubláveis.
+
+### 8 de setembro de 2026 — o teto do gabarito
+
+- Papel anônimo saía rotulado com sufixo de cena e nunca casava: um motor
+  perfeito marcava 81,57%, e a meta de 90% era impossível. Teto corrigido para
+  98,04%. `scripts/gold_ceiling.py` mede isso em 30s, sem GPU.
+- **O `178/255` dos documentos antigos não é linha de base.**
 
 ## Antes de rodar
 
