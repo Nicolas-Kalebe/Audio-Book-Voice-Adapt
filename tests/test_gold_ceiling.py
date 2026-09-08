@@ -82,7 +82,7 @@ def test_os_gabaritos_nao_se_sobrepoem():
                for left, right in zip(scopes, scopes[1:]))
 
 
-def test_a_parte_03_e_holdout_intocado():
+def test_a_parte_03_esta_marcada_como_holdout_consumido():
     gold = load_gold(BENCH / "part03_gold.yaml")
-    assert gold["evaluation_protocol"]["independent_holdout"] is True
-    assert gold["evaluation_protocol"]["status"] == "holdout_congelado_antes_de_medir"
+    assert gold["evaluation_protocol"]["independent_holdout"] is False
+    assert gold["evaluation_protocol"]["status"] == "holdout_consumido_em_2026-09-08"

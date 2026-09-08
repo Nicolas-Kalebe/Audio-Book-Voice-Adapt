@@ -8,6 +8,22 @@ como adivinhar o que mudou.
 
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 
+**Resultado do pré-registro:** reprovado. A primeira execução fria, feita após o
+commit do gabarito, produziu **90,68% de precisão e 88,86% de cobertura** sobre
+350 falas dubláveis: 282 corretas, 29 vozes erradas, 26 abstenções e 13 falas não
+localizadas. A Parte 03 agora está marcada como holdout consumido; repetir nela
+serve para desenvolvimento, não para demonstrar generalização.
+
+As maiores famílias foram Triss→Ciri (14), Coen sem atribuição (10), Ciri não
+detectada (10), Geralt→Triss (6) e Geralt→Ciri (3). A cena 27, treino Coen/Ciri,
+teve apenas 51,22% ponta a ponta, enquanto a cena 28, Geralt/Ciri, teve 97,67%.
+Isso sugere falha de estabelecimento/manutenção do par de interlocutores, além
+da perda pelo localizador de falas curtas. A próxima implementação deve ser
+decidida no turno de modelo mais capaz; não ajustar regras neste turno de teste.
+
+Saída local: `output/p03-holdout-fria-20260908/analysis.json`, `report.md` e
+`erros.csv` (ignorados pelo Git).
+
 `benchmarks/part03_gold.yaml` foi criado lendo apenas o EPUB, sem executar nem
 consultar o Qwen nesta parte: P684–1126, 358 falas, 11 pensamentos/citações e
 369 candidatos textuais no total. A voz metálica que usa a boca de Ciri é um

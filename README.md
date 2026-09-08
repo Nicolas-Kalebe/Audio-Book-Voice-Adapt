@@ -52,10 +52,12 @@ erros da primeira rodada foram usados para criar a versão 2. Ela agora é um
 segundo conjunto de desenvolvimento. A próxima validação honesta será uma parte
 nova, com gabarito congelado antes de qualquer resultado do motor.
 
-**A Parte 03 é o novo holdout intocado.** `benchmarks/part03_gold.yaml` cobre
-P684–1126 e foi escrito a partir do EPUB antes da primeira execução do Qwen nessa
-parte. O pré-registro exige precisão ≥95% e cobertura ≥95% sobre dubláveis. O
-gabarito foi escrito por assistente e ainda não tem auditoria humana independente.
+**A Parte 03 foi medida como holdout intocado e reprovou:** 90,68% de precisão e
+88,86% de cobertura sobre 350 falas dubláveis (282 corretas, 29 erradas e 26
+abstenções; outras 13 falas não foram localizadas no áudio). O gabarito P684–1126
+foi congelado antes da execução, mas, após a leitura do resultado, agora também é
+desenvolvimento. Ele foi escrito por assistente e ainda não tem auditoria humana
+independente. O motor não está validado para uso geral.
 
 ### Duas regras de produto que mandam em tudo
 

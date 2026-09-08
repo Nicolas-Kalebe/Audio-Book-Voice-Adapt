@@ -2,8 +2,8 @@ version: 1
 name: Parte 03 - O Sangue dos Elfos
 language: pt-BR
 evaluation_protocol:
-  status: holdout_congelado_antes_de_medir
-  independent_holdout: true
+  status: holdout_consumido_em_2026-09-08
+  independent_holdout: false
   annotation_review: assistant_authored_not_independently_audited
   note: >-
     Anotado lendo o EPUB no intervalo P684-1126, antes de qualquer rodada do
@@ -11,7 +11,10 @@ evaluation_protocol:
     ficam congelados neste commit. Um segundo revisor humano ainda nao auditou
     as inferencias contextuais. Pensamentos e contato psiquico entre aspas nao
     sao fala audivel; a voz metalica que fala pela boca de Ciri e um papel
-    anonimo distinto, conforme a descricao literal do narrador.
+    anonimo distinto, conforme a descricao literal do narrador. A primeira
+    medicao fria produziu 90,68% de precisao e 88,86% de cobertura. A saida foi
+    consultada depois disso; os rotulos permanecem congelados, mas esta parte
+    agora e desenvolvimento e nao pode ser apresentada novamente como holdout.
 scope:
   audio: input/Parte 03.mp3
   book: books/O Sangue dos Elfos.epub
