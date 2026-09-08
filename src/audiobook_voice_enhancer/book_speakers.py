@@ -13,7 +13,7 @@ import unicodedata
 from typing import Any
 
 from .book_inventory import dialogue_inventory
-from .dialogue import NAME, SPEECH_VERB, TITLE_GAP, _scene_numbers
+from .dialogue import NAME, PRONOUN_GAP, SPEECH_VERB, TITLE_GAP, TITLE_ONLY, _scene_numbers
 from .llm import _confidence, cached_infer
 
 VERSION = "book-speakers-v3-complete-turn-context"
@@ -195,8 +195,13 @@ def build_book(blocks: list[str], aliases: dict[str, str] | None = None,
         model["scenes"].append({"id": scene, "first_paragraph": min(ids), "last_paragraph": max(ids)})
     # Only grammatical speech tags are automatic anchors. Action proximity is
     # contextual evidence for the language model, not an identity rule here.
-    after = re.compile(rf"\b(?i:{SPEECH_VERB})\s+(?:(?i:o|a|os|as|the)\s+)?{TITLE_GAP}"
+    after = re.compile(rf"\b(?i:{SPEECH_VERB})\s+{PRONOUN_GAP}(?:(?i:o|a|os|as|the)\s+)?{TITLE_GAP}"
                        rf"(?P<name>{NAME})(?=$|[\s,.!?;:—–])")
+    bare_title = re.compile(TITLE_ONLY)
+    # Cargo -> nome, aprendido do proprio livro: "o feiticeiro Radcliffe" ensina
+    # quem e "o feiticeiro". So resolve quando o substantivo aponta para UMA
+    # pessoa em todo o livro; duas pessoas com a mesma profissao nao se fundem.
+    titles: dict[str, set[str]] = {}
     before = re.compile(rf"(?P<name>{NAME})\s+(?i:{SPEECH_VERB})\s*:")
     named_mentions: list[tuple[str, dict]] = []
     for paragraph, block in enumerate(blocks):
@@ -211,6 +216,22 @@ def build_book(blocks: list[str], aliases: dict[str, str] | None = None,
                             "quote": match.group(0)}
                     model["entities"][identity]["mentions"].append(span)
                     named_mentions.append((identity, span))
+                    head = _key(match.group(0)[:match.start("name") - match.start()]).split()
+                    if head and head[-1] not in {"o", "a", "os", "as", "the"}:
+                        titles.setdefault(head[-1], set()).add(identity)
+    # Segunda passada: agora que os cargos estao aprendidos, a atribuicao sem
+    # nome pode ser resolvida. Roda depois porque o nome pode aparecer adiante.
+    for paragraph, block in enumerate(blocks):
+        for start, end in _narration(block, parts_by_paragraph.get(paragraph, [])):
+            for match in bare_title.finditer(block[start:end]):
+                owners = titles.get(_key(match.group("title")).split()[-1], set())
+                if len(owners) != 1:
+                    continue
+                identity = next(iter(owners))
+                span = {"paragraph": paragraph, "start": start + match.start(), "end": start + match.end(),
+                        "quote": match.group(0)}
+                model["entities"][identity]["mentions"].append(span)
+                named_mentions.append((identity, span))
     # Configured aliases are explicit user identity links. A shared first name
     # alone never merges two named entities.
     for canonical in sorted(set(model["aliases"].values())):

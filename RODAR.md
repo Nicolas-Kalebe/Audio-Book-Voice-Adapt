@@ -6,6 +6,20 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 8 de setembro de 2026 — auditoria do gabarito e mais duas âncoras
+
+- **O gabarito bate com o livro.** 49 atribuições explícitas conferidas contra o
+  texto, 0 divergências; 0 ids órfãos; 0 contradições internas; e os quinze turnos
+  em disputa, lidos à mão, dão razão ao gabarito em todos.
+  Ver [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md).
+- `PRONOUN_GAP`: `respondeu por ela Geralt` voltou a ancorar. A lista de palavras
+  funcionais, que existe para barrar `disse para Ana`, barrava também este caso.
+- `TITLE_ONLY`: `sorriu o feiticeiro` resolve quando o próprio livro escreveu
+  `o feiticeiro Radcliffe` em outro lugar. Dois com a mesma profissão não
+  resolvem nada — a doutrina de não unir por ocupação continua.
+- **Âncoras corretas: 46 → 49. Falsas: 0.** Estimado sobre a rodada fria:
+  precisão **95,17%**, cobertura **97,18%**.
+
 ### 8 de setembro de 2026 — âncora atravessa o cargo até o nome
 
 - A regex de atribuição só aceitava `verbo + artigo + Nome`. O livro escreve
@@ -125,7 +139,7 @@ A próxima rodada mede o **conserto da âncora**. Escrito antes de ver o resulta
 
 | Precisão sobre dubláveis | Leitura |
 |---|---|
-| **94–96%** | Esperado: confirma a estimativa de 95,15%. |
+| **94–96%** | Esperado: confirma a estimativa de 95,17%. |
 | **≥95%** | Meta batida. |
 | **93%** | As âncoras novas não renderam com o modelo no laço; nada regrediu. |
 | **< 93%** | Regressão: âncora nova confundiu o modelo em outros turnos. |

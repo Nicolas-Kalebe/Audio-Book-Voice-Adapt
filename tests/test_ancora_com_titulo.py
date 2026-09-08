@@ -63,3 +63,42 @@ def test_duas_atribuicoes_conflitantes_continuam_sem_ancora():
     model = build_book(["— Sim — disse o chanceler Vilibert, e Iara concordou."])
     assert model["turns"][0]["status"] != "explicit" or \
         model["entities"][model["turns"][0]["speaker_entity_id"]]["name"] == "Vilibert"
+
+
+@pytest.mark.parametrize("texto, esperado", [
+    ("— Ciri — respondeu por ela Geralt, emergindo das sombras.", "Geralt"),
+    ("— Sim — falou por ele Iara, sem levantar os olhos.", "Iara"),
+])
+def test_preposicao_com_pronome_nao_esconde_o_sujeito(texto, esperado):
+    """"respondeu por ela Geralt": o objeto da preposicao e um PRONOME, entao o
+    nome depois so pode ser o sujeito. A lista de palavras funcionais existe para
+    barrar "disse para Ana", e sem esta excecao barrava tambem este caso.
+    """
+    assert falante(texto) == esperado
+
+
+def test_o_livro_ensina_o_nome_atras_do_cargo():
+    """"o feiticeiro Radcliffe" num paragrafo resolve "o feiticeiro" no outro."""
+    model = build_book([
+        "— Muito bem dito — intrometeu-se o feiticeiro Radcliffe.",
+        "— Se a balada diz que se amaram — sorriu o feiticeiro —, então assim foi.",
+    ])
+    nomes = [model["entities"][t["speaker_entity_id"]]["name"] if t["speaker_entity_id"] else None
+             for t in sorted(model["turns"], key=lambda t: t["fragments"][0]["paragraph"])]
+    assert nomes == ["Radcliffe", "Radcliffe"]
+
+
+def test_dois_com_a_mesma_profissao_nao_resolvem_o_cargo_sozinho():
+    """A doutrina continua: profissao compartilhada nao identifica ninguem."""
+    model = build_book([
+        "— Muito bem dito — disse o feiticeiro Radcliffe.",
+        "— Discordo por completo — disse o feiticeiro Vilgeforz.",
+        "— Então assim foi — sorriu o feiticeiro.",
+    ])
+    ultimo = sorted(model["turns"], key=lambda t: t["fragments"][0]["paragraph"])[2]
+    assert ultimo["speaker_entity_id"] is None
+
+
+def test_cargo_sem_nome_em_lugar_nenhum_nao_vira_ancora():
+    model = build_book(["— Tome cuidado — retrucou o anão, passando a mão pelo machado."])
+    assert falante("— Tome cuidado — retrucou o anão, passando a mão pelo machado.") is None

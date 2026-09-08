@@ -22,11 +22,16 @@ Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
 com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem
 exatamente a simulação offline.
 
-> **Pendente de confirmação:** o conserto do parser de âncoras (cargo entre o
-> artigo e o nome) levou as âncoras corretas de 35 para 46, sem nenhuma falsa.
-> Reaplicado sobre a rodada fria, dá **95,15% de precisão e 96,71% de cobertura**
-> — a meta. É estimativa: âncora nova muda o que o modelo recebe, então os outros
-> turnos podem se mexer. **A próxima rodada fria decide.**
+> **Pendente de confirmação:** três consertos no parser de âncoras — cargo entre
+> o artigo e o nome, preposição com pronome (`respondeu por ela Geralt`) e cargo
+> sem nome resolvido pelo próprio livro (`o feiticeiro Radcliffe` ensina quem é
+> `o feiticeiro`) — levaram as âncoras corretas de 35 para **49**, sem nenhuma
+> falsa. Reaplicado sobre a rodada fria, dá **95,17% de precisão e 97,18% de
+> cobertura** — a meta. É estimativa: âncora nova muda o que o modelo recebe,
+> então os outros turnos podem se mexer. **A próxima rodada fria decide.**
+
+O gabarito foi auditado contra o livro em 08/09 e **não tem erro conhecido**:
+[docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md).
 
 ### Duas regras de produto que mandam em tudo
 
@@ -73,6 +78,7 @@ história está em [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md).
 - [RODAR.md](RODAR.md) — o que rodar agora, o que mandar de volta, o registro do que mudou.
 - [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md) — a última medição e o que ela desmentiu.
 - [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md) — por que o placar mentia, e as duas decisões de produto.
+- [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md) — o gabarito bate com o livro, e o que a auditoria não prova.
 - [AGENTS.md](AGENTS.md) — as preferências e as regras que não se negociam.
 - [docs/SPEAKER_ATTRIBUTION_HANDOFF.md](docs/SPEAKER_ATTRIBUTION_HANDOFF.md) — histórico dos cinco protocolos. **Os números dele são anteriores à correção do avaliador.**
 - [TECHNICAL_DECISIONS.md](TECHNICAL_DECISIONS.md) — escolhas de transcrição, conversão e GPU.

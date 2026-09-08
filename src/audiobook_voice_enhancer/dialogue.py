@@ -45,6 +45,13 @@ ATTR_STOPWORDS = (r"que|se|para|por|com|sem|como|quando|porque|enquanto|então|e
 # Cargo ou titulo entre o artigo e o nome: "observou o chanceler Vilibert".
 # E construcao comum em portugues, e sem ela o falante fica sem ancora nenhuma.
 TITLE_GAP = rf"(?:(?!(?i:{ATTR_STOPWORDS})\b)[a-zà-ÿ][\wà-ÿ'-]+\s+){{0,2}}"
+# "respondeu por ela Geralt": o objeto da preposicao e um PRONOME, entao o nome
+# que vem depois so pode ser o sujeito. Sem isto a lista de palavras funcionais,
+# que existe para barrar "disse para Ana", tambem barraria este caso.
+PRONOUN_GAP = r"(?:(?i:por|para|a|com)\s+(?i:ele|ela|eles|elas)\s+)?"
+# Atribuicao sem nome, so com o cargo: "sorriu o feiticeiro". So vira ancora se
+# o proprio livro tiver ensinado o nome atras do cargo em algum outro lugar.
+TITLE_ONLY = rf"\b(?i:{SPEECH_VERB})\s+(?i:o|a|os|as)\s+(?P<title>(?:(?!(?i:{ATTR_STOPWORDS})\b)[a-zà-ÿ][\wà-ÿ'-]+(?:\s+|$)){{1,3}})(?=$|[,.!?;:—–\n])"
 
 
 def _is_possessed_name(prefix: str) -> bool:
