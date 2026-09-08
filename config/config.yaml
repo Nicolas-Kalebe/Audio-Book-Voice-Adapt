@@ -45,7 +45,7 @@ voice_conversion:
   rvc_path: models/Retrieval-based-Voice-Conversion-WebUI
 
 book_first:
-  protocol: scene
+  protocol: compact
   scene_context_characters: 36000
   scene_repair: true
   enabled: true

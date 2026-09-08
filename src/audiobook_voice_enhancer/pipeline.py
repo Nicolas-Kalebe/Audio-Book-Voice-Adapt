@@ -15,6 +15,7 @@ from .book_speakers import (VERSION as BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_S
 from .cache import Cache
 from .compact_speakers import VERSION as COMPACT_VERSION, SYSTEM as COMPACT_SYSTEM, SCHEMA as COMPACT_SCHEMA
 from .scene_context import VERSION as SCENE_VERSION, CAST_SYSTEM, CAST_SCHEMA, ATTRIBUTION_SUFFIX
+from .lightweight_speakers import VERSION as LIGHT_VERSION, SUFFIX as LIGHT_SUFFIX
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import (DIALOGUE_ALGORITHM_VERSION, book_character_names, detect,
@@ -81,6 +82,7 @@ class Pipeline:
             BOOK_SPEAKER_VERSION, BOOK_SYSTEM, BOOK_SCHEMA,
             COMPACT_VERSION, COMPACT_SYSTEM, COMPACT_SCHEMA,
             SCENE_VERSION, CAST_SYSTEM, CAST_SCHEMA, ATTRIBUTION_SUFFIX,
+            LIGHT_VERSION, LIGHT_SUFFIX,
         )
         checkpoint_path = self.cache.path("checkpoints", run_key)
         checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)

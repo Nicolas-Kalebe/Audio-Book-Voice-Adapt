@@ -40,17 +40,23 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
-                   scene_max_chars=36000, scene_repair=True):
+                   scene_max_chars=36000, scene_repair=True, lightweight=False):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
     result = copy.deepcopy(model)
+    if lightweight:
+        from .lightweight_speakers import VERSION as LIGHT_VERSION, SUFFIX, attach_subjects, enrich, response_schema
+        attach_subjects(result)
     batches = list(windows(result, paragraph_range, max_turns, max_chars))
     stats = dict(model=getattr(provider, "model", None), method=VERSION, batches_reviewed=0,
                  dialogues_reviewed=0, assigned=0, suggested_for_review=0, unresolved=0,
                  structural_rejections=0, raw_speaker_proposals=0, errors=[],
+                 entity_rejections=[],
                  confidence_is_calibrated=False)
     result["attribution_protocol"] = VERSION
+    if lightweight:
+        stats["method"] = result["attribution_protocol"] = LIGHT_VERSION
     context = None
     if scene_mode:
         from .scene_context import SceneContext, VERSION as SCENE_VERSION, ATTRIBUTION_SUFFIX, repair_targets
@@ -61,6 +67,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     if provider is not None:
         adapted = copy.copy(provider)
         adapted.system_prompt, adapted.response_schema = SYSTEM, SCHEMA
+        if lightweight:
+            adapted.system_prompt += SUFFIX
         if context:
             adapted.system_prompt += ATTRIBUTION_SUFFIX
         for index, batch in enumerate(batches, 1):
@@ -93,6 +101,9 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                            "anchor": reverse.get(turn["speaker_entity_id"])} for key, turn in targets.items()]}
             if context:
                 payload.update(context.extra_payload(batch, reverse))
+            if lightweight:
+                enrich(payload, result, targets)
+                adapted.response_schema = response_schema(SCHEMA, payload)
             stats["batches_reviewed"] += 1
             stats["dialogues_reviewed"] += len(targets)
             try:
@@ -136,17 +147,33 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                 proposal_ids = [p.get("id") for p in proposals]
                 for item in proposals:
                     key, mention, kind = item.get("id"), item.get("mention"), item.get("kind")
+                    def reject_entity(reason):
+                        stats["entity_rejections"].append({"scene_id": batch["scene_id"],
+                            "batch": index, "id": key, "mention": mention,
+                            "paragraph": item.get("paragraph"), "reason": reason})
                     if (not isinstance(key, str) or not re.fullmatch(r"N\d+", key)
                             or proposal_ids.count(key) != 1 or kind not in {"named", "anonymous"}
                             or not isinstance(mention, str) or not 1 <= len(mention) <= 80
                             or not re.fullmatch(r"[\wÀ-ÿ'’ -]+", mention)):
+                        reject_entity("invalid_entity_fields")
                         continue
                     if _key(mention) in {"ele", "ela", "eles", "elas", "he", "she", "they", "alguém", "someone"}:
+                        reject_entity("pronoun_instead_of_identity")
                         continue
                     if not re.sub(r"^(?:um|uma|uns|umas|o|a|os|as|the|an?)\s*", "", mention, flags=re.I).strip():
+                        reject_entity("empty_identity")
                         continue
                     span = _span({"paragraph": item.get("paragraph"), "quote": mention}, result["blocks"], permitted)
+                    if lightweight and kind == "named" and span is None:
+                        # Repeating the exact named mention does not make the name
+                        # nonexistent. This records provenance, not speaker proof.
+                        p = item.get("paragraph")
+                        if type(p) is int and p in permitted:
+                            hit = re.search(rf"(?<!\w){re.escape(mention)}(?!\w)", result["blocks"][p])
+                            if hit:
+                                span = {"paragraph": p, "start": hit.start(), "end": hit.end(), "quote": hit[0]}
                     if span is None:
+                        reject_entity("mention_missing_or_ambiguous")
                         continue
                     # Exact, unique mention anchors identity provenance only. It
                     # does not prove that this person speaks a given turn.
@@ -186,7 +213,7 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         continue
                     if turn["status"] == "explicit":
                         if identity != turn["speaker_entity_id"] or kind != "speech":
-                            if context:
+                            if context or lightweight:
                                 turn["review_issue"] = "llm_disagrees_with_literal_subject"
                             else:
                                 turn.update(status="conflict", speaker_entity_id=None, confidence=0.0)

@@ -204,11 +204,12 @@ def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold
                 max_turns=24, max_chars=14000, progress=None, protocol="evidence",
                 scene_max_chars=36000, scene_repair=True) -> dict:
     """Review textual turns, including those with no ASR match, in bounded windows."""
-    if protocol in {"compact", "scene"}:
+    if protocol in {"compact", "scene", "lightweight"}:
         from .compact_speakers import review_compact
         return review_compact(model, provider, cache, paragraph_range, threshold=threshold,
                               max_turns=max_turns, max_chars=max_chars, progress=progress,
-                              scene_mode=protocol == "scene", scene_max_chars=scene_max_chars, scene_repair=scene_repair)
+                              scene_mode=protocol == "scene", scene_max_chars=scene_max_chars, scene_repair=scene_repair,
+                              lightweight=protocol == "lightweight")
     if protocol != "evidence":
         raise ValueError(f"Unknown attribution protocol: {protocol}")
     started = time.monotonic()

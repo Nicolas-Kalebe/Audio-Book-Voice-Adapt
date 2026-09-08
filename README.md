@@ -15,8 +15,9 @@ análise: identifica turnos no livro e depois associa suas decisões aos recorte
 O [protocolo compacto e o conversor persistente](docs/COMPACT_ENGINE_AND_RUNTIME.md)
 estão preparados para comparação de acurácia e tempo; a meta de 90 minutos ainda
 não foi demonstrada por uma execução completa.
-A etapa atual é a [identificação por cena](docs/SCENE_ATTRIBUTION.md): melhorar
-quem fala cada trecho, com meta de pelo menos 90% de acerto, ainda a validar.
+A etapa atual é a [correção da atribuição de falantes](docs/LIGHTWEIGHT_ATTRIBUTION.md).
+O experimento por cena regrediu; o padrão voltou a `compact`, e `lightweight`
+está preparado para avaliação. A meta de 90% de todas as falas ainda não foi atingida.
 As [preferências de trabalho](AGENTS.md) registram a divisão entre turnos de
 implementação e de avaliação.
 

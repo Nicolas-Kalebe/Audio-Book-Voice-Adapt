@@ -25,7 +25,7 @@ def main():
     for name in ("book", "transcription", "alignment", "config", "gold", "output"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--without-llm", action="store_true")
-    parser.add_argument("--protocol", choices=("compact", "evidence", "scene"), default=None)
+    parser.add_argument("--protocol", choices=("compact", "evidence", "scene", "lightweight"), default=None)
     parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
     args = parser.parse_args()
     if args.output.exists():
