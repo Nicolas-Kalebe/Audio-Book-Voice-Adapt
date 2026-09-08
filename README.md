@@ -52,6 +52,11 @@ erros da primeira rodada foram usados para criar a versão 2. Ela agora é um
 segundo conjunto de desenvolvimento. A próxima validação honesta será uma parte
 nova, com gabarito congelado antes de qualquer resultado do motor.
 
+**A Parte 03 é o novo holdout intocado.** `benchmarks/part03_gold.yaml` cobre
+P684–1126 e foi escrito a partir do EPUB antes da primeira execução do Qwen nessa
+parte. O pré-registro exige precisão ≥95% e cobertura ≥95% sobre dubláveis. O
+gabarito foi escrito por assistente e ainda não tem auditoria humana independente.
+
 ### Duas regras de produto que mandam em tudo
 
 1. **É melhor não trocar uma voz do que trocar errado.** Sem certeza, o turno

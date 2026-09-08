@@ -6,6 +6,25 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
+
+`benchmarks/part03_gold.yaml` foi criado lendo apenas o EPUB, sem executar nem
+consultar o Qwen nesta parte: P684–1126, 358 falas, 11 pensamentos/citações e
+369 candidatos textuais no total. A voz metálica que usa a boca de Ciri é um
+papel anônimo distinto; pensamentos e contato psíquico entre aspas não são fala
+audível. O gabarito é de assistente e ainda não recebeu segunda auditoria humana.
+
+Pré-registro da primeira rodada realmente fria:
+
+| Precisão sobre dubláveis | Leitura |
+|---|---|
+| **≥95%**, cobertura ≥95% | Meta transferiu para uma parte intocada. |
+| **90–95%**, cobertura ≥95% | Ganho parcial; analisar erros sem rebatizar a rodada. |
+| **<90%** | O motor atual não generaliza o suficiente. |
+
+Caches já existentes e identificados antes da rodada: transcrição `781f5bb...`
+e alinhamento `f6235b2...`. A saída obrigatoriamente deve ser inédita.
+
 ### 8 de setembro de 2026 — rodada fria completa da coerência de turno v2
 
 Executada pelo pipeline completo, com cache de respostas novo e Qwen 3 8B local:

@@ -19,7 +19,8 @@ from gold_ceiling import ceiling  # noqa: E402
 
 BENCH = Path(__file__).resolve().parents[1] / "benchmarks"
 GOLD = BENCH / "part01_gold.yaml"
-GABARITOS = [BENCH / "part01_gold.yaml", BENCH / "part02_gold.yaml"]
+GABARITOS = [BENCH / "part01_gold.yaml", BENCH / "part02_gold.yaml",
+             BENCH / "part03_gold.yaml"]
 
 
 def test_the_ninety_five_percent_target_still_fits_in_the_gold():
@@ -74,7 +75,14 @@ def test_a_parte_02_esta_marcada_como_holdout_consumido():
     assert gold["evaluation_protocol"]["status"] == "holdout_consumido_em_2026-09-08"
 
 
-def test_os_dois_gabaritos_nao_se_sobrepoem():
-    """Intervalos disjuntos: senao a Parte 02 herdaria o ajuste feito na Parte 01."""
-    um, dois = (load_gold(c)["scope"] for c in GABARITOS)
-    assert um["last_book_paragraph"] < dois["first_book_paragraph"]
+def test_os_gabaritos_nao_se_sobrepoem():
+    """Intervalos disjuntos evitam que um holdout herde exemplos anteriores."""
+    scopes = [load_gold(c)["scope"] for c in GABARITOS]
+    assert all(left["last_book_paragraph"] < right["first_book_paragraph"]
+               for left, right in zip(scopes, scopes[1:]))
+
+
+def test_a_parte_03_e_holdout_intocado():
+    gold = load_gold(BENCH / "part03_gold.yaml")
+    assert gold["evaluation_protocol"]["independent_holdout"] is True
+    assert gold["evaluation_protocol"]["status"] == "holdout_congelado_antes_de_medir"
