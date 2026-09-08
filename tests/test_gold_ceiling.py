@@ -20,12 +20,16 @@ from gold_ceiling import ceiling  # noqa: E402
 GOLD = Path(__file__).resolve().parents[1] / "benchmarks" / "part01_gold.yaml"
 
 
-def test_a_perfect_engine_can_reach_the_ninety_percent_target():
+def test_the_ninety_five_percent_target_still_fits_in_the_gold():
+    """Meta de 95% em tudo, sobre os dublaveis. Cobertura e a trava apertada:
+    turno sem audio nunca sera atribuido, entao a folga vem do teto de deteccao."""
     result = ceiling(load_gold(GOLD))
-    required = -(-result["gold_source_turns"] * 90 // 100)
-    assert result["identity_ceiling"] >= required, (
-        f"Teto {result['identity_ceiling']}/{result['gold_source_turns']} abaixo da meta "
-        f"de {required}: nenhuma melhoria de modelo alcanca a meta neste gabarito.")
+    dublavel, detected = result["dublavel_turns"], result["dublavel_detected"]
+    need_coverage = -(-dublavel * 95 // 100)
+    assert detected >= need_coverage, (
+        f"Cobertura de 95% exige {need_coverage} atribuidos, mas so {detected} dos "
+        f"{dublavel} dublaveis tem audio: a meta nao cabe no gabarito.")
+    assert result["dublavel_ceiling"] >= -(-need_coverage * 95 // 100)
 
 
 def test_only_undetected_turns_are_out_of_reach():

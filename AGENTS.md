@@ -27,9 +27,13 @@
     continuam visíveis para auditoria e nunca são escondidos.
   - A meta virou um **par**, e os dois lados valem juntos, porque precisão alta
     com cobertura baixa é abster em tudo: é a mesma trava que a proibição de
-    filtros exercia antes. **Números ainda a confirmar com o proprietário —
-    proposta do assistente, não palavra dele: precisão ≥95% sobre o que for
-    atribuído, cobertura ≥80% dos turnos dubláveis.**
+    filtros exercia antes. Números definidos pelo proprietário em 08/09/2026
+    (*"pode colocar nossa meta de tudo em 95%"*): **precisão ≥95% e cobertura
+    ≥95%, ambas sobre os turnos dubláveis.**
+  - Na Parte 01 isso são 213 dubláveis, dos quais 5 não têm áudio. A cobertura de
+    95% exige 203 atribuídos contra um teto de 208: **sobram 5 abstenções e 10
+    vozes trocadas erradas**. A trava mais apertada é a cobertura, não a precisão
+    — abster para não errar deixou de ser grátis.
   - Antes de qualquer campanha, rodar `scripts/gold_ceiling.py`: mede em 30s, sem
     GPU, se a meta é alcançável pelo gabarito. Cinco campanhas foram comparadas
     contra um teto de 81,57% sem que ninguém tivesse conferido.

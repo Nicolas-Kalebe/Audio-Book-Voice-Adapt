@@ -50,28 +50,36 @@ Só dois arquivos, e nada mais precisa vir junto:
 O CSV não tem texto do livro além de 200 caracteres por turno; se isso for
 problema, apague a coluna `texto` antes de mandar — o resto basta.
 
+## A meta
+
+Definida em 08/09/2026: **95% em tudo**, sobre os **213 turnos dubláveis** (os
+outros 42 são figurante de uma cena só e não ganham voz).
+
+| | Exige | Teto | Folga |
+|---|---:|---:|---:|
+| Cobertura ≥95% | 203 atribuídos | 208 têm áudio | **5 abstenções** |
+| Precisão ≥95% | 193 corretos | — | **10 vozes erradas** |
+
+A trava mais apertada é a **cobertura**. O motor hoje abstém cerca de 16 vezes,
+o triplo da folga — abster para não errar deixou de ser de graça.
+
 ## Ganho pré-registrado
 
 Escrito **antes** de ver o resultado, para o número não ser explicado depois.
 
-A régua mudou em 08/09/2026 por decisão sua: abstenção é a saída segura, não
-erro, e figurante de uma cena só sai da conta. O placar agora lidera com o par
-**precisão × cobertura** sobre os **213 turnos dubláveis** (os outros 42 são
-figurante).
-
 | Precisão sobre dubláveis | Leitura |
 |---|---|
-| **80–90%** | Esperado. A correção de rótulo liberou os papéis que o motor já reconhecia. |
-| **> 90%** | Melhor que o previsto; o gargalo restante é cobertura, não troca errada. |
-| **< 80%** | O motor troca voz errada demais. É aí que entram guarda de vocativo e alternância. |
+| **≥95%** | Meta batida nesse lado. |
+| **80–95%** | Esperado nesta rodada. Guarda de vocativo e alternância entram aqui. |
+| **< 80%** | O motor troca voz errada demais; regra nova antes de mexer em limiar. |
 
 | Cobertura sobre dubláveis | Leitura |
 |---|---|
-| **85–95%** | Esperado, dado o limiar de 0,90 do compacto. |
-| **< 80%** | Está abstendo demais: baixar o limiar rende mais que regra nova. |
+| **≥95%** | Meta batida nesse lado; improvável já nesta rodada. |
+| **85–95%** | Esperado. Baixar o limiar de 0,90 é o botão mais barato daqui. |
+| **< 85%** | Está abstendo demais: mexer no limiar rende mais que regra nova. |
 
-A **voz trocada errada** é o número que representa defeito audível. Se ele cair
-abaixo de 20 turnos, o produto já está utilizável mesmo antes dos 90%.
+A **voz trocada errada** é o único número que representa defeito audível.
 
 As duas métricas históricas (literal e por identidade, com abstenção contada como
 erro) continuam no placar para comparar com as rodadas antigas. **A de identidade
