@@ -202,14 +202,16 @@ def windows(model: dict, paragraph_range: tuple[int, int] | None, max_turns=24, 
 
 def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold=.90,
                 max_turns=24, max_chars=14000, progress=None, protocol="evidence",
-                scene_max_chars=36000, scene_repair=True) -> dict:
+                scene_max_chars=36000, scene_repair=True, source_subjects=False) -> dict:
     """Review textual turns, including those with no ASR match, in bounded windows."""
+    if source_subjects and protocol != 'compact':
+        raise ValueError('source_subjects is supported only by compact')
     if protocol in {"compact", "scene", "lightweight"}:
         from .compact_speakers import review_compact
         return review_compact(model, provider, cache, paragraph_range, threshold=threshold,
                               max_turns=max_turns, max_chars=max_chars, progress=progress,
                               scene_mode=protocol == "scene", scene_max_chars=scene_max_chars, scene_repair=scene_repair,
-                              lightweight=protocol == "lightweight")
+                              lightweight=protocol == "lightweight", source_subjects=source_subjects)
     if protocol != "evidence":
         raise ValueError(f"Unknown attribution protocol: {protocol}")
     started = time.monotonic()

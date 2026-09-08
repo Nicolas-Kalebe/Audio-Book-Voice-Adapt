@@ -27,7 +27,10 @@ def main():
     parser.add_argument("--without-llm", action="store_true")
     parser.add_argument("--protocol", choices=("compact", "evidence", "scene", "lightweight"), default=None)
     parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
+    parser.add_argument('--source-subjects', action='store_true', help='Testa referências literais do narrador no compacto')
     args = parser.parse_args()
+    if args.source_subjects and args.protocol != 'compact':
+        parser.error('--source-subjects exige --protocol compact')
     if args.output.exists():
         parser.error("Escolha uma pasta de saída nova para garantir cache de respostas vazio")
     # Reserve before warmup: two launches cannot both start into the same output.
@@ -73,11 +76,14 @@ def main():
         options["protocol"] = args.protocol
     if args.no_scene_repair:
         options["scene_repair"] = False
+    if args.source_subjects:
+        options['source_subjects'] = True
     reviewed = review_book(model, provider, cache, scope,
                            threshold=float(options.get("automatic_confidence", .90)),
                            max_turns=int(options.get("max_turns_per_window", 24)),
                            max_chars=int(options.get("max_context_characters", 14000)),
                            protocol=options.get("protocol", "evidence"),
+                           source_subjects=bool(options.get('source_subjects', False)),
                            scene_max_chars=int(options.get("scene_context_characters", 36000)),
                            scene_repair=bool(options.get("scene_repair", True)),
                            progress=lambda index, total: print(f"Livro: bloco {index}/{total}", flush=True))

@@ -40,11 +40,16 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
-                   scene_max_chars=36000, scene_repair=True, lightweight=False):
+                   scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
     result = copy.deepcopy(model)
+    if source_subjects:
+        if scene_mode or lightweight:
+            raise ValueError('source_subjects is supported only by compact')
+        from .speaker_subjects import VERSION as SUBJECT_VERSION, SUFFIX as SUBJECT_SUFFIX, seed_subjects, attach_payload
+        seed_subjects(result)
     if lightweight:
         from .lightweight_speakers import VERSION as LIGHT_VERSION, SUFFIX, attach_subjects, enrich, response_schema
         attach_subjects(result)
@@ -55,6 +60,9 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                  entity_rejections=[],
                  confidence_is_calibrated=False)
     result["attribution_protocol"] = VERSION
+    if source_subjects:
+        stats['method'] = result['attribution_protocol'] = SUBJECT_VERSION
+        stats['source_subjects'] = result['source_subject_audit']
     if lightweight:
         stats["method"] = result["attribution_protocol"] = LIGHT_VERSION
     context = None
@@ -67,6 +75,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     if provider is not None:
         adapted = copy.copy(provider)
         adapted.system_prompt, adapted.response_schema = SYSTEM, SCHEMA
+        if source_subjects:
+            adapted.system_prompt += SUBJECT_SUFFIX
         if lightweight:
             adapted.system_prompt += SUFFIX
         if context:
@@ -101,6 +111,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                            "anchor": reverse.get(turn["speaker_entity_id"])} for key, turn in targets.items()]}
             if context:
                 payload.update(context.extra_payload(batch, reverse))
+            if source_subjects:
+                attach_payload(payload, targets, reverse)
             if lightweight:
                 enrich(payload, result, targets)
                 adapted.response_schema = response_schema(SCHEMA, payload)

@@ -176,8 +176,11 @@ def test_provider_failure_keeps_explicit_text_anchors(tmp_path):
     assert len(result["review"]["errors"]) == 1
 
 
-@pytest.mark.parametrize("protocol", ["evidence", "compact", "scene", "lightweight"])
+@pytest.mark.parametrize("protocol", ["evidence", "compact", "scene", "lightweight", "compact_subjects"])
 def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tmp_path, monkeypatch, protocol):
+    source_subjects = protocol == 'compact_subjects'
+    if source_subjects:
+        protocol = 'compact'
     from types import SimpleNamespace
     from audiobook_voice_enhancer.pipeline import Pipeline
 
@@ -202,7 +205,7 @@ def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tm
     pipeline.cache = Cache(tmp_path / "cache")
     pipeline.speaker_aliases = {}
     pipeline.characters = {"Iara": {"mode": "original"}, "Nilo": {"mode": "original"}}
-    pipeline.config = {"book_first": {"enabled": True, "protocol": protocol}, "speaker_confidence_threshold": .85,
+    pipeline.config = {"book_first": {"enabled": True, "protocol": protocol, "source_subjects": source_subjects}, "speaker_confidence_threshold": .85,
                        "alignment_confidence_threshold": .8, "minimum_segment_duration": 0}
     pipeline.llm = TextProvider(response)
     monkeypatch.setattr("audiobook_voice_enhancer.pipeline.probe", lambda _: SimpleNamespace(
@@ -218,6 +221,8 @@ def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tm
     assert len(result["dialogues"]) == 2
     assert len(result["book_speaker_analysis"]["turns"]) == 3
     assert result["book_speaker_analysis"]["turns"][1]["status"] == "contextual"
+    if source_subjects:
+        assert result['book_speaker_analysis']['attribution_protocol'] == 'compact-source-subjects-v1'
     assert [d["speaker"] for d in result["dialogues"]] == ["Iara", "Nilo"]
     assert all(d["action"] == "skipped" for d in result["dialogues"])
     assert "speaker_attribution" in result["stage_timings"]

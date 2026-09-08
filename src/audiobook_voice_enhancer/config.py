@@ -36,6 +36,10 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if book_first.get("enabled"):
         if book_first.get("protocol", "evidence") not in {"compact", "evidence", "scene", "lightweight"}:
             raise ConfigurationError("Análise textual: protocol deve ser compact, evidence, scene ou lightweight")
+        if not isinstance(book_first.get('source_subjects', False), bool):
+            raise ConfigurationError('source_subjects deve ser booleano')
+        if book_first.get('source_subjects') and book_first.get('protocol') != 'compact':
+            raise ConfigurationError('source_subjects exige protocol compact')
         try:
             valid = (0 <= float(book_first.get("automatic_confidence", .90)) <= 1
                      and int(book_first.get("max_turns_per_window", 24)) > 0

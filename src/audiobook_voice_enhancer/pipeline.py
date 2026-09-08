@@ -16,6 +16,7 @@ from .cache import Cache
 from .compact_speakers import VERSION as COMPACT_VERSION, SYSTEM as COMPACT_SYSTEM, SCHEMA as COMPACT_SCHEMA
 from .scene_context import VERSION as SCENE_VERSION, CAST_SYSTEM, CAST_SCHEMA, ATTRIBUTION_SUFFIX
 from .lightweight_speakers import VERSION as LIGHT_VERSION, SUFFIX as LIGHT_SUFFIX
+from .speaker_subjects import VERSION as SUBJECT_VERSION, SUFFIX as SUBJECT_SUFFIX
 from .character_discovery import build_alias_map, merge_detected_characters
 from .config import load_characters, load_config
 from .dialogue import (DIALOGUE_ALGORITHM_VERSION, book_character_names, detect,
@@ -83,6 +84,7 @@ class Pipeline:
             COMPACT_VERSION, COMPACT_SYSTEM, COMPACT_SCHEMA,
             SCENE_VERSION, CAST_SYSTEM, CAST_SCHEMA, ATTRIBUTION_SUFFIX,
             LIGHT_VERSION, LIGHT_SUFFIX,
+            SUBJECT_VERSION, SUBJECT_SUFFIX,
         )
         checkpoint_path = self.cache.path("checkpoints", run_key)
         checkpoint = self._load_checkpoint(checkpoint_path, command, dry_run)
@@ -178,6 +180,7 @@ class Pipeline:
                     max_turns=int(options.get("max_turns_per_window", 24)),
                     max_chars=int(options.get("max_context_characters", 14000)),
                     protocol=options.get("protocol", "evidence"),
+                    source_subjects=bool(options.get("source_subjects", False)),
                     scene_max_chars=int(options.get("scene_context_characters", 36000)),
                     scene_repair=bool(options.get("scene_repair", True)),
                     progress=lambda index, total: LOG.info(
