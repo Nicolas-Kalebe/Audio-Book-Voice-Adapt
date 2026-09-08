@@ -6,6 +6,27 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 8 de setembro de 2026 — rodada fria completa da coerência de turno v2
+
+Executada pelo pipeline completo, com cache de respostas novo e Qwen 3 8B local:
+
+| Desenvolvimento | Precisão | Cobertura | Corretos | Errados | Abstenções |
+|---|---:|---:|---:|---:|---:|
+| Parte 01 | 94,74% | 98,12% | 198 | 11 | 2 |
+| Parte 02 | **95,53%** | **97,81%** | 171 | 8 | 3 |
+
+A Parte 02 reproduziu exatamente a simulação offline. A Parte 01 teve seis
+acertos a mais que a reaplicação offline (198 contra 192), mas ainda fica **uma
+atribuição correta** abaixo da precisão de 95% sobre as 209 atribuições emitidas.
+Como sua cobertura tem folga, uma próxima alteração deve preferir transformar em
+abstenção apenas um erro demonstravelmente inseguro, ou acertá-lo por evidência
+textual; não reduzir cobertura indiscriminadamente.
+
+Arquivos de auditoria: `output/p01-regressao-v2b-20260908/analysis.json`,
+`output/p01-regressao-v2b-20260908/erros.csv`,
+`output/p02-regressao-v2-20260908/analysis.json` e
+`output/p02-regressao-v2-20260908/erros.csv` (ignorados pelo Git).
+
 ### 8 de setembro de 2026 — coerência de turno v2 após o primeiro holdout
 
 A Parte 02 voltou com **91,53% de precisão e 96,72% de cobertura**. Portanto, a
@@ -218,19 +239,18 @@ foi **91,53% de precisão e 96,72% de cobertura**. Depois de consultar seus erro
 para criar a coerência v2, ela passou a ser conjunto de desenvolvimento. Não se
 deve voltar a apresentar uma execução nela como validação independente.
 
-## Próxima rodada fria
+## Rodada fria concluída
 
-No turno de testes, rode novamente as Partes 01 e 02 em diretórios vazios para
-confirmar a integração completa do `turn-consistency-v2`. Esta rodada é uma
-**regressão fria**, não um novo teste de generalização. A simulação determinística
-prevê 93,20% × 96,71% na Parte 01 e 95,53% × 97,81% na Parte 02. Diferença maior
-que um ponto percentual indica divergência entre o simulador e o pipeline real.
+As Partes 01 e 02 foram executadas em diretórios vazios com
+`turn-consistency-v2`. A Parte 02 confirmou a simulação; a Parte 01 ficou acima
+dela, em 94,74% × 98,12%. Esta é uma **regressão fria**, não um teste de
+generalização.
 
 O próximo teste válido de generalização será uma Parte 03 (ou outro livro)
 intocada: primeiro criar e congelar o gabarito, só depois executar o motor. A meta
 continua sendo precisão ≥95% e cobertura ≥95%.
 
-Rode as duas partes, com e sem regras, em pastas novas:
+Para repetir ou investigar, rode as duas partes em pastas novas:
 
 ```powershell
 # Parte 01

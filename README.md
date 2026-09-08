@@ -28,7 +28,13 @@ esses erros, `turn-consistency-v2` passou a tratar vocativos recíprocos, invers
 local de fase, referência ao próprio personagem em terceira pessoa e monólogos
 compostos. Reaplicada offline sobre as respostas frias já existentes, a versão
 candidata marca **95,53% × 97,81% na Parte 02** e **93,20% × 96,71% na Parte 01**.
-Isso é desenvolvimento, não uma nova medição fria nem prova de generalização.
+Isso era uma estimativa de desenvolvimento. A rodada fria posterior confirmou a
+Parte 02 exatamente: **95,53% × 97,81%**. Na Parte 01, o pipeline completo foi
+melhor que a reaplicação offline e chegou a **94,74% × 98,12%** (198 corretos,
+11 erros e 2 abstenções sobre 213 dubláveis): falta uma atribuição correta — ou
+uma atribuição errada que possa ser abstida sem baixar a cobertura de 95% — para
+atingir a meta. A Parte 02 permanece desenvolvimento, pois seus erros foram
+consultados para criar a v2; estes resultados não demonstram generalização.
 
 > **Pendente de confirmação:** três consertos no parser de âncoras — cargo entre
 > o artigo e o nome, preposição com pronome (`respondeu por ela Geralt`) e cargo
