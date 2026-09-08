@@ -1,0 +1,262 @@
+﻿paragrafo,cena,id,esperado,emitido,acertou_literal,acertou_identidade,sugestao_da_ia,classe,familia,texto
+38,,source-38-0,Geralt,NAO DETECTADA,0,0,,dublavel,nao_detectada,Ciri!
+291,,source-291-0,Jaskier,NAO DETECTADA,0,0,,dublavel,nao_detectada,Yennefer?
+148,10,148-0,Mama Lantieri,Mama Lantieri,1,1,Mama Lantieri,dublavel,correto,"Ei, menestrel"
+150,10,150-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Tenho de admitir
+152,10,152-0,Rience,Rience,1,1,Rience,dublavel,correto,"Perdoe-me, mestre"
+153,10,153-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Todos sempre prometem isso, e é sempre mentira"
+155,10,155-0,Rience,Rience,1,1,Rience,dublavel,correto,"Vou direto ao ponto, sem desperdiçar seu tempo"
+157,10,157-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Cavalheiro
+158,10,158-0,Rience,Rience,1,1,Rience,dublavel,correto,"E quem o senhor pensava que eu fosse, se é que posso saber?"
+159,10,159-0,Jaskier,Rience,0,0,Rience,dublavel,nomeado_trocado_por_nomeado,"Não sei se pode.Vai depender das saudações que me transmitirá de nossos amigos comuns. O senhor deveria ter começado nossa conversa com isso, mas acho que se esqueceu."
+160,10,160-0,Rience,Rience,1,1,Rience,dublavel,correto,Não esqueci em absoluto.
+161,10,161-0,Jaskier,Rience,0,0,Rience,dublavel,nomeado_trocado_por_nomeado,O que o senhor pretende comprar com esta magra bolsinha?
+162,10,162-0,Rience,Rience,1,1,Rience,dublavel,correto,Digamos que desejo apoiar a arte. E o artista. Faço isso com o intuito de poder ter uma conversa com o artista sobre sua obra.
+163,10,163-0,Jaskier,Rience,0,0,Rience,dublavel,nomeado_trocado_por_nomeado,"O senhor ama a arte a esse ponto, cavalheiro? E tem tanta pressa em iniciar a tal conversa com o artista que lhe oferece dinheiro antes mesmo de se apresentar, quebrando as boas normas da etiqueta?"
+164,10,164-0,Rience,Rience,1,1,Rience,dublavel,correto,No início de nossa conversa
+165,10,165-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Mas passou a me incomodar.
+166,10,166-0,Rience,Rience,1,1,Rience,dublavel,correto,Não me envergonho de meu nome
+167,10,167-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Eu o perdoo benevolentemente.
+168,10,168-0,Rience,Rience,1,1,Rience,dublavel,correto,Isso significa que posso contar com sua predisposição para responder a algumas perguntas...
+169,10,169-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Não, não pode"
+170,10,170-0,Rience,Rience,1,1,Rience,dublavel,correto,Será?
+171,10,171-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Com certeza. Se eu, depois de cantar uma balada sobre uma alegre moleira, anunciasse que se tratava de Zvirka, a esposa do moleiro Piskorz, e acrescentasse que ela podia ser facilmente fodida toda qua"
+172,10,172-0,Rience,Rience,1,1,Rience,dublavel,correto,"Entendo, entendo"
+173,10,173-0,Jaskier,Rience,0,0,Rience,dublavel,nomeado_trocado_por_nomeado,Fico deveras contente com sua curiosidade.
+174,10,174-0,Rience,Rience,1,1,Rience,dublavel,correto,Verdade ou mentira?
+175,10,175-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Caso eu revelasse isso, estragaria o efeito de meu trabalho. Adeus, meu amigo. O senhor gastou todo o tempo que pude lhe dedicar. Enquanto isso, duas inspirações minhas aguardam ansiosamente para sabe"
+177,10,177-0,Rience,Rience,1,1,Rience,dublavel,correto,Jaskier
+178,10,178-0,Jaskier,Rience,0,0,Rience,dublavel,nomeado_trocado_por_nomeado,"Então, o quê?"
+180,10,180-0,Rience,Rience,1,1,Rience,dublavel,correto,Então não terei de obrigá-lo a responder.
+181,10,181-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Pois ouça aqui, seu vagabundo."
+183,10,183-0,Rience,Rience,1,1,Rience,dublavel,correto,Você tem certeza de que conseguirá chamá-la a tempo?
+190,11,190-0,Rience,Rience,1,1,Rience,dublavel,correto,Chega
+192,11,192-0,Rience,Rience,1,1,Rience,dublavel,correto,"Seu asqueroso rimador de merda! Seu nanico de meia-tigela! Seu rebotalho! Seu arrogante zé-ninguém! Você pretendia fugir de mim? Até hoje, ninguém conseguiu isso. Nós não terminamos nossa conversa, se"
+194,11,194-0,Rience,Rience,1,1,Rience,dublavel,correto,Você não está em condições de falar
+196,11,196-0,Rience,Rience,1,1,Rience,dublavel,correto,Já chega
+198,11,198-0,Rience,Rience,1,1,Rience,dublavel,correto,E agora
+200,11,200-0,Rience,Rience,1,1,Rience,dublavel,correto,Caso eu mande erguê-lo mais alto
+202,11,202-0,Rience,Rience,1,1,Rience,dublavel,correto,"Quanto a mim, quero que entenda"
+203,11,203-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Não sei...
+204,11,204-0,Rience,Rience,1,1,Rience,dublavel,correto,Sim?
+205,11,205-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,O resto eu simplesmente inventei. Dei asas à minha imaginação! Não sei de nada!
+206,11,206-0,Rience,Rience,1,1,Rience,dublavel,correto,De fato.
+207,11,207-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,A tal Ciri
+208,11,208-0,Rience,Rience,1,1,Rience,dublavel,correto,"Os pais entregariam sua criança àquele mutante maluco? Àquele assassino de aluguel? Você está mentindo, rimador. Esse tipo de coisas você pode cantar para mulheres."
+209,11,209-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Foi isso mesmo; juro pela alma de minha mãe
+210,11,210-0,Rience,Rience,1,1,Rience,dublavel,correto,"Fale da garota. Por enquanto, não estou interessado no bruxo."
+211,11,211-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Não sei de nada da garota! Sei somente que o bruxo foi para Cintra atrás dela quando eclodiu a guerra. Encontrei-o àquela época. Foi por mim que ele soube da carnificina, da morte de Calanthe... Ele m"
+212,11,212-0,Rience,Rience,1,1,Rience,dublavel,correto,"Fale mais claro. Menos metáforas, mais pontos concretos."
+213,11,213-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Quando o bruxo soube da queda de Cintra e do massacre, desistiu de viajar para lá. Ambos estávamos fugindo para o Norte."
+216,11,216-0,Rience,Rience,1,1,Rience,dublavel,correto,E onde está o tal bruxo neste momento?
+217,11,217-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Já lhe disse que o vi pela última vez em...
+218,11,218-0,Rience,Rience,1,1,Rience,dublavel,correto,Sei o que você disse
+219,11,219-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Não sei onde aquilo fica
+220,11,220-0,Rience,Rience,1,1,Rience,dublavel,correto,"Rápido demais, Jaskier, rápido demais"
+222,11,222-0,Rience,Rience,1,1,Rience,dublavel,correto,E então?
+224,11,224-0,Rience,Rience,1,1,Rience,dublavel,correto,"Mais alto, mais alto."
+226,11,226-0,Capanga de Rience com lanterna,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,Senhor
+227,11,227-0,Rience,Rience,1,1,Rience,dublavel,correto,Vocês já sabem o que devem fazer
+231,11,231-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Socorro!
+232,11,232-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Pare de berrar, Jaskier"
+233,11,233-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Yennefer? É você?
+234,11,234-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Não me diga que se esqueceu de minha aparência. Além disso, minha voz não deve soar estranha a seu ouvido musical. Consegue se levantar? Eles lhe quebraram algum osso?"
+236,11,236-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,O que houve com eles?
+237,11,237-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Vamos verificar
+238,11,238-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Este aqui
+239,11,239-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Acho pouco provável
+241,11,241-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Você o degolou?
+242,11,242-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Não fosse meu inato senso de precaução que me fez enviar uma ilusão antes de mim, seria eu quem estaria caída aqui agora."
+244,11,244-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Também está morto?
+245,11,245-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Sim. Não suportou o choque... Devo tê-lo queimado um pouco demais... Olhe, até os dentes ficaram chamuscados... O que está acontecendo com você, Jaskier? Vai vomitar?"
+246,11,246-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Vou
+248,12,248-0,Yennefer,Jaskier,0,0,Jaskier,dublavel,nomeado_trocado_por_nomeado,E isso foi tudo?
+249,12,249-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"De nada, além de lhe agradecer. Muito obrigado,Yennefer."
+250,12,250-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Como você soube?
+251,12,251-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Estive sob o Bleobheris durante sua apresentação.
+252,12,252-0,Jaskier,Yennefer,0,0,Yennefer,dublavel,nomeado_trocado_por_nomeado,Não a vi.
+253,12,253-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Porque eu não queria ser vista. Depois, vim para esta cidadezinha atrás de você. Fiquei aguardando aqui, neste albergue... Não ficava bem eu ir até o lugar ao qual você foi, aquele local de dúbio praz"
+254,12,254-0,Taberneiro,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,"Às suas ordens, distinta dama! Já vou providenciar!"
+255,12,255-0,Yennefer,Jaskier,0,0,Jaskier,dublavel,nomeado_trocado_por_nomeado,"Do mesmo que antes, por favor, mas desta vez sem água. Só tolero água no banho; misturada ao vinho me é detestável."
+256,12,256-0,Taberneiro,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,"Às suas ordens, às suas ordens!"
+258,12,258-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Agradeço-lhe
+259,12,259-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Também acho.
+260,12,260-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"E à sua, Yennefer. À saúde pela qual, a partir de hoje, vou rezar em toda oportunidade que tiver para isso. Sou seu devedor, bela dama, e pagarei essa dívida com minhas baladas. Derrubarei nelas o mit"
+261,12,261-0,Yennefer,Jaskier,0,0,Jaskier,dublavel,nomeado_trocado_por_nomeado,O que se pode fazer?
+262,12,262-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,É mesmo?
+263,12,263-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,E detestava
+264,12,264-0,Jaskier,Yennefer,0,0,Yennefer,dublavel,nomeado_trocado_por_nomeado,"Grata por quê, se é que posso perguntar?"
+265,12,265-0,Yennefer,,0,0,Jaskier,dublavel,abstencao,Isso não é importante
+266,12,266-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Não. Não sabia. Passei muito tempo em Pont Vanis, na corte de Esterat Thyssen. Depois, na corte de Niedamir, em Hengfors..."
+267,12,267-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Não sabia...
+268,12,268-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Posso imaginar. Mas, se a encontrou, não sei."
+269,12,269-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Não sabe
+270,12,270-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,A poesia
+271,12,271-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"“Cabelos negros como asas de corvo, como tempestades noturnas...”"
+272,12,272-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Essa é a imagem que ficou em minha memória
+273,12,273-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Apenas não sei
+275,12,275-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Há muito tempo.
+276,12,276-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Depois da guerra?
+277,12,277-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Depois da guerra...
+278,12,278-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Deixa.
+279,12,279-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Então ouça o que tenho a lhe dizer
+280,12,280-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Você se refere a...
+281,12,281-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Você sabe muito bem a que me refiro. Cante sobre a guerra com Nilfgaard. Cante sobre Geralt e sobre mim; você não nos atrapalhará nem ajudará em nada, assim como em nada melhorará ou piorará. Mas não "
+283,12,283-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Evite, também, se encontrar a sós com pessoas que você não conhece"
+285,12,285-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Lembranças de Dijkstra, Jaskier."
+287,12,287-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Por falar em Dijkstra
+289,12,289-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Aproximam-se tempos difíceis
+292,12,292-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Sim, meu poeta?"
+293,12,293-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Aqueles lá, no chiqueiro... Eu gostaria de saber quem eram, o que queriam e quem os mandou. Você matou os dois bandidos, mas há um boato segundo o qual vocês conseguem arrancar informações mesmo de ca"
+294,12,294-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,E o tal boato não diz nada quanto ao fato de haver um édito de nosso
+296,12,296-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Rience. Ele é feiticeiro, não é?"
+297,12,297-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Sim, mas muito pouco eficiente."
+298,12,298-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"No entanto, conseguiu escapar de você. E eu vi de que modo. Por teleportação, não foi? Isso não prova alguma coisa?"
+299,12,299-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Sim, prova. Prova que alguém o ajudou. Rience não tinha tempo nem forças suficientes para abrir um portal suspenso no ar. Um teleportal daqueles não é para qualquer um. Portanto, está claro que alguém"
+300,12,300-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Talvez lhe interesse saber que ele era nilfgaardiano.
+301,12,301-0,Yennefer,Jaskier,0,0,Jaskier,dublavel,nomeado_trocado_por_nomeado,Você acha?
+302,12,302-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Não estou me referindo à adaga. Ao me interrogar, ele usou descrições como “batalhas de Cintra”, “a conquista da cidade” e coisas de semelhante teor. Nunca ouvi alguém usar tais denominações para desc"
+304,12,304-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,"Parabéns, Jaskier. Você tem bom ouvido."
+305,12,305-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,É uma deformação profissional.
+306,12,306-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Indago-me qual profissão você tem em mente
+307,12,307-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Considere-a
+308,12,308-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Não meta o nariz nesse assunto
+309,12,309-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Sim, você disse. Mas o fato é que não estou apenas em busca de um tema para uma balada."
+310,12,310-0,Yennefer,Jaskier,0,0,Jaskier,dublavel,nomeado_trocado_por_nomeado,"Então, com os diabos, o que está procurando? Um galo na testa?"
+311,12,311-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Suponhamos...
+312,12,312-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Sei.
+313,12,313-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,E sabe como chegar até lá.
+314,12,314-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Também sei.
+315,12,315-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"E não acha que deveríamos alertá-lo? Avisar-lhe que ele e a menininha estão sendo procurados por elementos como aquele Rience? Eu iria até lá, mas a verdade é que não sei mesmo onde fica... aquele lug"
+316,12,316-0,Yennefer,Jaskier,0,0,Jaskier,dublavel,nomeado_trocado_por_nomeado,"Conclua seu raciocínio, Jaskier."
+317,12,317-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Se você sabe onde Geralt está neste momento, então deveria ir até lá e preveni-lo. Você tem uma dívida para com ele,Yennefer. Afinal, algo ligava vocês dois."
+318,12,318-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,É verdade
+319,12,319-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Sendo assim, irei eu"
+320,12,320-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Não direi
+321,12,321-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Já é a segunda vez que você diz isso. O que você me deve, Yennefer?"
+323,12,323-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Você viajava com ele
+325,12,325-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Ele não ganhou muito com isso
+327,12,327-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,Vá para a Redânia
+328,12,328-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Pude notar
+330,12,330-0,Yennefer,Yennefer,1,1,Yennefer,dublavel,correto,É verdade que já estive lá como visitante algumas vezes
+334,13,334-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Estou com medo
+335,13,335-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Não precisa ter medo de nada
+338,13,338-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,Quem vem lá?
+339,13,339-0,Geralt,Eskel,0,0,Eskel,dublavel,nomeado_trocado_por_nomeado,"Sim, Eskel, sou eu."
+340,13,340-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,Entre.
+342,13,342-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,"Espere aqui, com Eskel"
+343,13,343-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,"Chegue mais perto da luz, meu pequeno"
+344,13,344-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Nenhum ser humano
+344,13,344-1,Ciri,Ciri,1,1,Ciri,dublavel,correto,poderia ter um rosto como esse.
+345,13,345-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,"E então, está esperando o quê?"
+347,13,347-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,"Não fique no escuro, garoto, senão as ratazanas vão roer suas botas."
+349,13,349-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,Que droga!
+350,13,350-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,"Já que você está aqui, seja bem-vinda a Kaer Morhen. Como se chama?"
+351,13,351-0,Geralt,Ciri,0,0,Ciri,dublavel,nomeado_trocado_por_nomeado,Ciri
+353,13,353-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,"Vejo que você está vivo, Lobo."
+354,13,354-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Estou.
+355,13,355-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,Muito bem
+357,13,357-0,Geralt,Eskel,0,0,Eskel,dublavel,nomeado_trocado_por_nomeado,"Quem, além de Vasemir, está invernando aqui, Eskel?"
+358,13,358-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,Lambert e Coën.
+360,13,360-0,Eskel,Eskel,1,1,Eskel,dublavel,correto,Três bruxos
+361,13,361-0,Vasemir,Eskel,0,0,Eskel,dublavel,nomeado_trocado_por_nomeado,"Salve, Lobo. Estávamos aguardando você."
+362,13,362-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,"Salve, Vasemir. Salvem, rapazes. É bom estar de novo em casa."
+363,13,363-0,Bruxo nao identificado de Kaer Morhen,Eskel,0,0,Eskel,figurante,anonimo_virou_nomeado,E quem você nos trouxe?
+364,13,364-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Estou com medo
+365,13,365-0,Vasemir,Vasemir,1,1,Vasemir,dublavel,correto,"Quem é essa criança, Lobo? Quem é esta menininha?"
+366,13,366-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Ela é...
+369,13,369-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Ela é nosso destino.
+19,8,19-0,Cavaleiro de Cintra nao identificado,Geralt,0,0,Geralt,figurante,anonimo_virou_nomeado,Segure-se!
+22,8,22-0,Cavaleiro de Cintra nao identificado,Geralt,0,0,Geralt,figurante,anonimo_virou_nomeado,Segure-se!
+27,8,27-0,Cavaleiro de Cintra nao identificado,Geralt,0,0,Geralt,figurante,anonimo_virou_nomeado,Segure-se!
+27,8,27-1,Cavaleiro de Cintra nao identificado,Geralt,0,0,Geralt,figurante,anonimo_virou_nomeado,Segure-se!
+36,8,36-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,"Por que ninguém me ajuda? Sou pequena, estou sozinha, desarmada, não posso me mexer, nem mesmo consigo soltar um grito de minha garganta apertada. Por que ninguém vem me socorrer? Estou com medo!"
+40,8,40-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Ciri. Acalme-se.
+42,8,42-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Geralt...
+43,8,43-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Foi apenas um sonho. Um pesadelo.
+46,8,46-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,"Geralt, eu..."
+47,8,47-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,"Estou aqui. Durma, Ciri. Você precisa descansar. Temos ainda um longo caminho pela frente."
+48,8,48-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Escuto uma música
+48,8,48-1,Ciri,Ciri,1,1,Ciri,dublavel,correto,"Em meio a esse sussurro... ecoa uma música... uma música de alaúde. E vozes. Princesa de Cintra... Criança do Destino... Criança de Sangue Antigo, Sangue dos Elfos. Geralt de Rívia, o Lobo Branco, e s"
+49,8,49-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Geralt...
+50,8,50-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,"O que foi, Ciri?"
+51,8,51-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,O que ele me fez? O que aconteceu àquela hora? O que ele... me fez?
+52,8,52-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Quem?
+53,8,53-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,"Aquele cavaleiro... O cavaleiro negro com plumas no elmo... Não me lembro de nada... Ele gritava... e olhava para mim. Não me lembro do que aconteceu, apenas de que eu estava com muito medo... Estava "
+55,8,55-0,Ciri,Ciri,1,1,Ciri,dublavel,correto,Não me lembro de nada
+56,8,56-0,Geralt,Geralt,1,1,Geralt,dublavel,correto,Foi apenas um sonho. Durma tranquila. Ele não voltará.
+61,9,61-0,Radcliffe de Oxenfurt,Radcliffe de Oxenfurt,1,1,Radcliffe de Oxenfurt,dublavel,correto,"Agradeço-lhe, mestre Jaskier"
+63,9,63-0,Radcliffe de Oxenfurt,Radcliffe de Oxenfurt,1,1,Radcliffe de Oxenfurt,dublavel,correto,Não será exagero
+68,9,68-0,Donimir de Troy,Donimir de Troy,1,1,Donimir de Troy,dublavel,correto,Por certo!
+70,9,70-0,Vera Loewenhaupt,Vera Loewenhaupt,1,1,Vera Loewenhaupt,dublavel,correto,Mestre!
+71,9,71-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,Cantos e baladas
+72,9,72-0,Vera Loewenhaupt,Vera Loewenhaupt,1,1,Vera Loewenhaupt,dublavel,correto,Mas o que aconteceu depois?
+74,9,74-0,Jaskier,Jaskier,1,1,Jaskier,dublavel,correto,"Eu canto acerca de assuntos universais, generosa benfeitora"
+75,9,75-0,Membro anonimo da multidao,Donimir de Troy,0,0,Donimir de Troy,figurante,anonimo_virou_nomeado,Pois sim!
+76,9,76-0,Filhas de Vilibert,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,figurante,anonimo_virou_nomeado,"Sim, sim!"
+77,9,77-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Que nada!
+78,9,78-0,Donimir de Troy,Donimir de Troy,1,1,Donimir de Troy,dublavel,correto,"Pois eu, Donimir de Troy"
+79,9,79-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Porque na certa ficou tomando conta do acampamento!
+80,9,80-0,Donimir de Troy,Donimir de Troy,1,1,Donimir de Troy,dublavel,correto,"Tome cuidado com o que diz, seu barbudo!"
+81,9,81-0,Sheldon Skaggs,,0,0,,dublavel,abstencao,Tome cuidado você!
+82,9,82-0,Druida grisalho,,0,0,,figurante,abstencao,"Calma, calma!"
+83,9,83-0,Sacerdote gordo,,0,0,,figurante,abstencao,É verdade!
+84,9,84-0,Gnomo dos artigos metalicos,,0,0,,figurante,abstencao,Já que estamos falando de barris vazios
+85,9,85-0,Sacerdote gordo,,0,0,,figurante,abstencao,"... efetivamente como barris vazios, digo-lhes!"
+86,9,86-0,Vera Loewenhaupt,Vera Loewenhaupt,1,1,Vera Loewenhaupt,dublavel,correto,"O senhor está falando bobagens, santo homem!"
+87,9,87-0,Rayla de Líria,Rayla de Líria,1,1,Rayla de Líria,dublavel,correto,E eu confirmo
+88,9,88-0,Elfa do gorro de arminho,,0,0,,figurante,abstencao,Mas deve ser verdade
+89,9,89-0,Filhas de Vilibert,,0,0,,figurante,abstencao,Não poderia!
+90,9,90-0,Vera Loewenhaupt,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,dublavel,nomeado_trocado_por_nomeado,Senhor feiticeiro!
+91,9,91-0,Radcliffe de Oxenfurt,Radcliffe de Oxenfurt,1,1,Radcliffe de Oxenfurt,dublavel,correto,Se a balada diz que se amaram
+92,9,92-0,Vilibert,Donimir de Troy,0,0,Donimir de Troy,dublavel,nomeado_trocado_por_nomeado,Comenta-se
+93,9,93-0,Donimir de Troy,Donimir de Troy,1,1,Donimir de Troy,dublavel,correto,Não é verdade
+95,9,95-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Quanto àquele bruxo
+96,9,96-0,Rayla de Liria,Triss,0,0,Triss,dublavel,nomeado_trocado_por_nomeado,Não acredito nisso
+97,9,97-0,Radcliffe de Oxenfurt,Radcliffe de Oxenfurt,1,1,Radcliffe de Oxenfurt,dublavel,correto,Muito bem dito
+98,9,98-0,Rayla de Liria,Triss,0,0,Triss,dublavel,nomeado_trocado_por_nomeado,"Não entendo o que está dizendo, senhor mago"
+99,9,99-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Todo espadachim é um bundão quando inimigos há de montão
+100,9,100-0,Elfo alto e louro,Calanthe,0,0,Calanthe,figurante,anonimo_virou_nomeado,Os elfos
+101,9,101-0,Filhas de Vilibert,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,Não! Não!
+102,9,102-0,Gnomo dos artigos metalicos,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,As nobres senhoritas não se dão conta de que se trata de uma balada?
+103,9,103-0,Guerreiro ruivo de Skellige,,0,0,,figurante,abstencao,Você está mentindo!
+104,9,104-0,Gnomo dos artigos metalicos,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,Vocês mesmos podem ver que não estou mentindo!
+105,9,105-0,Guerreiro ruivo de Skellige,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,"Cirilla, mais conhecida como Ciri, era filha de Pavetta, a que morreu afogada"
+106,9,106-0,Jovem aprendiz de artesao,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,"Desviou-se, de fato"
+107,9,107-0,Guerreiro ruivo de Skellige,,0,0,,figurante,abstencao,Não foi assim em absoluto
+108,9,108-0,Gnomo dos artigos metalicos,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,De uma forma ou de outra
+109,9,109-0,Elfa do gorro de arminho,Calanthe,0,0,Calanthe,figurante,anonimo_virou_nomeado,Mas mentiu de maneira linda
+110,9,110-0,Jovem aprendiz de artesao,Jaskier,0,0,Jaskier,figurante,anonimo_virou_nomeado,"Não se trata de poesia, e sim de fatos!"
+111,9,111-0,Guerreiro ruivo de Skellige,,0,0,,figurante,abstencao,"Pois eu afirmo que ela foi morta nas ruas, quando estava fugindo da cidade"
+112,9,112-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Mais um combatente
+113,9,113-0,Elfo alto e louro,,0,0,,figurante,abstencao,"Sua ironia está fora de lugar, Skaggs"
+114,9,114-0,Vilibert,,0,0,,dublavel,abstencao,Gostaria de saber do lado de quem
+115,9,115-0,Elfo alto e louro,,0,0,,figurante,abstencao,Como todos sabem
+116,9,116-0,Vilibert,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,dublavel,nomeado_trocado_por_nomeado,Tenho de admitir
+117,9,117-0,Elfo alto e louro,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,figurante,anonimo_virou_nomeado,A vida é uma dádiva muito preciosa e deve ser protegida
+118,9,118-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Típico discurso de elfos!
+119,9,119-0,Vera Loewenhaupt,Vera Loewenhaupt,1,1,Vera Loewenhaupt,dublavel,correto,E o que eles querem de nós?
+120,9,120-0,Vilibert,Sheldon Skaggs,0,0,Sheldon Skaggs,dublavel,nomeado_trocado_por_nomeado,Querem nosso sangue!
+121,9,121-0,Campones anonimo,Sheldon Skaggs,0,0,Sheldon Skaggs,figurante,anonimo_virou_nomeado,E nossa terra!
+122,9,122-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,E nossas mulheres!
+124,9,124-0,Druida grisalho,Vilgeforz,0,0,Vilgeforz,figurante,anonimo_virou_nomeado,Isso ia acontecer mais cedo ou mais tarde
+125,9,125-0,Sacerdote gordo,Vera Loewenhaupt,0,0,Vera Loewenhaupt,figurante,anonimo_virou_nomeado,"Sim, sim!"
+126,9,126-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,"Ei, cale a boca, velho santarrão!"
+127,9,127-0,Elfo alto e louro,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,figurante,anonimo_virou_nomeado,"Cuidado, Sheldon"
+128,9,128-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Não estou debochando de nada
+129,9,129-0,Donimir de Troy,Donimir de Troy,1,1,Donimir de Troy,dublavel,correto,Pois que ousem tentar!
+130,9,130-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Quanta presunção!
+131,9,131-0,Radcliffe de Oxenfurt,Radcliffe de Oxenfurt,1,1,Radcliffe de Oxenfurt,dublavel,correto,Não foi apenas isso
+133,9,133-0,Sheldon Skaggs,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,dublavel,nomeado_trocado_por_nomeado,"Ninguém pretende diminuir os méritos de seus confrades, senhor feiticeiro"
+134,9,134-0,Vilibert,Sheldon Skaggs,0,0,Sheldon Skaggs,dublavel,nomeado_trocado_por_nomeado,"Nilfgaard é governado pelo imperador Emhyr var Emreis, um autocrata tirânico que demanda obediência com o açoite, a forca e a foice!"
+135,9,135-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,E o que eu tenho a ver com isso?
+136,9,136-0,Elfo alto e louro,Sheldon Skaggs,0,0,Sheldon Skaggs,figurante,anonimo_virou_nomeado,"Nem um elfo, nem mesmo um meio-elfo"
+137,9,137-0,Vilibert,Sheldon Skaggs,0,0,Sheldon Skaggs,dublavel,nomeado_trocado_por_nomeado,E é isso que os incomoda tanto
+138,9,138-0,Elfo alto e louro,Radcliffe de Oxenfurt,0,0,Radcliffe de Oxenfurt,figurante,anonimo_virou_nomeado,Tolice
+139,9,139-0,Vilibert,Sheldon Skaggs,0,0,Sheldon Skaggs,dublavel,nomeado_trocado_por_nomeado,Que mentira deslavada! Todos sabem que eles descendem dos Seidhe Negros! Em suas veias corre sangue élfico! O sangue dos elfos!
+140,9,140-0,Elfo alto e louro,Sheldon Skaggs,0,0,Sheldon Skaggs,figurante,anonimo_virou_nomeado,E o que corre nas veias de vocês?
+142,9,142-0,Druida grisalho,Vilgeforz,0,0,Vilgeforz,figurante,anonimo_virou_nomeado,Todos somos filhos da mesma Mãe Terra
+143,9,143-0,Vera Loewenhaupt,Vera Loewenhaupt,1,1,Vera Loewenhaupt,dublavel,correto,Por falar nele
+144,9,144-0,Sheldon Skaggs,Sheldon Skaggs,1,1,Sheldon Skaggs,dublavel,correto,Sumiu
+145,9,145-0,Gnomo dos artigos metalicos,,0,0,,figurante,abstencao,De anões!
+146,9,146-0,Elfo alto e louro,,0,0,,figurante,abstencao,De seres humanos
