@@ -6,17 +6,33 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-## Estado atual — 8 de setembro de 2026
+## Estado atual — 9 de setembro de 2026
+
+O candidato `feat/scene-local-memory` é uma alteração pequena sobre o melhor motor
+da `main`. Ele mantém IDs estáveis somente dentro de cada cena, sempre começando
+em E0/T0, preserva âncoras literais e carrega no máximo seis hipóteses recentes.
+Hipóteses antigas deixam também de manter personagens no catálogo. O texto da
+janela, o schema e a quantidade de chamadas ao Qwen continuam iguais ao baseline.
+A suíte local passa; a campanha Qwen ainda não foi executada.
+
+As duas tentativas anteriores estão preservadas, documentadas e reprovadas. Contexto
+ampliado: 96,23% / 68,29% em P3 e quatro chamadas perdidas. Memória com IDs globais:
+91,30% / 85,43%, sem falhas, mas com queda de 27/29 para 5/29 na cena 26. O segundo
+experimento confirmou que memória ajuda continuidade (cena 27: 21/41 para 36/41),
+mas IDs globais e catálogo acumulativo alteram demais a decisão do Qwen. Veja
+[docs/EXPERIMENTOS-MEMORIA-COMPACTA.md](docs/EXPERIMENTOS-MEMORIA-COMPACTA.md).
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
 [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
 
-| | Onde está | Meta |
-|---|---:|---:|
-| Precisão sobre falas dubláveis | **93,17%** | 95% |
-| Cobertura sobre falas dubláveis | **96,24%** | 95% |
-| Detecção das falas | 253/255 (99,2%) | resolvido |
+| Regressão | Precisão | Cobertura | Meta |
+|---|---:|---:|---:|
+| Parte 01 | **94,74%** | **98,12%** | 95% / 95% |
+| Parte 02 | **95,53%** | **97,81%** | 95% / 95% |
+| Parte 03 | **90,68%** | **88,86%** | 95% / 95% |
+| Precisão sobre falas dubláveis (P1/P2/P3) | 94,74% / 95,53% / 90,68% | — | 95% |
+| Cobertura sobre falas dubláveis (P1/P2/P3) | — | 98,12% / 97,81% / 88,86% | 95% |
 
 Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
 com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem

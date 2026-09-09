@@ -6,6 +6,31 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 9 de setembro de 2026 — memória estritamente local à cena
+
+Branch `feat/scene-local-memory`, criado diretamente da `main`. Esta é uma redução
+do experimento de memória, não outra arquitetura: o compacto mantém a janela, o
+schema e uma chamada por lote do baseline. IDs reiniciam em E0/T0 a cada cena e
+ficam estáveis apenas até ela terminar. O catálogo contém entidades visíveis na
+janela, participantes com âncora literal anterior e participantes das seis hipóteses
+mais recentes. Hipóteses mais velhas expiram; nunca viram fatos.
+
+O teste local cobre reinício dos IDs entre cenas, estabilidade dentro da cena,
+expiração de hipótese, ausência de expansão do texto e preservação de âncora literal
+após timeout. A auditoria registra tamanho máximo do catálogo e dos IDs por cena.
+O prompt também explicita que `entities` recebe somente novas pessoas N; identidades
+E existentes aparecem apenas em `assignments`. Isso evita a repetição extensa de
+entidades observada no experimento anterior. Não há números Qwen para este candidato.
+
+Próximo turno de testes: P3 primeiro, saída nova, 19 misses obrigatórios. A porta
+pré-registrada exige precisão ≥90,68%, cobertura >88,86%, zero lote perdido e
+tempo ≤482,011 s. Além disso, nenhuma cena de 20 ou mais turnos pode perder mais
+de cinco acertos contra a referência. Se passar, rodar P1/P2 e aceitar no máximo
+um ponto percentual de queda de precisão sobre 94,74%/95,53%. A meta final continua
+95% / 95% sobre dubláveis. Todas as partes agora são regressão de desenvolvimento.
+
+Relatório para revisão externa: [docs/EXPERIMENTOS-MEMORIA-COMPACTA.md](docs/EXPERIMENTOS-MEMORIA-COMPACTA.md).
+
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 
 **Resultado do pré-registro:** reprovado. A primeira execução fria, feita após o

@@ -4,7 +4,7 @@ import pytest
 
 from audiobook_voice_enhancer.book_speakers import build_book, review_book
 from audiobook_voice_enhancer.cache import Cache
-from audiobook_voice_enhancer.compact_speakers import SCHEMA, SYSTEM
+from audiobook_voice_enhancer.compact_speakers import MEMORY_SUFFIX, SCHEMA, SYSTEM
 from audiobook_voice_enhancer.llm import LLMProvider
 from audiobook_voice_enhancer.speaker_subjects import seed_subjects
 
@@ -111,7 +111,7 @@ def test_plain_compact_now_anchors_the_name_behind_a_title(tmp_path):
         model = 'plain-control-fixture'
 
         def infer(self, payload):
-            assert self.system_prompt == SYSTEM and self.response_schema == SCHEMA
+            assert self.system_prompt == SYSTEM + MEMORY_SUFFIX and self.response_schema == SCHEMA
             assert 'source_subject' not in payload['turns'][0]
             seen['entities'] = payload['entities']
             return {'entities': [], 'assignments': []}
