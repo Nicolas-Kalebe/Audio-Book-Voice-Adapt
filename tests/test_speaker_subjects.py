@@ -111,7 +111,8 @@ def test_plain_compact_now_anchors_the_name_behind_a_title(tmp_path):
         model = 'plain-control-fixture'
 
         def infer(self, payload):
-            assert self.system_prompt == SYSTEM and self.response_schema == SCHEMA
+            assert self.system_prompt == SYSTEM
+            assert self.response_schema['properties']['assignments']['items']['properties']['id']['enum'] == ['T0']
             assert 'source_subject' not in payload['turns'][0]
             seen['entities'] = payload['entities']
             return {'entities': [], 'assignments': []}

@@ -6,6 +6,35 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### Contexto compacto estável — candidato ainda não medido
+
+Na rodada P3, o segundo bloco da cena 27 devolveu o ID inválido `N` em vários
+turnos. O compacto renumerava as entidades e os turnos a cada janela e mostrava
+apenas dois parágrafos laterais. A correção mantém IDs estáveis durante a análise,
+retém candidatos mencionados na cena e expande o texto literal até `max_chars`.
+O schema limita as respostas aos IDs existentes ou novos IDs N numerados,
+mantendo a validação de menção literal para criação de entidades.
+
+Não há resumo gerado nem propagação automática de atribuições anteriores.
+O número de chamadas permanece igual; medir o custo do contexto adicional.
+Nenhuma melhoria numérica é alegada antes da campanha.
+
+Próximo turno de testes: executar P1, P2 e P3 pelo
+`scripts/benchmark_book_speakers.py --protocol compact` com os mesmos caches,
+gabaritos e configuração, em saídas novas. Registrar cache hits, rejeições
+estruturais, precisão, cobertura e `review.elapsed_seconds`. São regressões de
+desenvolvimento, pois todas já foram consultadas. ASR é reutilizado: esta campanha
+mede reconhecimento textual e projeção, não transcrição fria nem conversão.
+
+Critério pré-registrado: manter P1 e P2 sem queda de precisão maior que 1 ponto
+percentual e elevar cobertura P3 sem piorar sua precisão de 90,68%. A meta final
+permanece 95%/95%; se houver regressão, não promover o candidato à main.
+
+Memória futura por livro: armazenar identidades, relações e referências com
+parágrafo de origem e separar hipóteses de evidências explícitas. Não equivale a
+treinar pesos. Esta versão estabiliza as identidades durante a análise; ainda
+não persiste uma memória entre capítulos. Falas curtas também continuam pendentes.
+
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 
 **Resultado do pré-registro:** reprovado. A primeira execução fria, feita após o

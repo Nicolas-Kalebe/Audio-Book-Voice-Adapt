@@ -8,6 +8,16 @@ Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_U
 
 ## Estado atual — 8 de setembro de 2026
 
+Candidato em `fix/compact-scene-context`: o compacto agora mantém IDs de pessoas
+e turnos estáveis durante a análise, conserva o catálogo da cena entre blocos e
+expande o texto fonte até o limite de caracteres configurado. O schema restringe
+os IDs que o modelo pode devolver. Uma menção no catálogo não comprova presença
+nem autoria. Não há chamadas adicionais ao Qwen, mas o contexto maior pode
+aumentar o tempo de inferência. A nova versão ainda exige medição fria; os
+resultados medidos continuam sendo P1 94,74%/98,12%, P2 95,53%/97,81% e
+P3 90,68%/88,86% (precisão/cobertura). Falas curtas e memória persistente entre
+capítulos continuam pendentes.
+
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
 [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
