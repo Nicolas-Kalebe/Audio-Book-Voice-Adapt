@@ -6,7 +6,7 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
-### Contexto compacto estável — candidato ainda não medido
+### 9 de setembro de 2026 — contexto compacto estável reprovado
 
 Na rodada P3, o segundo bloco da cena 27 devolveu o ID inválido `N` em vários
 turnos. O compacto renumerava as entidades e os turnos a cada janela e mostrava
@@ -15,20 +15,26 @@ retém candidatos mencionados na cena e expande o texto literal até `max_chars`
 O schema limita as respostas aos IDs existentes ou novos IDs N numerados,
 mantendo a validação de menção literal para criação de entidades.
 
-Não há resumo gerado nem propagação automática de atribuições anteriores.
-O número de chamadas permanece igual; medir o custo do contexto adicional.
-Nenhuma melhoria numérica é alegada antes da campanha.
+O teste P3 foi frio para o cache de respostas (19 misses) e reutilizou somente ASR
+e alinhamento. Resultado sobre 350 dubláveis: **96,23% de precisão / 68,29% de
+cobertura** (230 corretas, 9 erradas, 98 abstenções); referência: 90,68% / 88,86%
+(282 corretas, 29 erradas, 26 abstenções). Foram 909,219 s, contra 385,609 s.
 
-Próximo turno de testes: executar P1, P2 e P3 pelo
-`scripts/benchmark_book_speakers.py --protocol compact` com os mesmos caches,
-gabaritos e configuração, em saídas novas. Registrar cache hits, rejeições
-estruturais, precisão, cobertura e `review.elapsed_seconds`. São regressões de
-desenvolvimento, pois todas já foram consultadas. ASR é reutilizado: esta campanha
-mede reconhecimento textual e projeção, não transcrição fria nem conversão.
+O ganho de precisão é artificial para o objetivo: o contexto/schema maior tornou
+quatro lotes inutilizáveis — três `Read timed out (90 s)` nas cenas 22/27 e uma
+resposta truncada por `done_reason=length` (4096 tokens) na cena 30. O motor
+registrou 108 não resolvidas, contra 37 na referência. Isto explica a queda de
+cobertura; não é evidência de que a estabilização resolveu a atribuição.
 
-Critério pré-registrado: manter P1 e P2 sem queda de precisão maior que 1 ponto
-percentual e elevar cobertura P3 sem piorar sua precisão de 90,68%. A meta final
-permanece 95%/95%; se houver regressão, não promover o candidato à main.
+O critério pré-registrado exigia elevar a cobertura P3 sem piorar os 90,68% de
+precisão e manter P1/P2 a até um ponto percentual das respectivas linhas de base.
+P3 já reprova pela cobertura, então P1/P2 foram corretamente poupadas e o
+candidato **não deve ser promovido à main**. Saída local ignorada pelo Git:
+`output/p03-context-v2-20260909d/`.
+
+Próxima hipótese a implementar, em turno de modelo mais capaz: memória compacta
+fora do prompt (entidades/relacões com evidência), sem repetir a cena inteira nem
+um schema enumerado grande em cada lote; medir primeiro P3 e só então P1/P2.
 
 Memória futura por livro: armazenar identidades, relações e referências com
 parágrafo de origem e separar hipóteses de evidências explícitas. Não equivale a

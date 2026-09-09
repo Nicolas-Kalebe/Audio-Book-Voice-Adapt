@@ -6,17 +6,19 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-## Estado atual — 8 de setembro de 2026
+## Estado atual — 9 de setembro de 2026
 
-Candidato em `fix/compact-scene-context`: o compacto agora mantém IDs de pessoas
-e turnos estáveis durante a análise, conserva o catálogo da cena entre blocos e
-expande o texto fonte até o limite de caracteres configurado. O schema restringe
-os IDs que o modelo pode devolver. Uma menção no catálogo não comprova presença
-nem autoria. Não há chamadas adicionais ao Qwen, mas o contexto maior pode
-aumentar o tempo de inferência. A nova versão ainda exige medição fria; os
-resultados medidos continuam sendo P1 94,74%/98,12%, P2 95,53%/97,81% e
-P3 90,68%/88,86% (precisão/cobertura). Falas curtas e memória persistente entre
-capítulos continuam pendentes.
+O candidato `fix/compact-scene-context` foi **reprovado** na regressão P3: IDs
+estáveis, catálogo da cena e schema enumerado elevaram a precisão de 90,68% para
+**96,23%**, mas reduziram a cobertura de 88,86% para **68,29%** (230 corretas,
+9 erradas e 98 abstenções em 350 falas dubláveis). Também elevou o tempo de
+385,609 s para **909,219 s**. Quatro chamadas falharam/truncaram (três timeouts
+de 90 s e uma resposta cortada em 4096 tokens), causando 108 não resolvidas,
+contra 37 antes. O candidato não será promovido e P1/P2 não foram executadas,
+pois P3 já violou o critério pré-registrado. A hipótese de memória entre blocos
+permanece válida, mas o desenho que envia contexto ampliado e schema grande ao
+Qwen 8B não é viável. Falas curtas e memória persistente entre capítulos seguem
+pendentes.
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
