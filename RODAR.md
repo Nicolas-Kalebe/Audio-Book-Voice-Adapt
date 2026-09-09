@@ -6,7 +6,7 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
-### 9 de setembro de 2026 — memória compacta candidata
+### 9 de setembro de 2026 — memória compacta reprovada
 
 `feat/compact-memory` parte diretamente da `main`, sem herdar o contexto ampliado
 reprovado. O compacto agora usa IDs de entidade e turno estáveis e mantém estado
@@ -27,16 +27,19 @@ e 909,219 s. A linha P3 normal é 90,68% / 88,86%, 37 não resolvidas, nenhuma f
 de chamada e 385,609 s. O contexto/schema grande foi descartado; IDs estáveis e
 continuidade limitada foram preservados.
 
-Próximo turno de testes, sempre em saída inédita e cache de respostas frio:
+Medição P3 concluída com 19 misses de cache e zero erro/truncamento: **91,30% de
+precisão e 85,43% de cobertura** (273 corretas, 26 erradas e 38 abstenções em 350
+dubláveis), em 425,438 s. Passou no tempo (limite 482,011 s), não caiu na precisão,
+mas falhou a porta de cobertura (>88,86%). P1/P2 foram poupadas e este candidato
+**não deve ser promovido à main**.
 
-1. rodar P3 primeiro com `--protocol compact`;
-2. exigir precisão ≥90,68%, cobertura >88,86%, zero chamada perdida e tempo
-   ≤482,011 s (até 25% sobre a referência);
-3. somente se P3 passar, rodar P1 e P2 e exigir que nenhuma precisão caia mais de
-   um ponto percentual das linhas 94,74% e 95,53%;
-4. independentemente dessa porta, a meta do produto continua 95% / 95% sobre
-   dubláveis. Repetições nas três partes são regressões de desenvolvimento, não
-   novos holdouts.
+A memória resolveu o alvo que a motivou: cena 27 (Coen/Ciri) passou de 21/41 para
+36/41. Mas a cena 26 caiu de 27/29 para 5/29. A auditoria mostrou IDs globais como
+E10/E12/E13 e um catálogo que chegou a 17 pessoas: o motor não falhou, porém a
+representação mudou a decisão do Qwen. A próxima implementação, em turno de modelo
+mais capaz, deve atribuir IDs estáveis somente dentro de cada cena, a partir de E0,
+e expor apenas participantes com âncora literal ou hipótese ainda recente. O teste
+seguinte volta a começar por P3, em saída inédita.
 
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 

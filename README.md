@@ -12,13 +12,19 @@ O candidato `feat/compact-memory` conserva, entre janelas da mesma cena, somente
 IDs estáveis, âncoras literais e as seis hipóteses recentes. Âncoras e hipóteses
 viajam separadas para uma decisão anterior do modelo nunca parecer fato. O texto
 continua limitado à janela original, o schema genérico continua pequeno e não há
-chamadas adicionais ao Qwen. Testes locais passaram; a campanha comparativa ainda
-não foi executada.
+chamadas adicionais ao Qwen. Testes locais passaram, mas a rodada fria P3 foi
+**reprovada**: 91,30% de precisão e 85,43% de cobertura (273 corretas, 26 erradas,
+38 abstenções em 350 dubláveis). Ela não teve erros de chamada e levou 425,438 s,
+mas a cobertura ficou abaixo dos 88,86% da referência. P1/P2 não foram executadas
+e o candidato não será promovido.
 
 O desenho anterior que repetia contexto ampliado e enumerava todos os IDs no
 schema foi descartado: em P3 obteve 96,23% de precisão, mas só 68,29% de cobertura,
 quatro lotes falharam/truncaram e o tempo subiu de 385,609 s para 909,219 s. Esse
-código não foi herdado pelo candidato atual.
+código não foi herdado pelo candidato atual. A memória melhorou a cena 27 de
+21/41 para 36/41, mas derrubou a cena 26 de 27/29 para 5/29. O próximo desenho
+deve manter IDs estáveis **por cena**, começando em E0, e limitar o catálogo aos
+participantes literais e ao histórico recente — nunca ao conjunto inteiro já visto.
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
