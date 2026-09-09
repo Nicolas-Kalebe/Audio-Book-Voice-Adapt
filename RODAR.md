@@ -6,6 +6,38 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 9 de setembro de 2026 — memória compacta candidata
+
+`feat/compact-memory` parte diretamente da `main`, sem herdar o contexto ampliado
+reprovado. O compacto agora usa IDs de entidade e turno estáveis e mantém estado
+pequeno por cena. Cada janela recebe no máximo oito âncoras literais anteriores e
+seis decisões recentes do modelo. Elas ficam em campos separados e as decisões do
+modelo são rotuladas `model_hypothesis`: memória auxilia continuidade, não transforma
+palpite em evidência. Se uma chamada falhar, somente âncoras literais daquela janela
+entram na memória.
+
+O texto enviado continua sendo exatamente a janela produzida por `windows`; não é
+expandido até a cena inteira. O schema permanece genérico, sem listas enumeradas de
+IDs. Não há chamada extra ao modelo. A auditoria registra âncoras, hipóteses, volume
+de histórico emitido e maior catálogo. A suíte local passa integralmente.
+
+Motivo desse desenho: a tentativa anterior obteve 96,23% de precisão e apenas
+68,29% de cobertura na P3, com três timeouts, uma saída truncada, 108 não resolvidas
+e 909,219 s. A linha P3 normal é 90,68% / 88,86%, 37 não resolvidas, nenhuma falha
+de chamada e 385,609 s. O contexto/schema grande foi descartado; IDs estáveis e
+continuidade limitada foram preservados.
+
+Próximo turno de testes, sempre em saída inédita e cache de respostas frio:
+
+1. rodar P3 primeiro com `--protocol compact`;
+2. exigir precisão ≥90,68%, cobertura >88,86%, zero chamada perdida e tempo
+   ≤482,011 s (até 25% sobre a referência);
+3. somente se P3 passar, rodar P1 e P2 e exigir que nenhuma precisão caia mais de
+   um ponto percentual das linhas 94,74% e 95,53%;
+4. independentemente dessa porta, a meta do produto continua 95% / 95% sobre
+   dubláveis. Repetições nas três partes são regressões de desenvolvimento, não
+   novos holdouts.
+
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 
 **Resultado do pré-registro:** reprovado. A primeira execução fria, feita após o

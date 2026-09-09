@@ -6,17 +6,31 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-## Estado atual — 8 de setembro de 2026
+## Estado atual — 9 de setembro de 2026
+
+O candidato `feat/compact-memory` conserva, entre janelas da mesma cena, somente
+IDs estáveis, âncoras literais e as seis hipóteses recentes. Âncoras e hipóteses
+viajam separadas para uma decisão anterior do modelo nunca parecer fato. O texto
+continua limitado à janela original, o schema genérico continua pequeno e não há
+chamadas adicionais ao Qwen. Testes locais passaram; a campanha comparativa ainda
+não foi executada.
+
+O desenho anterior que repetia contexto ampliado e enumerava todos os IDs no
+schema foi descartado: em P3 obteve 96,23% de precisão, mas só 68,29% de cobertura,
+quatro lotes falharam/truncaram e o tempo subiu de 385,609 s para 909,219 s. Esse
+código não foi herdado pelo candidato atual.
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
 [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
 
-| | Onde está | Meta |
-|---|---:|---:|
-| Precisão sobre falas dubláveis | **93,17%** | 95% |
-| Cobertura sobre falas dubláveis | **96,24%** | 95% |
-| Detecção das falas | 253/255 (99,2%) | resolvido |
+| Regressão | Precisão | Cobertura | Meta |
+|---|---:|---:|---:|
+| Parte 01 | **94,74%** | **98,12%** | 95% / 95% |
+| Parte 02 | **95,53%** | **97,81%** | 95% / 95% |
+| Parte 03 | **90,68%** | **88,86%** | 95% / 95% |
+| Precisão sobre falas dubláveis (P1/P2/P3) | 94,74% / 95,53% / 90,68% | — | 95% |
+| Cobertura sobre falas dubláveis (P1/P2/P3) | — | 98,12% / 97,81% / 88,86% | 95% |
 
 Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
 com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem
