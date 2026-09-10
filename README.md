@@ -8,6 +8,11 @@ Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_U
 
 ## Estado atual — 10 de setembro de 2026
 
+Auditoria textual dos 28 casos divergentes de P3: **25 erros do motor confirmados
+pelo parecer, 3 em dúvida, nenhuma correção de gabarito demonstrada**. Revisão por
+assistente com consulta ao EPUB; não independente. Pontuação da v1.1 permanece
+**91,44% × 93,43%**. [Parecer detalhado (contém spoilers)](docs/AUDITORIA-P03-28-CASOS.md).
+
 O benchmark aceita `--frozen-base-cache <rodada>/cache`: reutiliza respostas exatas
 do primeiro passe e executa somente os reparos novos. Registra hashes das respostas,
 interrompe se uma requisição não existir e identifica o resultado como replay, nunca

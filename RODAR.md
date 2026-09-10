@@ -6,6 +6,18 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
+**Retorno da auditoria textual:** itens 1 e 2 executados. Dos 28 casos, a leitura do
+EPUB produziu 25 pareceres de erro do motor, nenhuma correção demonstrada do gabarito
+e 3 dúvidas (704-0, 723-0, 725-0). Revisão por assistente, não humana independente.
+Ver [parecer por turno](docs/AUDITORIA-P03-28-CASOS.md). Gabarito inalterado:
+91,44% de precisão e 93,43% de cobertura. Próxima pendência do item 2: segunda leitura
+dos três casos; não editar rótulos para concordar com a saída do motor.
+
+O diferencial confirmou 26 casos sem carimbo de consistência, 1
+`resposta_ao_vocativo` e 1 `sanduiche_de_tres_turnos`. Ausência de carimbo não prova
+origem exclusiva no Qwen. A auditoria no Windows concluiu com
+`$env:PYTHONIOENCODING='utf-8'`; arquivos em `output/auditoria-p03-utf8/`.
+
 > Esta seção existe porque o trabalho acontece em duas máquinas e **os dados moram
 > em uma só**. `books/`, `input/`, `cache/` e `output/` estão no `.gitignore`: só o
 > repositório viaja. Quem trabalha sem os dados escreve o comando aqui; quem tem os
