@@ -18,6 +18,7 @@ from audiobook_voice_enhancer.cache import Cache, FrozenCache
 from audiobook_voice_enhancer.config import BOOK_PROTOCOLS, load_config
 from audiobook_voice_enhancer.dialogue import detect
 from audiobook_voice_enhancer.llm import build_provider
+from audiobook_voice_enhancer.attribution_contracts import CONTRACTS, validate_contract
 
 
 def main():
@@ -28,16 +29,28 @@ def main():
     parser.add_argument("--frozen-base-cache", type=Path,
                         help="Replay exato do primeiro passe; somente reparos consultam o Qwen")
     parser.add_argument("--protocol", choices=BOOK_PROTOCOLS, default=None)
+    parser.add_argument("--attribution-contract", choices=CONTRACTS, default=None,
+                        help="Ablação controlada do primeiro passe; exige --protocol hybrid")
     parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
     parser.add_argument('--source-subjects', action='store_true', help='Testa referências literais do narrador no compacto')
     parser.add_argument('--no-turn-consistency', action='store_true',
                         help='Desliga o pós-processamento de vocativo e sanduíche, para isolar seu efeito')
     args = parser.parse_args()
-    if args.frozen_base_cache and (args.without_llm or args.protocol not in {"compact", "hybrid"}):
-        parser.error("--frozen-base-cache exige LLM e --protocol compact/hybrid")
+    if args.frozen_base_cache and (args.without_llm or args.protocol not in {"compact", "hybrid", "hybrid-catalog"}):
+        parser.error("--frozen-base-cache exige LLM e --protocol compact/hybrid/hybrid-catalog")
     base_cache = FrozenCache(args.frozen_base_cache) if args.frozen_base_cache else None
     if args.source_subjects and args.protocol != 'compact':
         parser.error('--source-subjects exige --protocol compact')
+    config = load_config(args.config)
+    options = dict(config.get("book_first", {}))
+    if args.protocol:
+        options["protocol"] = args.protocol
+    if args.attribution_contract:
+        options["attribution_contract"] = args.attribution_contract
+    try:
+        validate_contract(options.get("protocol", "evidence"), options.get("attribution_contract", "baseline"))
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.output.exists():
         parser.error("Escolha uma pasta de saída nova para garantir cache de respostas vazio")
     # Reserve before warmup: two launches cannot both start into the same output.
@@ -45,7 +58,6 @@ def main():
         args.output.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
         parser.error("A pasta já foi reservada por outra execução")
-    config = load_config(args.config)
     if not args.without_llm and (config["llm"].get("provider") != "ollama" or
                                 urlsplit(config["llm"]["base_url"]).hostname not in {"localhost", "127.0.0.1", "::1"}):
         parser.error("Este teste usa somente Ollama local")
@@ -78,9 +90,6 @@ def main():
                     "target_dialogues": [{"id": "warmup", "text": "Abra a porta", "paragraph": 0}]})
         warm_seconds = time.perf_counter() - warm_started
     cache = Cache(args.output / "cache")
-    options = dict(config.get("book_first", {}))
-    if args.protocol:
-        options["protocol"] = args.protocol
     if args.no_scene_repair:
         options["scene_repair"] = False
     if args.source_subjects:
@@ -92,6 +101,7 @@ def main():
                            max_turns=int(options.get("max_turns_per_window", 24)),
                            max_chars=int(options.get("max_context_characters", 14000)),
                            protocol=options.get("protocol", "evidence"),
+                           attribution_contract=options.get("attribution_contract", "baseline"),
                            source_subjects=bool(options.get('source_subjects', False)),
                            scene_max_chars=int(options.get("scene_context_characters", 36000)),
                            scene_repair=bool(options.get("scene_repair", True)),

@@ -8,6 +8,17 @@ Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_U
 
 ## Estado atual — 10 de setembro de 2026
 
+**Próxima implementação pronta, ainda sem campanha Qwen:** ablações controladas
+de prompt e schema e modo `speaker-only`, que separa identidade da classificação
+recebida do inventário. Em `--protocol hybrid`, use `--attribution-contract`;
+o roteiro completo e as faixas estão no topo do [RODAR.md](RODAR.md).
+O diagnóstico revisado mostrou que, dos 40 acertos perdidos pelo hybrid-catalog,
+18 viraram `unknown` e dez decisões inválidas; só sete das 25 menções rejeitadas
+têm recuperação única ignorando caixa. Normalizar strings sozinho é insuficiente.
+O resultado medido permanece **79,42% × 97,20%** para hybrid v1.1 na P4 e
+**80,20% × 78,80%** para o candidato reprovado. Nada novo foi promovido.
+[Parecer e handoff para Claude](docs/REVISAO-CONTRATO-DE-ATRIBUICAO.md).
+
 **A Parte 04 foi o holdout novo do mesmo livro e reprovou.** O primeiro passe
 frio do `hybrid` v1.1 foi recuperado por cache congelado (15/15 respostas exatas),
 pois o gravador do relatório falhou ao serializar um metadado de data. O placar é
@@ -31,8 +42,9 @@ e trata autorreferência pelo nome como evidência negativa, com exceções. Nã
 regra, nome ou vocabulário de fantasia do livro no motor. A campanha fria P4
 **reprovou**: 80,20% de precisão e 78,80% de cobertura (158 corretos, 39 errados,
 51 abstenções e 2 não localizadas). Ela salvou 5 decisões do baseline, mas estragou
-40. O schema fez o Qwen propor 38 entidades anônimas e nenhuma nomeada; 25 propostas
-foram recusadas porque a citação literal não coincidiu exatamente. Portanto o
+40. Foram 63 propostas anônimas, das quais 38 aceitas (23 identidades criadas)
+e 25 recusadas. A rodada mudou schema e prompt juntos; ainda não isolou a causa
+do colapso de tipos. Portanto o
 contrato estrito não entra no motor padrão. A análise e a próxima hipótese ficam em
 [RODAR.md](RODAR.md).
 

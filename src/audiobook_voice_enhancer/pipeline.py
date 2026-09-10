@@ -180,6 +180,7 @@ class Pipeline:
                     max_turns=int(options.get("max_turns_per_window", 24)),
                     max_chars=int(options.get("max_context_characters", 14000)),
                     protocol=options.get("protocol", "evidence"),
+                    attribution_contract=options.get("attribution_contract", "baseline"),
                     source_subjects=bool(options.get("source_subjects", False)),
                     scene_max_chars=int(options.get("scene_context_characters", 36000)),
                     scene_repair=bool(options.get("scene_repair", True)),

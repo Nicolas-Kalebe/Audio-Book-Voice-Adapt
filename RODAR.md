@@ -6,7 +6,75 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
-### CANDIDATO NOVO — `hybrid-catalog` v1 na Parte 04
+### AGORA — isolar prompt/schema e testar atribuição só de identidade
+
+Implementação pronta; **campanha ainda não executada**. Ler primeiro
+[o parecer portátil para Claude](docs/REVISAO-CONTRATO-DE-ATRIBUICAO.md).
+O original `output/review-architecture/PARECER.md` continua preservado localmente.
+
+Comparar cinco condições na P4 (desenvolvimento), com os mesmos dados e saídas
+inéditas: baseline, somente schema estrito, somente sufixo de prompt, os dois
+juntos (hybrid-catalog) e speaker-only. Os dois controles isolam a causa da
+regressão; speaker-only é outra hipótese, com schema/prompt adaptados à tarefa
+de identidade. Nenhuma condição altera rótulos ou lê o gabarito em runtime.
+
+Na raiz desta worktree, executar no **turno de testes**, sequencialmente:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+$env:PYTHONIOENCODING = 'utf-8'
+$python = (Resolve-Path ..\..\.venv\Scripts\python.exe).Path
+& $python scripts\gold_ceiling.py --gold benchmarks\part04_gold.yaml
+if ($LASTEXITCODE -ne 0) { throw 'Teto falhou: pare e confira o gabarito' }
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$common = @(
+  '--book', '..\..\books\O Sangue dos Elfos.epub',
+  '--transcription', '..\..\cache\transcription\c2b047f35f0236e0c66f1de0d267514ee7ebc44bd806ab9eba33eb4de7724c27.json',
+  '--alignment', '..\..\cache\alignment\301c8f7367c763d121b900dbe058ed581d2a1f536b248e31ed03d8bd26429a0f.json',
+  '--config', 'config\config.yaml', '--gold', 'benchmarks\part04_gold.yaml'
+)
+$audit = @()
+$compare = @()
+foreach ($mode in @('baseline', 'catalog-schema', 'catalog-prompt', 'both', 'speaker-only')) {
+  $run = "output\contracts-p04-$stamp-$mode"
+  $protocol = if ($mode -eq 'both') { 'hybrid-catalog' } else { 'hybrid' }
+  $contract = if ($mode -eq 'both') { 'baseline' } else { $mode }
+  & $python scripts\benchmark_book_speakers.py @common --protocol $protocol --attribution-contract $contract --output $run
+  if ($LASTEXITCODE -ne 0) { throw "Campanha $mode falhou; preserve a pasta e investigue" }
+  $audit += @('--analysis', "$mode=$run\analysis.json")
+  if ($mode -ne 'baseline') { $compare += @('--candidate', "$mode=$run\analysis.json") }
+}
+& $python scripts\audit_attribution_contract.py @audit --output "output\contracts-p04-$stamp-audit.json"
+& $python scripts\compare_speaker_runs.py --gold benchmarks\part04_gold.yaml --baseline "output\contracts-p04-$stamp-baseline\analysis.json" @compare --output "output\contracts-p04-$stamp-comparison"
+```
+
+Cache frio aqui significa respostas novas: cada rodada tem pasta nova e zero
+hits. O benchmark faz aquecimento prévio; não é reinício frio de GPU/ASR/conversão.
+Não usar replay do baseline para gerar respostas de outro contrato: o cache exige
+prompt/schema/payload exatos. A sequência não promove automaticamente o vencedor.
+
+Faixas pré-registradas para **speaker-only**, contra o baseline da mesma sequência:
+
+- A meta do produto continua precisão ≥95% **e** cobertura ≥95%.
+- Avançar à confirmação/repetição: pelo menos **+10 acertos dubláveis**, menos
+  vozes erradas, precisão não menor que baseline e cobertura ≥95%.
+- +1 a +9 acertos com cobertura ≥95% e sem piora de precisão: sinal parcial,
+  insuficiente para promoção; revisar casos antes de outra alteração.
+- Saldo ≤0, precisão menor ou cobertura <95%: reprovar a hipótese para promoção.
+- Qualquer atribuição a trecho previamente classificado thought/citation/unknown
+  é bug técnico; parar. Conferir também a citação não falada da P4: não elevar
+  atribuições ali em relação ao baseline. Não chamar proteção de tipos de
+  classificador novo — erros de classificação de entrada continuam possíveis.
+
+Para schema-only/prompt-only/both, o objetivo é **diagnóstico causal**, sem
+aceitação por métrica isolada. Devolver tipos named/anonymous e speech/unknown,
+unknown com identidade válida, rejeições, danos/ganhos por cena, métricas brutas
+e finais, hashes, zero hits, erros, tempo e chamadas. Se houver diferença grande,
+repetir baseline e a condição relevante antes de atribuir causalidade definitiva;
+a campanha nova confirma ou não o resultado anterior. P1–P3 vêm depois de um
+sinal favorável; outro livro só após regressão. Não ajustar o gabarito ao resultado.
+
+### HISTÓRICO — `hybrid-catalog` v1 na Parte 04 (reprovado)
 
 A P4 mostrou uma falha anterior às regras de coerência: o prompt dizia para usar
 `N` ao descobrir uma pessoa ausente, mas o schema aceitava qualquer string. Nas 15
@@ -63,21 +131,13 @@ v1.1 (79,42% × 97,20%), a precisão sobe apenas 0,78 ponto, enquanto a cobertur
 18,40 pontos. O diferencial registrou 5 acertos/erros salvos, 40 acertos estragados
 e saldo de −35. Reprovado pela faixa `cobertura <93%`.
 
-O diagnóstico é claro e limita a conclusão: o schema fez o Qwen obedecer `N`, mas
-ele propôs 38 referências anônimas, nenhuma nomeada; 23 criaram entidades e 25 foram
-recusadas. Muitas eram sujeitos corretos em essência (`o centurião`, `o guerreiro`),
-mas falharam na prova literal por diferença de caixa/artigo ou por a janela ter a
-mesma menção mais de uma vez. As assignments que dependiam desses `N` ficaram
-estruturalmente inválidas, transformando uma cena inteira em abstenções. Isso não
-prova que "pessoa nova = personagem conhecido" era a causa suficiente; prova que
-endurecer o schema sem uma camada de resolução de menção segura é regressivo.
-
-Não ampliar para P1–P3. A próxima implementação deve separar três coisas: aceitar
-uma menção por correspondência normalizada com offsets exatos recuperados, deduplicar
-somente a mesma menção no mesmo contexto, e manter **nome**/descrição de papel como
-referências distintas até haver evidência de vínculo. Ela deve ser medida primeiro
-por replay/fixture e depois por campanha fria nova; não afrouxar a validação para
-aceitar qualquer frase do modelo.
+**Diagnóstico corrigido após leitura das respostas:** foram 63 propostas anônimas,
+38 aceitas (23 identidades criadas) e 25 recusadas. Só sete recusas têm
+correspondência única ignorando caixa; 12 não constam do parágrafo, quatro se
+repetem e duas são campos inválidos. Além disso, 18 dos 40 acertos perdidos viraram
+unknown, contra dez decisões inválidas. Atribuir a regressão somente ao validador
+de menção estava incorreto. Prompt e schema mudaram juntos. A nova fila acima
+isola essas variáveis antes de normalizar ou acrescentar regras de identidade.
 
 ### PARTE 04 CONSUMIDA — resultado da rodada fria
 
@@ -221,6 +281,23 @@ Não reabrir o alvo "fora do elenco": foi medido, reprovado e removido; a causa 
 estrutural, não de limiar.
 
 ## O que mudou, do mais novo para o mais velho
+
+### 10 de setembro de 2026 — separar identidade e preparar ablações
+
+`attribution_contracts.py` acrescenta os modos de primeiro passe baseline,
+catalog-schema, catalog-prompt e speaker-only (somente com hybrid). Schema/prompt
+isolados preservam o payload inicial. Speaker-only pede id/speaker/confidence;
+conserva tipos de entrada, rejeita respostas antigas contendo kind e protege
+unknown/thought/citation inclusive do reparo. O padrão continua inalterado.
+
+O benchmark e a pipeline aceitam a opção; validação acontece antes da inferência.
+Verificação: 304 testes passaram. Replay técnico do baseline P4 confirmou 15/15
+respostas exatas, zero inferências novas e métricas by_class idênticas às anteriores.
+Contadores do contrato e `audit_attribution_contract.py` permitem medir tipos e
+identidades separadamente sem exportar texto literário. O parecer foi preservado
+localmente e ganhou versão portátil em docs para o Claude. Nenhuma rodada Qwen
+nova foi feita neste turno. Faixas e comando estão no topo; resultado medido
+permanece hybrid **79,42% × 97,20%**, hybrid-catalog **80,20% × 78,80%** na P4.
 
 ### 10 de setembro de 2026 — contrato estrito de elenco (`hybrid-catalog` v1)
 

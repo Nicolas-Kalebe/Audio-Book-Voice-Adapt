@@ -42,7 +42,10 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
                    scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False,
-                   turn_consistency=True, hybrid=False, strict_catalog=False, base_cache=None):
+                   turn_consistency=True, hybrid=False, strict_catalog=False, base_cache=None,
+                   attribution_contract="baseline"):
+    from .attribution_contracts import configure, decision, validate_contract, VERSION as CONTRACT_VERSION
+    validate_contract("hybrid" if hybrid and not strict_catalog else "compact", attribution_contract)
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -85,6 +88,11 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                                        VERSION as CATALOG_VERSION,
                                        response_schema as catalog_response_schema)
         stats["method"] = result["attribution_protocol"] = CATALOG_VERSION
+    if attribution_contract != "baseline":
+        stats["method"] = result["attribution_protocol"] = CONTRACT_VERSION + ":" + attribution_contract
+    stats["attribution_contract"] = attribution_contract
+    stats["response_contract"] = {"entity_kinds": {}, "assignment_kinds": {},
+                                  "unknown_with_resolved_speaker": 0}
     if scene_mode:
         from .scene_context import SceneContext, VERSION as SCENE_VERSION, ATTRIBUTION_SUFFIX, repair_targets
         if provider is not None:
@@ -148,6 +156,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                 adapted.response_schema = response_schema(SCHEMA, payload)
             if strict_catalog:
                 adapted.response_schema = catalog_response_schema(SCHEMA, payload)
+            if attribution_contract != "baseline":
+                configure(adapted, payload, targets, attribution_contract, SYSTEM, SCHEMA)
             stats["batches_reviewed"] += 1
             stats["dialogues_reviewed"] += len(targets)
             try:
@@ -188,6 +198,10 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         except Exception as exc:
                             stats["errors"].append({"scene_id": batch["scene_id"], "phase": "focused_review", "error": str(exc)})
                 proposals = [p for p in answer["entities"] if isinstance(p, dict)]
+                for item in proposals:
+                    label = str(item.get("kind", "missing"))
+                    counts = stats["response_contract"]["entity_kinds"]
+                    counts[label] = counts.get(label, 0) + 1
                 proposal_ids = [p.get("id") for p in proposals]
                 for item in proposals:
                     key, mention, kind = item.get("id"), item.get("mention"), item.get("kind")
@@ -240,8 +254,17 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         stats["structural_rejections"] += 1
                         continue
                     row = rows[0]
+                    label = str(row.get("kind", "not_requested" if attribution_contract == "speaker-only" else "missing"))
+                    counts = stats["response_contract"]["assignment_kinds"]
+                    counts[label] = counts.get(label, 0) + 1
+                    if attribution_contract == "speaker-only":
+                        turn["classification_source"] = "upstream_inventory"
+                        turn["input_kind"] = turn["kind"]
+                        row = decision(row, turn)
                     speaker, kind = row.get("speaker"), row.get("kind")
                     identity = allowed.get(speaker) if isinstance(speaker, str) else None
+                    if kind == "unknown" and identity is not None:
+                        stats["response_contract"]["unknown_with_resolved_speaker"] += 1
                     confidence = _confidence(row.get("confidence"))
                     valid = (kind in {"speech", "thought", "citation", "unknown"}
                              and type(row.get("confidence")) in {int, float}
@@ -271,7 +294,11 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                                 status="contextual" if kind == "speech" else "non_speech")
                     stats["assigned"] += int(kind == "speech")
                 if router:
-                    plan = router.plan(batch, targets)
+                    # Identity repair has no authority to classify unknown or
+                    # non-spoken inputs in the decoupled experiment.
+                    repair_targets = ({key: turn for key, turn in targets.items() if turn["kind"] == "speech"}
+                                      if attribution_contract == "speaker-only" else targets)
+                    plan = router.plan(batch, repair_targets)
                     if plan:
                         repair_payload = router.payload(batch, plan, payload["scene_text"])
                         repair_provider.response_schema = router.response_schema(plan)

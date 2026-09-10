@@ -316,8 +316,10 @@ def windows(model: dict, paragraph_range: tuple[int, int] | None, max_turns=24, 
 def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold=.90,
                 max_turns=24, max_chars=14000, progress=None, protocol="evidence",
                 scene_max_chars=36000, scene_repair=True, source_subjects=False,
-                turn_consistency=True, base_cache=None) -> dict:
+                turn_consistency=True, base_cache=None, attribution_contract="baseline") -> dict:
     """Review textual turns, including those with no ASR match, in bounded windows."""
+    from .attribution_contracts import validate_contract
+    validate_contract(protocol, attribution_contract)
     if source_subjects and protocol != 'compact':
         raise ValueError('source_subjects is supported only by compact')
     if base_cache is not None and protocol not in {"compact", "hybrid", "hybrid-catalog"}:
@@ -330,7 +332,8 @@ def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold
                               lightweight=protocol == "lightweight", source_subjects=source_subjects,
                               turn_consistency=turn_consistency, base_cache=base_cache,
                               hybrid=protocol in {"hybrid", "hybrid-catalog"},
-                              strict_catalog=protocol == "hybrid-catalog")
+                              strict_catalog=protocol == "hybrid-catalog",
+                              attribution_contract=attribution_contract)
     if protocol != "evidence":
         raise ValueError(f"Unknown attribution protocol: {protocol}")
     started = time.monotonic()

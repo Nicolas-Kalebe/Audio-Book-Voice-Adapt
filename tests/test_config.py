@@ -68,3 +68,21 @@ def test_hybrid_catalog_book_protocol_is_accepted(tmp_path):
     )
     assert load_config(path)["book_first"]["protocol"] == "hybrid-catalog"
     assert "hybrid-catalog" in BOOK_PROTOCOLS
+
+
+@pytest.mark.parametrize('protocol,contract,valid', [
+    ('hybrid', 'speaker-only', True), ('hybrid', 'catalog-schema', True),
+    ('hybrid', 'catalog-prompt', True), ('compact', 'speaker-only', False),
+    ('hybrid-catalog', 'catalog-schema', False), ('hybrid', 'typo', False)])
+def test_experimental_contract_config_validation(tmp_path, protocol, contract, valid):
+    import yaml
+    config = {'speaker_confidence_threshold': .9, 'alignment_confidence_threshold': .8,
+              'voice_conversion': {}, 'book_first': {'enabled': True, 'protocol': protocol,
+                                                     'attribution_contract': contract}}
+    path = tmp_path / 'config.yaml'
+    path.write_text(yaml.safe_dump(config), encoding='utf-8')
+    if valid:
+        assert load_config(path)['book_first']['attribution_contract'] == contract
+    else:
+        with pytest.raises(ConfigurationError):
+            load_config(path)
