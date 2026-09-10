@@ -45,6 +45,10 @@ consistência escreveu cada voz errada que sobrou**, o que separa "faltou mecani
 de "regra existente errou". Projeto, resultados e pré-registro:
 [docs/MEGAZORD-HIBRIDO.md](docs/MEGAZORD-HIBRIDO.md).
 
+O candidato v1.2 usa `--protocol hybrid-revisao`. A lista de protocolos da
+configuração e do benchmark agora vem da mesma constante, evitando que um modo
+aceito pelo motor seja rejeitado apenas pela interface de linha de comando.
+
 O protocolo `hybrid-revisao` (v1.2) é a v1.1 mais um segundo tipo de alvo, e está
 **escrito mas ainda não medido**. A v1.1 só repara lacuna; os erros que restam são
 turnos já atribuídos, que ela nunca olha. A v1.2 acrescenta um alvo estreito e

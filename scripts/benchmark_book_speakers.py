@@ -15,7 +15,7 @@ from audiobook_voice_enhancer.benchmark import evaluate, load_gold, render_markd
 from audiobook_voice_enhancer.book import load_book, paragraphs
 from audiobook_voice_enhancer.book_speakers import build_book, review_book, project_to_audio, scoped_report, VERSION
 from audiobook_voice_enhancer.cache import Cache
-from audiobook_voice_enhancer.config import load_config
+from audiobook_voice_enhancer.config import BOOK_PROTOCOLS, load_config
 from audiobook_voice_enhancer.dialogue import detect
 from audiobook_voice_enhancer.llm import build_provider
 
@@ -25,7 +25,7 @@ def main():
     for name in ("book", "transcription", "alignment", "config", "gold", "output"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--without-llm", action="store_true")
-    parser.add_argument("--protocol", choices=("compact", "evidence", "scene", "lightweight", "hybrid"), default=None)
+    parser.add_argument("--protocol", choices=BOOK_PROTOCOLS, default=None)
     parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
     parser.add_argument('--source-subjects', action='store_true', help='Testa referências literais do narrador no compacto')
     parser.add_argument('--no-turn-consistency', action='store_true',

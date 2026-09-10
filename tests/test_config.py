@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from audiobook_voice_enhancer.config import ConfigurationError, load_characters, load_config
+from audiobook_voice_enhancer.config import BOOK_PROTOCOLS, ConfigurationError, load_characters, load_config
 
 
 def test_load_default_config():
@@ -51,3 +51,7 @@ def test_hybrid_book_protocol_is_accepted(tmp_path):
         encoding="utf-8",
     )
     assert load_config(path)["book_first"]["protocol"] == "hybrid"
+
+
+def test_all_configured_book_protocols_are_available_to_command_line_tools():
+    assert "hybrid-revisao" in BOOK_PROTOCOLS

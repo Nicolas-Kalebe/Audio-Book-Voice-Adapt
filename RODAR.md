@@ -6,6 +6,15 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — integração do benchmark para a v1.2
+
+O primeiro disparo da campanha parou antes do Qwen: o motor e a configuração
+aceitavam `hybrid-revisao`, mas `benchmark_book_speakers.py` mantinha uma lista
+duplicada sem esse valor. A lista passou a ser única (`BOOK_PROTOCOLS`, em
+`config.py`) e compartilhada pelo validador e pelo CLI. O comportamento do motor,
+os números e o pré-registro da v1.2 não mudaram. A próxima execução deve usar a
+mesma saída planejada; a tentativa anterior não criou resultado nem cache útil.
+
 ### 10 de setembro de 2026 — v1.2: a revisão de quem está fora do elenco (PRÉ-REGISTRO, não medida)
 
 **Escrita, testada em unidade, não executada.** Nenhum número deste repositório
