@@ -8,11 +8,16 @@ Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_U
 
 ## Estado atual — 10 de setembro de 2026
 
+O benchmark aceita `--frozen-base-cache <rodada>/cache`: reutiliza respostas exatas
+do primeiro passe e executa somente os reparos novos. Registra hashes das respostas,
+interrompe se uma requisição não existir e identifica o resultado como replay, nunca
+como rodada fria. Ferramenta preparada; nenhuma melhoria de precisão foi medida com ela.
+
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
 [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
 
-| Indicador | Faixa confirmada em P1–P3 | Meta |
+| Indicador | Faixa nas campanhas híbridas v1.1/v1.2 em P1–P3 | Meta |
 |---|---:|---:|
 | Precisão sobre falas dubláveis | **89,97%–95,53%** | 95% |
 | Cobertura sobre falas dubláveis | **93,43%–98,59%** | 95% |

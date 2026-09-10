@@ -6,6 +6,37 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### Replay do primeiro passe — próximo turno de testes
+
+Implementado `--frozen-base-cache`: a chave inclui prompt, schema, identidade do
+provider e payload completos. Uma chave ausente aborta a execução; não há fallback
+para Qwen. A origem é somente leitura e cada resposta usada recebe hash no relatório.
+`cold_response_cache_valid` fica falso neste modo. O tempo mede o replay mais os
+reparos, portanto não deve ser comparado ao tempo de uma rodada fria completa.
+
+Constatação de código: o alvo v1.2 está fora de `active`, enquanto seu schema só
+permite IDs de `active` ou null. Assim, a identidade original não pode ser reafirmada
+pela revisão. A ausência no histórico recente não prova ausência na cena. Isso é
+uma hipótese estrutural para os danos medidos, ainda não uma contagem causal.
+
+Pré-registro de diagnóstico: rodar o teto; repetir `hybrid` e `hybrid-revisao` com
+os mesmos argumentos de entrada e `--frozen-base-cache` apontando para a mesma
+rodada v1.1 da parte. Usar duas saídas inéditas. Os mapas `frozen_base.response_sha256`
+dos dois relatórios devem ser idênticos e conter todas as janelas iniciais; qualquer
+divergência ou erro invalida a comparação. Medir salvos/estragados, precisão,
+cobertura e regras de consistência com o comparador existente. Critério permanece:
+nenhum dano líquido em P1/P2, ganho em P3; este diagnóstico não promove a v1.2.
+
+Na worktree, acrescentar ao comando completo do benchmark, para P1:
+`--frozen-base-cache ../hybrid-p01-v11-20260910/cache`.
+P2/P3 usam suas respectivas pastas v1.1. Manter os mesmos hashes de livro,
+transcrição, alinhamento, configuração e gabarito registrados no baseline. Se
+reparos anteriores alterarem o payload de uma janela seguinte, o replay abortará:
+isso é evidência de dependência entre etapas, não motivo para ignorar a chave.
+
+Não foi executada campanha Qwen neste turno de implementação. Os resultados
+v1.2 abaixo continuam sendo os últimos números medidos.
+
 ### 10 de setembro de 2026 — v1.2 reprovada: revisão fora do elenco
 
 Campanha completa em três saídas inéditas, com cache de respostas vazio e Qwen

@@ -1,6 +1,8 @@
 from audiobook_voice_enhancer.book_speakers import build_book, review_book
 from audiobook_voice_enhancer.cache import Cache
 from audiobook_voice_enhancer.llm import LLMProvider
+from audiobook_voice_enhancer.cache import FrozenCache, ReplayMiss
+import pytest
 
 
 class Provider(LLMProvider):
@@ -39,6 +41,30 @@ def model_with_split_scene():
         "— Terceiro.",
         "— Quarto.",
     ])
+
+
+def test_frozen_base_only_calls_provider_for_repair(tmp_path):
+    source = Cache(tmp_path / "original")
+    review_book(model_with_split_scene(), Provider(), source,
+                protocol="hybrid", max_turns=2)
+    frozen = FrozenCache(source.root)
+    provider = Provider()
+    result = review_book(model_with_split_scene(), provider, Cache(tmp_path / "candidate"),
+                         protocol="hybrid", max_turns=2, base_cache=frozen)
+    assert frozen.hits == 2
+    assert frozen.misses == 0
+    assert len(provider.calls) == 1
+    assert provider.calls[0]["task"] == "repair_unresolved_continuation"
+    assert result["hybrid_router"]["accepted_repairs"] == 2
+
+
+def test_frozen_miss_aborts_engine_instead_of_partial_result(tmp_path):
+    source = Cache(tmp_path / "empty")
+    provider = Provider()
+    with pytest.raises(ReplayMiss):
+        review_book(model_with_split_scene(), provider, Cache(tmp_path / "candidate"),
+                    protocol="hybrid", max_turns=2, base_cache=FrozenCache(source.root))
+    assert provider.calls == []
 
 
 def test_hybrid_repairs_only_unresolved_continuation_window(tmp_path):

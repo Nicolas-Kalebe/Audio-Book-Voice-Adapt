@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 
+class ReplayMiss(RuntimeError):
+    """A frozen request was not recorded; never substitute a fresh inference."""
+
+
 class Cache:
     STAGES = ("transcription", "alignment", "dialogue_detection", "speaker_analysis", "llm", "llm_diagnostics", "converted_audio", "checkpoints", "book_speakers")
 
@@ -46,4 +50,26 @@ class Cache:
         temporary = target.with_suffix(".tmp")
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
         temporary.replace(target)
+        return value
+
+
+class FrozenCache(Cache):
+    """Read-only exact-request replay. Does not create folders or call producers."""
+
+    def __init__(self, root: Path):
+        self.root = root.resolve()
+        if not self.root.is_dir():
+            raise ValueError(f"Frozen cache not found: {self.root}")
+        self.hits = self.misses = 0
+        self.used = {}
+
+    def json(self, stage, key, producer):
+        target = self.path(stage, key)
+        if not target.is_file():
+            self.misses += 1
+            raise ReplayMiss(f"Frozen request missing: {stage}/{key}")
+        raw = target.read_bytes()
+        value = json.loads(raw)
+        self.hits += 1
+        self.used[f"{stage}/{key}"] = hashlib.sha256(raw).hexdigest()
         return value

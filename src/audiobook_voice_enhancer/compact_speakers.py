@@ -12,6 +12,7 @@ import time
 
 from .book_speakers import _entity, _key, _span, windows
 from .llm import _confidence, cached_infer
+from .cache import ReplayMiss
 
 VERSION = "compact-speakers-v1"
 SYSTEM = """Identifique quem fala cada turno no texto fornecido, sem conhecimento externo.
@@ -41,7 +42,7 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
                    scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False,
-                   turn_consistency=True, hybrid=False, hybrid_revisao=False):
+                   turn_consistency=True, hybrid=False, hybrid_revisao=False, base_cache=None):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -140,7 +141,7 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
             stats["batches_reviewed"] += 1
             stats["dialogues_reviewed"] += len(targets)
             try:
-                answer = cached_infer(adapted, cache, payload)
+                answer = cached_infer(adapted, base_cache if base_cache is not None else cache, payload)
                 if (not isinstance(answer, dict) or not isinstance(answer.get("assignments"), list)
                         or not isinstance(answer.get("entities"), list)):
                     raise ValueError("Invalid compact attribution response")
@@ -277,6 +278,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                                         hybrid_repair=replacement["raw"])
                             if not eh_revisao:
                                 stats["assigned"] += 1
+            except ReplayMiss:
+                raise
             except Exception as exc:
                 stats["errors"].append({"scene_id": batch["scene_id"], "error": str(exc)})
             finally:

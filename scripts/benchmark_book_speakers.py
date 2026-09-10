@@ -14,7 +14,7 @@ import requests
 from audiobook_voice_enhancer.benchmark import evaluate, load_gold, render_markdown
 from audiobook_voice_enhancer.book import load_book, paragraphs
 from audiobook_voice_enhancer.book_speakers import build_book, review_book, project_to_audio, scoped_report, VERSION
-from audiobook_voice_enhancer.cache import Cache
+from audiobook_voice_enhancer.cache import Cache, FrozenCache
 from audiobook_voice_enhancer.config import BOOK_PROTOCOLS, load_config
 from audiobook_voice_enhancer.dialogue import detect
 from audiobook_voice_enhancer.llm import build_provider
@@ -25,12 +25,17 @@ def main():
     for name in ("book", "transcription", "alignment", "config", "gold", "output"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--without-llm", action="store_true")
+    parser.add_argument("--frozen-base-cache", type=Path,
+                        help="Replay exato do primeiro passe; somente reparos consultam o Qwen")
     parser.add_argument("--protocol", choices=BOOK_PROTOCOLS, default=None)
     parser.add_argument("--no-scene-repair", action="store_true", help="Isola cadastro/contexto da segunda leitura seletiva")
     parser.add_argument('--source-subjects', action='store_true', help='Testa referências literais do narrador no compacto')
     parser.add_argument('--no-turn-consistency', action='store_true',
                         help='Desliga o pós-processamento de vocativo e sanduíche, para isolar seu efeito')
     args = parser.parse_args()
+    if args.frozen_base_cache and (args.without_llm or args.protocol not in {"compact", "hybrid", "hybrid-revisao"}):
+        parser.error("--frozen-base-cache exige LLM e --protocol compact/hybrid/hybrid-revisao")
+    base_cache = FrozenCache(args.frozen_base_cache) if args.frozen_base_cache else None
     if args.source_subjects and args.protocol != 'compact':
         parser.error('--source-subjects exige --protocol compact')
     if args.output.exists():
@@ -60,7 +65,7 @@ def main():
         parser.error("Ative o LLM na configuração ou use --without-llm")
     warm_seconds = 0.0
     model_metadata = None
-    if provider:
+    if provider and not (base_cache is not None and args.protocol == "compact"):
         response = requests.get(provider.url.rstrip("/") + "/api/tags", timeout=10)
         response.raise_for_status()
         model_metadata = response.json()
@@ -82,7 +87,7 @@ def main():
         options['source_subjects'] = True
     if args.no_turn_consistency:
         options['turn_consistency'] = False
-    reviewed = review_book(model, provider, cache, scope,
+    reviewed = review_book(model, provider, cache, scope, base_cache=base_cache,
                            threshold=float(options.get("automatic_confidence", .90)),
                            max_turns=int(options.get("max_turns_per_window", 24)),
                            max_chars=int(options.get("max_context_characters", 14000)),
@@ -113,7 +118,11 @@ def main():
                   review=reviewed["review"], model_load_seconds=round(warm_seconds, 3),
                   book_build_seconds=round(build_seconds, 3), cache={"hits": cache.hits, "misses": cache.misses},
                   asr_and_conversion_executed=False,
-                  cold_response_cache_valid=cache.hits == 0,
+                  cold_response_cache_valid=base_cache is None and cache.hits == 0,
+                  execution_mode="frozen_base_replay" if base_cache is not None else "cold_responses",
+                  frozen_base=({"root": str(base_cache.root), "hits": base_cache.hits,
+                                "misses": base_cache.misses, "response_sha256": base_cache.used}
+                               if base_cache is not None else None),
                   input_sha256={name: hashlib.sha256(getattr(args, name).read_bytes()).hexdigest()
                                 for name in ("book", "transcription", "alignment", "config", "gold")},
                   scoring_note="Comparação literal com gabarito congelado; rótulos anônimos não são reconciliados automaticamente.")
