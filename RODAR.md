@@ -4,6 +4,86 @@ Este arquivo é o ponto de entrada de quem vai continuar. Quem mexe no motor
 atualiza **este arquivo e o README no mesmo commit** — quem chega depois não tem
 como adivinhar o que mudou.
 
+## FILA DE EXECUÇÃO — o que rodar agora
+
+> Esta seção existe porque o trabalho acontece em duas máquinas e **os dados moram
+> em uma só**. `books/`, `input/`, `cache/` e `output/` estão no `.gitignore`: só o
+> repositório viaja. Quem trabalha sem os dados escreve o comando aqui; quem tem os
+> dados roda e traz o resultado de volta neste arquivo.
+>
+> Regra: tarefa que não pôde ser medida **não termina em "faltam os dados"** — termina
+> como item desta fila, com comando exato, critério de aceitação escrito antes de
+> rodar, e o que precisa voltar.
+
+Pré-requisitos de qualquer item: `.venv` ativa, `$env:PYTHONPATH = (Resolve-Path
+src).Path`, e `scripts/gold_ceiling.py` rodado antes de campanha (mede em 30s, sem
+GPU, se a meta é alcançável pelo gabarito).
+
+### 1. Diferencial da P3 por regra de consistência — sem GPU, sem campanha
+
+Roda sobre saídas que já existem. Responde: entre os 28 erros que sobram na P3,
+quantos vieram da primeira leitura e quantos foram escritos por uma regra de
+`turn_consistency`.
+
+```powershell
+& .venv\Scripts\python.exe scripts\compare_speaker_runs.py `
+  --gold benchmarks\part03_gold.yaml `
+  --baseline output\p03-holdout-fria-20260908\analysis.json `
+  --candidate v11=output\hybrid-p03-v11-20260910\analysis.json `
+  --output output\comparacao-p03-regras
+```
+
+**O que volta:** a tabela *"Erros que restaram, por regra que escreveu a voz"*.
+`sem_regra` alto ⇒ falta mecanismo. Regra nomeada alta ⇒ **apertar** a condição dela
+(hoje `few`, com `max_speakers=2` sobre janela de 6), não escrever mecanismo novo.
+
+### 2. Auditoria dos 28 erros da P3 — sem GPU, sem campanha
+
+```powershell
+& .venv\Scripts\python.exe scripts\auditar_erros.py `
+  --gold benchmarks\part03_gold.yaml `
+  --analysis output\hybrid-p03-v11-20260910\analysis.json `
+  --output output\auditoria-p03
+```
+
+Abrir `auditoria-erros.md` e responder o veredito de cada bloco: **motor errou ·
+gabarito errado · em dúvida**. O contexto dos turnos vizinhos costuma bastar; abrir o
+EPUB só na dúvida.
+
+**Por que importa:** o gabarito da P3 declara
+`annotation_review: assistant_authored_not_independently_audited`. São 350 dubláveis,
+327 atribuídos, 299 corretos, e a meta pede 12 erros convertidos. Cada rótulo errado
+encontrado encurta essa distância **sem tocar no motor**.
+
+**O que volta:** a contagem dos três vereditos e, se houver rótulo errado, a correção
+no `part03_gold.yaml` em commit próprio — gabarito corrigido é mudança de medida, e
+invalida comparação com número anterior.
+
+### 3. Holdout novo — o que falta para poder afirmar qualquer coisa
+
+P1, P2 e P3 são **todas desenvolvimento**. A P3 já traz
+`status: holdout_consumido_em_2026-09-08`. Cada mecanismo — v1, v1.1, v1.2 — foi
+aceito ou rejeitado olhando as mesmas três partes; isso é ajuste na camada de quem
+decide, e nenhum resultado nelas sustenta a frase "funciona em qualquer livro".
+
+Anotar uma parte nova lendo o EPUB **antes de qualquer rodada do motor nela**, no
+formato dos gabaritos existentes, e congelar em commit próprio com
+`independent_holdout: true`. De preferência **de outro livro**: parte nova do mesmo
+livro compartilha elenco, cenário e estilo de diálogo com o conjunto já consumido.
+
+**O que volta:** o arquivo de gabarito congelado. Só depois dele faz sentido medir
+mecanismo novo.
+
+### 4. Só então: mecanismo novo
+
+O candidato declarado é o **modo sombra** sobre atribuições de alta confiança —
+registrar a discordância entre as duas leituras sem autorizar troca. Com o replay
+congelado (`--frozen-base-cache`), a causa fica isolada e não se confunde com
+variação do primeiro passe.
+
+Não reabrir o alvo "fora do elenco": foi medido, reprovado e removido; a causa é
+estrutural, não de limiar.
+
 ## O que mudou, do mais novo para o mais velho
 
 ### 10 de setembro de 2026 — a fila de auditoria dos erros (`scripts/auditar_erros.py`)

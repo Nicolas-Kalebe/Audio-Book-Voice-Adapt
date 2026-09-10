@@ -23,6 +23,13 @@
   relatórios com texto literário fora do Git. O repositório segue privado.
 - O gabarito da Parte 01 é regressão de desenvolvimento, não teste independente.
   Não afirme que os pesos do Qwen foram treinados por ajustar regras ou prompts.
+- **O trabalho acontece em duas máquinas; os dados moram em uma.** `books/`,
+  `input/`, `cache/` e `output/` estão no `.gitignore` — só o repositório viaja.
+  Quem está sem os dados **não termina um turno em "faltam os dados"**: deixa a
+  tarefa pronta na **FILA DE EXECUÇÃO**, no topo do `RODAR.md`, com o comando
+  exato, o critério de aceitação escrito ANTES de rodar e o que precisa voltar
+  (número, arquivo ou veredito). Quem tem os dados roda e traz o resultado para o
+  mesmo arquivo.
 - **Quem mexe, escreve.** Toda mudança de motor, métrica ou regra atualiza o
   `README.md` (bloco "Estado atual", com os números de agora) e o `RODAR.md`
   (registro "O que mudou" e as faixas pré-registradas) **no mesmo commit**.
