@@ -56,6 +56,29 @@ por `N` sem trocar acertos antigos por identidades inventadas. Mesmo alcançando
 faixa forte, isso não aprova uso geral: P4 é desenvolvimento desde a primeira
 medição.
 
+**Resultado frio (10/09): reprovado.** Em 16 chamadas (15 base + 1 reparo), 247,641 s
+de revisão textual: **80,20% de precisão e 78,80% de cobertura** nos dubláveis
+(158 corretos, 39 errados, 51 abstenções e 2 não localizadas). Contra o `hybrid`
+v1.1 (79,42% × 97,20%), a precisão sobe apenas 0,78 ponto, enquanto a cobertura cai
+18,40 pontos. O diferencial registrou 5 acertos/erros salvos, 40 acertos estragados
+e saldo de −35. Reprovado pela faixa `cobertura <93%`.
+
+O diagnóstico é claro e limita a conclusão: o schema fez o Qwen obedecer `N`, mas
+ele propôs 38 referências anônimas, nenhuma nomeada; 23 criaram entidades e 25 foram
+recusadas. Muitas eram sujeitos corretos em essência (`o centurião`, `o guerreiro`),
+mas falharam na prova literal por diferença de caixa/artigo ou por a janela ter a
+mesma menção mais de uma vez. As assignments que dependiam desses `N` ficaram
+estruturalmente inválidas, transformando uma cena inteira em abstenções. Isso não
+prova que "pessoa nova = personagem conhecido" era a causa suficiente; prova que
+endurecer o schema sem uma camada de resolução de menção segura é regressivo.
+
+Não ampliar para P1–P3. A próxima implementação deve separar três coisas: aceitar
+uma menção por correspondência normalizada com offsets exatos recuperados, deduplicar
+somente a mesma menção no mesmo contexto, e manter **nome**/descrição de papel como
+referências distintas até haver evidência de vínculo. Ela deve ser medida primeiro
+por replay/fixture e depois por campanha fria nova; não afrouxar a validação para
+aceitar qualquer frase do modelo.
+
 ### PARTE 04 CONSUMIDA — resultado da rodada fria
 
 `benchmarks/part04_gold.yaml` foi criado lendo somente o EPUB, antes de qualquer
@@ -211,7 +234,9 @@ chamada LLM extra, vocabulário fechado de cargos nem regra específica do livro
 
 A hipótese e as faixas da P4 foram registradas acima **antes** da campanha. Os
 testes unitários verificam schema, descoberta de pessoa ausente, preservação de
-âncora literal e roteamento pela pipeline. Resultado Qwen ainda pendente.
+âncora literal e roteamento pela pipeline. A campanha fria reprovou: 80,20% ×
+78,80%, saldo de −35 acertos. O protocolo fica experimental e não deve ser usado
+como baseline.
 
 ### 10 de setembro de 2026 — gabarito da Parte 04 congelado
 

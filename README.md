@@ -19,8 +19,8 @@ de cenas densas foram confundidos com o elenco já conhecido e o híbrido não f
 reparos porque o primeiro passe não deixou lacunas. A P4 agora é desenvolvimento;
 o produto ainda não está validado para uso geral.
 
-O candidato ainda **não medido** `hybrid-catalog` v1 ataca a falha estrutural
-observada nessa rodada. O contrato que antes existia apenas em português no prompt
+O candidato `hybrid-catalog` v1 atacou a falha estrutural observada nessa rodada. O
+contrato que antes existia apenas em português no prompt
 agora também existe no schema do decodificador: entidades conhecidas usam somente
 IDs `E`, pessoas realmente ausentes precisam ser propostas com IDs `N`, e cada
 janela aceita apenas os IDs de turno e de catálogo que recebeu. Isso impede a
@@ -28,9 +28,13 @@ resposta malformada vista na P4, na qual o Qwen devolveu entradas `E` como se fo
 novas, todas rejeitadas silenciosamente pelo validador. O modo também diz
 explicitamente para abster em vez de encaixar um recém-chegado no elenco conhecido
 e trata autorreferência pelo nome como evidência negativa, com exceções. Não há
-regra, nome ou vocabulário de fantasia do livro no motor. A campanha P4 e seus
-critérios estão pré-registrados em [RODAR.md](RODAR.md); até medi-la, `hybrid`
-v1.1 continua sendo a referência mais precisa conhecida, não uma versão aprovada.
+regra, nome ou vocabulário de fantasia do livro no motor. A campanha fria P4
+**reprovou**: 80,20% de precisão e 78,80% de cobertura (158 corretos, 39 errados,
+51 abstenções e 2 não localizadas). Ela salvou 5 decisões do baseline, mas estragou
+40. O schema fez o Qwen propor 38 entidades anônimas e nenhuma nomeada; 25 propostas
+foram recusadas porque a citação literal não coincidiu exatamente. Portanto o
+contrato estrito não entra no motor padrão. A análise e a próxima hipótese ficam em
+[RODAR.md](RODAR.md).
 
 Auditoria textual dos 28 casos divergentes de P3: **25 erros do motor confirmados
 pelo parecer, 3 em dúvida, nenhuma correção de gabarito demonstrada**. Revisão por
