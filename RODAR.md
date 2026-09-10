@@ -6,6 +6,56 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
+### CANDIDATO NOVO — `hybrid-catalog` v1 na Parte 04
+
+A P4 mostrou uma falha anterior às regras de coerência: o prompt dizia para usar
+`N` ao descobrir uma pessoa ausente, mas o schema aceitava qualquer string. Nas 15
+respostas frias, o Qwen preencheu `entities` com IDs `E` do próprio catálogo; o
+validador rejeitou essas entradas e o modelo atribuiu recém-chegados a personagens
+conhecidos com alta confiança. O híbrido de lacunas não tinha o que reparar.
+
+O novo protocolo torna o contrato executável: `entities[].id` aceita apenas `N\d+`,
+o falante aceita apenas um `E` realmente fornecido naquela janela, um `N` proposto
+ou `null`, e os IDs/quantidade das assignments são limitados aos turnos da janela.
+Ele preserva o roteador v1.1 e não faz chamada adicional. O prompt acrescenta duas
+restrições gerais: não encaixar pessoa ausente em personagem conhecido e considerar
+o próprio nome como evidência negativa, salvo autoapresentação/autorreferência.
+
+Esta é campanha de **desenvolvimento**, pois a P4 já foi consumida. Precisa ser
+fria: não use `--frozen-base-cache`, porque o schema/prompt do primeiro passe é a
+própria variável testada.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+$env:PYTHONIOENCODING = 'utf-8'
+& ..\..\.venv\Scripts\python.exe scripts\gold_ceiling.py `
+  --gold benchmarks\part04_gold.yaml
+& ..\..\.venv\Scripts\python.exe scripts\benchmark_book_speakers.py `
+  --book "..\..\books\O Sangue dos Elfos.epub" `
+  --transcription ..\..\cache\transcription\c2b047f35f0236e0c66f1de0d267514ee7ebc44bd806ab9eba33eb4de7724c27.json `
+  --alignment ..\..\cache\alignment\301c8f7367c763d121b900dbe058ed581d2a1f536b248e31ed03d8bd26429a0f.json `
+  --config config\config.yaml `
+  --gold benchmarks\part04_gold.yaml `
+  --protocol hybrid-catalog `
+  --output output\hybrid-catalog-p04-fria-20260910
+```
+
+Faixas congeladas antes da execução:
+
+| Resultado P4 | Decisão |
+|---|---|
+| precisão ≥90% e cobertura ≥95% | ganho estrutural forte; medir P1–P3 e só depois buscar holdout de outro livro. |
+| precisão 85–90% e cobertura ≥95% | ganho parcial; auditar quem foi criado por `N` antes de ampliar. |
+| precisão <85% ou cobertura 93–95% | insuficiente; manter apenas como experimento e diagnosticar. |
+| cobertura <93% | rejeitar: o contrato induziu abstenção excessiva. |
+
+Além do placar, devolver `review.accepted_entity_proposals`,
+`review.created_entity_proposals`, a divisão named/anonymous, `entity_rejections`,
+chamadas totais e tempo. O teste causal é se novos interlocutores passam a entrar
+por `N` sem trocar acertos antigos por identidades inventadas. Mesmo alcançando a
+faixa forte, isso não aprova uso geral: P4 é desenvolvimento desde a primeira
+medição.
+
 ### PARTE 04 CONSUMIDA — resultado da rodada fria
 
 `benchmarks/part04_gold.yaml` foi criado lendo somente o EPUB, antes de qualquer
@@ -148,6 +198,20 @@ Não reabrir o alvo "fora do elenco": foi medido, reprovado e removido; a causa 
 estrutural, não de limiar.
 
 ## O que mudou, do mais novo para o mais velho
+
+### 10 de setembro de 2026 — contrato estrito de elenco (`hybrid-catalog` v1)
+
+Novo protocolo experimental, separado do `hybrid` v1.1 para não apagar a linha de
+base. `catalog_speakers.py` gera um schema por janela: propostas novas somente com
+ID `N`, falantes limitados aos `E` presentes/`N` propostos/`null`, IDs de turno
+enumerados e exatamente uma assignment por turno. O payload recebe versão própria,
+impedindo reaproveitamento acidental do cache compacto. O relatório passou a contar
+propostas aceitas, named/anonymous e quantas realmente criaram entidade. Não há
+chamada LLM extra, vocabulário fechado de cargos nem regra específica do livro.
+
+A hipótese e as faixas da P4 foram registradas acima **antes** da campanha. Os
+testes unitários verificam schema, descoberta de pessoa ausente, preservação de
+âncora literal e roteamento pela pipeline. Resultado Qwen ainda pendente.
 
 ### 10 de setembro de 2026 — gabarito da Parte 04 congelado
 

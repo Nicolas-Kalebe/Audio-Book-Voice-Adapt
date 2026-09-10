@@ -176,7 +176,7 @@ def test_provider_failure_keeps_explicit_text_anchors(tmp_path):
     assert len(result["review"]["errors"]) == 1
 
 
-@pytest.mark.parametrize("protocol", ["evidence", "compact", "scene", "lightweight", "hybrid", "compact_subjects"])
+@pytest.mark.parametrize("protocol", ["evidence", "compact", "scene", "lightweight", "hybrid", "hybrid-catalog", "compact_subjects"])
 def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tmp_path, monkeypatch, protocol):
     source_subjects = protocol == 'compact_subjects'
     if source_subjects:
@@ -198,7 +198,7 @@ def test_pipeline_routes_text_first_review_and_keeps_unaligned_turn_in_report(tm
         if protocol == "scene":
             return {"entities": [], "assignments": [{"id": turn["id"], "speaker": turn["anchor"] or iara,
                        "kind": "speech", "confidence": .95} for turn in payload["turns"]]}
-        return {"entities": [], "assignments": [{"id": "T1" if protocol in {"compact", "lightweight", "hybrid"} else "book-1", "speaker": iara, "kind": "speech",
+        return {"entities": [], "assignments": [{"id": "T1" if protocol in {"compact", "lightweight", "hybrid", "hybrid-catalog"} else "book-1", "speaker": iara, "kind": "speech",
                    "confidence": .95, "evidence": [citation(0, "disse Iara")]}]}
     pipeline = Pipeline.__new__(Pipeline)
     pipeline.root = tmp_path

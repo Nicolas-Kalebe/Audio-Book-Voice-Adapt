@@ -55,3 +55,16 @@ def test_hybrid_book_protocol_is_accepted(tmp_path):
 
 def test_all_configured_book_protocols_are_available_to_command_line_tools():
     assert "hybrid" in BOOK_PROTOCOLS
+
+
+def test_hybrid_catalog_book_protocol_is_accepted(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "speaker_confidence_threshold: 0.85\n"
+        "alignment_confidence_threshold: 0.8\n"
+        "voice_conversion: {}\n"
+        "book_first:\n  enabled: true\n  protocol: hybrid-catalog\n",
+        encoding="utf-8",
+    )
+    assert load_config(path)["book_first"]["protocol"] == "hybrid-catalog"
+    assert "hybrid-catalog" in BOOK_PROTOCOLS

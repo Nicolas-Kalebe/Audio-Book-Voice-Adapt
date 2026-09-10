@@ -11,7 +11,7 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_CONFIG = Path("config/config.yaml")
 DEFAULT_CHARACTERS = Path("config/characters.json")
-BOOK_PROTOCOLS = ("compact", "evidence", "scene", "lightweight", "hybrid")
+BOOK_PROTOCOLS = ("compact", "evidence", "scene", "lightweight", "hybrid", "hybrid-catalog")
 
 
 class ConfigurationError(ValueError):
@@ -37,7 +37,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if book_first.get("enabled"):
         if book_first.get("protocol", "evidence") not in BOOK_PROTOCOLS:
             raise ConfigurationError(
-                "Análise textual: protocol deve ser compact, evidence, scene, lightweight ou hybrid")
+                "Análise textual: protocol deve ser compact, evidence, scene, lightweight, hybrid ou hybrid-catalog")
         if not isinstance(book_first.get('source_subjects', False), bool):
             raise ConfigurationError('source_subjects deve ser booleano')
         if book_first.get('source_subjects') and book_first.get('protocol') != 'compact':

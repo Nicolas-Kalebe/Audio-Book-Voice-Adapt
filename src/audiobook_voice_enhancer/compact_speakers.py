@@ -42,7 +42,7 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
                    scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False,
-                   turn_consistency=True, hybrid=False, base_cache=None):
+                   turn_consistency=True, hybrid=False, strict_catalog=False, base_cache=None):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -59,7 +59,9 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     stats = dict(model=getattr(provider, "model", None), method=VERSION, batches_reviewed=0,
                  dialogues_reviewed=0, assigned=0, suggested_for_review=0, unresolved=0,
                  structural_rejections=0, raw_speaker_proposals=0, errors=[],
-                 entity_rejections=[],
+                 entity_rejections=[], accepted_entity_proposals=0,
+                 accepted_named_entities=0, accepted_anonymous_entities=0,
+                 created_entity_proposals=0,
                  confidence_is_calibrated=False)
     result["attribution_protocol"] = VERSION
     if source_subjects:
@@ -76,6 +78,13 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
         from .hybrid_speakers import HybridRepairRouter, SYSTEM_SUFFIX, VERSION as HYBRID_VERSION
         router = HybridRepairRouter(result)
         stats["method"] = result["attribution_protocol"] = HYBRID_VERSION
+    if strict_catalog:
+        if not hybrid or scene_mode or lightweight or source_subjects:
+            raise ValueError("strict catalog requires the hybrid protocol")
+        from .catalog_speakers import (SYSTEM_SUFFIX as CATALOG_SUFFIX,
+                                       VERSION as CATALOG_VERSION,
+                                       response_schema as catalog_response_schema)
+        stats["method"] = result["attribution_protocol"] = CATALOG_VERSION
     if scene_mode:
         from .scene_context import SceneContext, VERSION as SCENE_VERSION, ATTRIBUTION_SUFFIX, repair_targets
         if provider is not None:
@@ -95,6 +104,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
             adapted.system_prompt += SUFFIX
         if context:
             adapted.system_prompt += ATTRIBUTION_SUFFIX
+        if strict_catalog:
+            adapted.system_prompt += CATALOG_SUFFIX
         for index, batch in enumerate(batches, 1):
             if progress:
                 progress(index, len(batches))
@@ -120,7 +131,7 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                               if turn.get("speaker_entity_id") and turn.get("status") == "explicit"}
             # Keep the first-view payload byte-for-byte compatible with compact;
             # the hybrid protocol is an extra routed view, not a replacement.
-            payload = {"version": VERSION if router else stats["method"],
+            payload = {"version": stats["method"] if strict_catalog else VERSION if router else stats["method"],
                 "book_id": result["book_id"], "scene_id": batch["scene_id"],
                 "scene_text": [{"paragraph": p, "text": result["blocks"][p]} for p in sorted(permitted)],
                 "entities": [{"id": reverse[e["id"]], "name": e["name"], "kind": e["kind"],
@@ -135,6 +146,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
             if lightweight:
                 enrich(payload, result, targets)
                 adapted.response_schema = response_schema(SCHEMA, payload)
+            if strict_catalog:
+                adapted.response_schema = catalog_response_schema(SCHEMA, payload)
             stats["batches_reviewed"] += 1
             stats["dialogues_reviewed"] += len(targets)
             try:
@@ -208,10 +221,14 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         continue
                     # Exact, unique mention anchors identity provenance only. It
                     # does not prove that this person speaks a given turn.
+                    known_ids = set(result["entities"])
                     identity = _entity(result, mention, kind, batch["scene_id"], span["paragraph"],
                                        fresh=kind == "anonymous", origin=span["start"])
                     result["entities"][identity]["mentions"].append(span)
                     allowed[key] = identity
+                    stats["accepted_entity_proposals"] += 1
+                    stats[f"accepted_{kind}_entities"] += 1
+                    stats["created_entity_proposals"] += int(identity not in known_ids)
                     if context:
                         context.remember(batch["scene_id"], identity)
                 decisions = [d for d in answer["assignments"] if isinstance(d, dict)]
