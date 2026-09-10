@@ -82,6 +82,13 @@ def turn_outcomes(gold: dict[str, Any], analysis: dict[str, Any]) -> dict[str, d
             "status": (primary or {}).get("book_speaker_status", turn.get("status")),
             "review_issue": turn.get("review_issue"),
             "hybrid_repair": bool(turn.get("hybrid_repair")),
+            # QUAL REGRA ESCREVEU ESTA VOZ. `turn_consistency` carimba cada turno
+            # que reescreve (`sanduiche_de_tres_turnos`, `vocativos_reciprocos`,
+            # `referencia_em_terceira_pessoa`, `resposta_ao_vocativo`) e cada um
+            # que abstem por falta de alternativa. Sem trazer o carimbo para ca,
+            # nao da para separar "faltou regra" de "regra existente causou dano"
+            # — e as duas conclusoes levam a trabalhos opostos.
+            "consistency_rule": turn.get("consistency_rule"),
         }
     return outcomes
 
@@ -122,6 +129,7 @@ def compare_runs(gold, baseline, candidates):
             row[f"{name}_status"] = current["status"]
             row[f"{name}_review_issue"] = current["review_issue"]
             row[f"{name}_hybrid_repair"] = current["hybrid_repair"]
+            row[f"{name}_consistency_rule"] = current["consistency_rule"]
             row[f"{name}_category"] = _category(
                 {"predicted": row["baseline_predicted"], "correct": row["baseline_correct"],
                  "assigned": row["baseline_assigned"]}, current)
@@ -134,9 +142,19 @@ def compare_runs(gold, baseline, candidates):
         scene_counts = defaultdict(Counter)
         for row in dublavel:
             scene_counts[str(row["scene"])][row[f"{name}_category"]] += 1
+        # ── DE ONDE VEM O ERRO QUE SOBROU ──────────────────────────────────
+        # Um erro atribuido por uma regra de consistencia e um erro que o motor
+        # ja teve a chance de decidir e decidiu errado; um erro sem carimbo veio
+        # da primeira leitura. Separar os dois e o que diz se o proximo passo e
+        # apertar regra existente ou escrever mecanismo novo.
+        wrong_by_rule = Counter()
+        for row in dublavel:
+            if row[f"{name}_assigned"] and not row[f"{name}_correct"]:
+                wrong_by_rule[row[f"{name}_consistency_rule"] or "sem_regra"] += 1
         summaries[name] = {
             "categories": dict(counts),
             "net_correct": counts["candidate_saves"] - counts["candidate_harms"],
+            "wrong_by_consistency_rule": dict(wrong_by_rule),
             "per_scene": {scene: dict(values) for scene, values in scene_counts.items()
                           if values["candidate_saves"] or values["candidate_harms"]},
             "baseline_metrics": evaluate(gold, baseline).get("by_class", []),
@@ -164,5 +182,15 @@ def render_markdown(report):
             saves = values.get("candidate_saves", 0)
             harms = values.get("candidate_harms", 0)
             lines.append(f"| {scene} | {saves} | {harms} | {saves - harms:+d} |")
+        # Onde o erro que sobrou foi decidido: `sem_regra` veio da primeira
+        # leitura; o resto passou por uma regra de consistencia que teve a chance
+        # de decidir e decidiu errado.
+        por_regra = summary.get("wrong_by_consistency_rule") or {}
+        lines.extend(["", "### Erros que restaram, por regra que escreveu a voz", "",
+                      "| Regra | Erros |", "|---|---:|"])
+        for regra, total in sorted(por_regra.items(), key=lambda item: -item[1]):
+            lines.append(f"| {regra} | {total} |")
         lines.append("")
     return "\n".join(lines)
+
+

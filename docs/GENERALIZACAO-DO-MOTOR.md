@@ -216,6 +216,12 @@ dados que a campanha v1.1 já produziu:
    (`vocative_abstentions`, `third_person_abstentions`). Cada turno reescrito carrega
    `consistency_rule` com o nome da regra.
 
+   **O comparador já responde isto** desde 10/09/2026: o diferencial traz a coluna
+   `<candidato>_consistency_rule` no CSV, `wrong_by_consistency_rule` no JSON e a
+   seção *"Erros que restaram, por regra que escreveu a voz"* no Markdown, com
+   `sem_regra` para o que veio da primeira leitura. Não precisa de campanha nova —
+   roda sobre os `analysis.json` que já existem.
+
    Se boa parte dos erros for reescrita feita por essas regras, **o problema não é
    falta de regra — é regra ativa demais em cena que não é de duas pessoas**. Nesse
    caso o caminho é apertar a condição `few` (hoje `max_speakers=2` sobre janela de

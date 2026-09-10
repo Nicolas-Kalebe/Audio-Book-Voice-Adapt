@@ -6,6 +6,35 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — o diferencial passa a dizer QUAL regra escreveu a voz errada
+
+Mudança de ferramenta de diagnóstico; **o motor não muda e nenhuma métrica se
+desloca**. Não requer campanha nova: basta rodar `compare_speaker_runs.py` sobre
+os `analysis.json` que já existem.
+
+`turn_consistency` carimba cada turno que reescreve (`sanduiche_de_tres_turnos`,
+`vocativos_reciprocos`, `referencia_em_terceira_pessoa`, `resposta_ao_vocativo`) e
+cada um em que abstém por falta de alternativa. O comparador trazia
+`review_issue` e `hybrid_repair`, mas **não trazia esse carimbo** — então não havia
+como separar, entre os erros que sobram, os que vieram da primeira leitura dos que
+uma regra existente escreveu.
+
+A distinção decide o próximo passo, e as duas conclusões levam a trabalhos opostos:
+erro sem carimbo é lacuna de mecanismo; erro carimbado é regra que teve a chance de
+decidir e decidiu errado — aí o caminho é apertar a condição dela, não escrever
+mecanismo novo.
+
+O que passou a sair:
+
+- coluna `<candidato>_consistency_rule` no CSV, para filtro manual por regra;
+- `wrong_by_consistency_rule` no JSON;
+- seção **"Erros que restaram, por regra que escreveu a voz"** no relatório em
+  Markdown, com `sem_regra` para o que veio da primeira leitura.
+
+Dois testes novos em `tests/test_speaker_differential.py`: um garante a separação
+entre erro carimbado e erro sem carimbo; o outro garante que regra que ACERTOU não
+aparece como causadora de dano.
+
 ### 10 de setembro de 2026 — campanha v1.1: reparação validada, meta final ainda reprovada
 
 Saídas inéditas, cache Qwen zerado e `scripts/gold_ceiling.py` executado antes da
