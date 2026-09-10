@@ -6,6 +6,34 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — v1.2 reprovada: revisão fora do elenco
+
+Campanha completa em três saídas inéditas, com cache de respostas vazio e Qwen
+local `qwen3:8b`. `gold_ceiling.py` confirmou antes que a meta ainda é alcançável.
+O candidato `hybrid-revisao` falhou os quatro critérios pré-registrados:
+
+| Desenvolvimento | v1.1 (precisão × cobertura) | v1.2 (precisão × cobertura) | Salvos / estragados | Saldo | Tempo v1.2 |
+|---|---:|---:|---:|---:|---:|
+| Parte 01 | 95,24% × 98,59% | **93,30% × 98,12%** | 1 / 6 | −5 | 294,3 s |
+| Parte 02 | 95,53% × 97,81% | **94,29% × 95,63%** | 3 / 9 | −6 | 218,3 s |
+| Parte 03 | 91,44% × 93,43% | **89,97% × 94,00%** | 8 / 11 | −3 | 387,5 s |
+
+P1 e P2 pioraram, P3 teve saldo negativo e seu tempo excedeu os 372,5 s da
+v1.1. A v1.2 também trocou 5/34 alvos em P1, 14/18 em P2 e 21/26 em P3 — o oposto
+da revisão conservadora pretendida. O alvo “fora do elenco” fica **reprovado**;
+não ajustar seu limiar nem promovê-lo para o padrão.
+
+Ressalva importante para a próxima investigação: o diferencial comparou duas
+execuções frias completas. Como a primeira leitura do Qwen pode variar entre
+execuções, ele mede corretamente a experiência do protocolo inteiro, mas não
+atribui causalidade de cada troca somente à revisão v1.2. Antes de desenhar um
+novo corretor de atribuições existentes, criar um replay que aplique a segunda
+leitura a um primeiro passe congelado; assim o diferencial isolará a regra nova.
+
+Saídas locais ignoradas pelo Git: `output/hybrid-p01-v12-20260910/`,
+`output/hybrid-p02-v12-20260910/`, `output/hybrid-p03-v12-20260910/` e
+`output/comparacao-p0X-v12/`.
+
 ### 10 de setembro de 2026 — integração do benchmark para a v1.2
 
 O primeiro disparo da campanha parou antes do Qwen: o motor e a configuração

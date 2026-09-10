@@ -14,8 +14,8 @@ comando, e o que mandar de volta. O que mudou e por quê fica em
 
 | Indicador | Faixa confirmada em P1–P3 | Meta |
 |---|---:|---:|
-| Precisão sobre falas dubláveis | **90,68%–95,53%** | 95% |
-| Cobertura sobre falas dubláveis | **88,86%–98,12%** | 95% |
+| Precisão sobre falas dubláveis | **89,97%–95,53%** | 95% |
+| Cobertura sobre falas dubláveis | **93,43%–98,59%** | 95% |
 
 | Desenvolvimento | Precisão | Cobertura |
 |---|---:|---:|
@@ -49,14 +49,15 @@ O candidato v1.2 usa `--protocol hybrid-revisao`. A lista de protocolos da
 configuração e do benchmark agora vem da mesma constante, evitando que um modo
 aceito pelo motor seja rejeitado apenas pela interface de linha de comando.
 
-O protocolo `hybrid-revisao` (v1.2) é a v1.1 mais um segundo tipo de alvo, e está
-**escrito mas ainda não medido**. A v1.1 só repara lacuna; os erros que restam são
-turnos já atribuídos, que ela nunca olha. A v1.2 acrescenta um alvo estreito e
-observável: turno contextual cujo falante **não aparece no elenco estabelecido da
-própria cena**. Âncora literal continua intocável, a segunda leitura só escolhe do
-catálogo já estabelecido, e responder `null` mantém a atribuição original — manter é
-o desfecho esperado, não falha. Entra como protocolo próprio para poder ser medido
-lado a lado com a v1.1, sem trocar configuração no meio da campanha.
+O protocolo `hybrid-revisao` (v1.2) foi medido e **reprovou**. Ele acrescentava à
+v1.1 uma revisão de turno contextual cujo falante não aparece no elenco estabelecido
+da cena; âncoras literais continuavam intocáveis e `null` mantinha a atribuição. Em
+três saídas inéditas, ele piorou contra a v1.1: P1 **93,30% × 98,12%** (saldo −5),
+P2 **94,29% × 95,63%** (−6) e P3 **89,97% × 94,00%** (−3). Portanto esse alvo não
+entra no motor padrão. Como cada comparação envolveu uma nova primeira leitura do
+Qwen, os saldos medem o protocolo completo, não provam que cada dano foi causado só
+pela revisão; uma investigação futura deve isolar a segunda leitura sobre o mesmo
+primeiro passe antes de propor outro alvo para atribuições já existentes.
 
 A primeira rodada realmente externa, na Parte 02, ficou em **91,53% de precisão
 e 96,72% de cobertura**: cobertura aprovada, precisão reprovada. Depois de ler
