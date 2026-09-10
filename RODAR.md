@@ -6,6 +6,29 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — replay congelado confirma a reprovação da v1.2
+
+O diagnóstico foi executado em saídas inéditas. Cada uma reutilizou todas as
+respostas do primeiro passe da v1.1: P1 14/14, P2 12/12 e P3 19/19 chaves lidas;
+zero faltas. Só as chamadas de reparo/revisão foram ao Qwen. Assim, o comparador
+abaixo mede mudanças depois do primeiro passe, não variação dele.
+
+| Desenvolvimento | v1.1 (precisão × cobertura) | replay v1.2 | Salvos / estragados | Saldo |
+|---|---:|---:|---:|---:|
+| Parte 01 | 95,24% × 98,59% | 95,24% × 98,59% | 0 / 0 | 0 |
+| Parte 02 | 95,53% × 97,81% | **93,75% × 96,17%** | 2 / 8 | −6 |
+| Parte 03 | 91,44% × 93,43% | **89,97% × 94,00%** | 8 / 11 | −3 |
+
+Conclusão: o primeiro passe frio explica o dano visto na P1, mas não os danos em
+P2/P3. Em P2, 7 dos 8 acertos estragados foram marcados
+`revised_by_hybrid_outsider`; em P3, 10 dos 11. As mudanças de coerência restantes
+são efeitos posteriores dessas trocas. A v1.2 oferece apenas o elenco `active` à
+revisão, logo a voz original que caiu fora da janela não pode ser escolhida de novo.
+O mecanismo como um todo fica descartado, não é candidato a ajuste de confiança.
+
+Saídas locais ignoradas pelo Git: `output/replay-p0X-v12-20260910/` e
+`output/comparacao-replay-p0X-v12/`.
+
 ### Replay do primeiro passe — próximo turno de testes
 
 Implementado `--frozen-base-cache`: a chave inclui prompt, schema, identidade do
