@@ -69,7 +69,8 @@ class OllamaProvider(LLMProvider):
             json={
                 "model": self.model, "stream": False, "think": self.reasoning,
                 "format": self.response_schema, "keep_alive": "10m",
-                "options": {"temperature": 0, "seed": 42, "num_ctx": 32768, "num_predict": 4096},
+                "options": {"temperature": 0, "seed": 42, "num_ctx": 32768,
+                            "num_predict": int(getattr(self, "num_predict", 4096))},
                 "messages": [
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},

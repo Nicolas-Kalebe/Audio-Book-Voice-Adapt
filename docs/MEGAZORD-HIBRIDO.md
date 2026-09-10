@@ -75,12 +75,40 @@ Categorias centrais: `candidate_saves`, `candidate_harms`,
 casos em que ambos erram. Isso permite construir versões posteriores a partir
 de causas observáveis, sem selecionar manualmente respostas usando o gabarito.
 
+## Primeira medição da v1
+
+| Desenvolvimento | Precisão | Cobertura | Tempo | Chamadas extras |
+|---|---:|---:|---:|---:|
+| Parte 01 | 93,30% | 98,12% | 456,7 s | 2 |
+| Parte 03 | 91,03% | 89,14% | 642,7 s | 3 |
+
+O resultado reprovou. Em cada parte uma resposta de reparação trouxe `entities`
+apesar da instrução de devolver lista vazia; a v1 descartou toda a resposta. Na
+P3 isso bloqueou a continuação que concentrava as lacunas. A execução ainda
+mostrou custo alto: três chamadas extras acrescentaram trabalho suficiente para
+levar a atribuição textual a 642,7 segundos.
+
+## Correção v1.1
+
+O schema da reparação agora é gerado por janela e permite somente:
+
+- os IDs exatos dos alvos daquela chamada;
+- os IDs R do catálogo já estabelecido ou `null`;
+- uma decisão por alvo, sem propriedade `entities`.
+
+Se um backend ignorar o schema e ainda devolver entidades, elas são contadas e
+descartadas. Uma assignment só entra se apontar para um R permitido; portanto,
+ignorar a lista não abre caminho para criar personagens. O limite de geração da
+reparação caiu de 4096 para 72 tokens por alvo, limitado ao intervalo 256–2048.
+O texto usado para decidir não foi encurtado.
+
 ## Limites e próxima decisão
 
-A v1 não tenta consertar atribuições erradas de alta confiança. A memória completa
+A v1.1 não tenta consertar atribuições erradas de alta confiança. A memória completa
 mostrou que isso poderia recuperar vários turnos da Parte 03, mas também destruir
-acertos em P1/P2. Só uma campanha Qwen nova dirá se a reparação das lacunas passa
-no pré-registro de `RODAR.md`. Se passar, o próximo passo é estudar discordâncias
+acertos em P1/P2. Só uma campanha Qwen nova dirá se o contrato corrigido recupera
+as lacunas da cena 27 e reduz o custo conforme o pré-registro de `RODAR.md`. Se
+passar, o próximo passo é estudar discordâncias
 entre as duas leituras em modo sombra; não é autorizar automaticamente a segunda.
 
 P1, P2 e P3 são desenvolvimento. Um trecho novo, congelado e auditado antes da

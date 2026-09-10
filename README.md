@@ -6,7 +6,7 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-## Estado atual — 9 de setembro de 2026
+## Estado atual — 10 de setembro de 2026
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
@@ -27,13 +27,17 @@ As três partes são desenvolvimento: seus erros já foram consultados. O melhor
 resultado confirmado não é um único número agregado; a Parte 03 mostra que o
 motor atual ainda não generaliza entre regimes de cena.
 
-O protocolo experimental `hybrid` agora preserva o `compact` como primeira
+O protocolo experimental `hybrid` preserva o `compact` como primeira
 leitura, nunca derruba uma âncora literal e chama uma segunda leitura curta
 somente para lacunas em continuações de cena com 2–4 falantes já estabelecidos.
 Ele não substitui acertos do baseline e não consulta o gabarito durante a
-execução. Ainda está **sem medição Qwen** e, portanto, não é o padrão. O comparador
+execução. A v1 foi medida e **reprovou**: P1 ficou em 93,30% × 98,12% e P3 em
+91,03% × 89,14%. Duas respostas de reparação foram descartadas porque o Qwen
+ecoou entidades apesar da instrução; a v1.1 agora ignora essas entidades sem
+permitir seus IDs, restringe o schema aos falantes estabelecidos e limita a
+saída da reparação. A v1.1 ainda não foi medida e não é o padrão. O comparador
 `scripts/compare_speaker_runs.py` registra por turno onde cada motor salva,
-estraga, abstém ou apenas troca um erro por outro. Projeto e pré-registro:
+estraga, abstém ou apenas troca um erro por outro. Projeto, resultados e pré-registro:
 [docs/MEGAZORD-HIBRIDO.md](docs/MEGAZORD-HIBRIDO.md).
 
 A primeira rodada realmente externa, na Parte 02, ficou em **91,53% de precisão

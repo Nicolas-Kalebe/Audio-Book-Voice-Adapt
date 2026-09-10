@@ -10,12 +10,12 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 
-VERSION = "hybrid-speaker-router-v1"
+VERSION = "hybrid-speaker-router-v1.1"
 SYSTEM_SUFFIX = """
 
 Esta e uma revisao conservadora de continuidade. O primeiro passe nao conseguiu
 atribuir os turnos enviados. Use somente IDs R do catalogo established_speakers;
-nao crie entidades e retorne entities vazio. literal_anchors sao fatos extraidos
+nao crie entidades. A resposta contem somente assignments. literal_anchors sao fatos extraidos
 da narracao. recent_assignments sao hipoteses do primeiro passe e podem estar
 erradas. Preserve a abstencao (speaker null) se a continuidade nao bastar.
 """
@@ -41,6 +41,8 @@ class HybridRepairRouter:
             "repair_targets": 0,
             "accepted_repairs": 0,
             "rejected_repairs": 0,
+            "ignored_entity_proposals": 0,
+            "repair_token_budgets": [],
             "skipped": Counter(),
         }
 
@@ -84,6 +86,41 @@ class HybridRepairRouter:
         self.audit["repair_targets"] += len(unresolved)
         return {"targets": unresolved, "identifiers": ids, "history": recent}
 
+    @staticmethod
+    def response_schema(plan):
+        """Constrain Ollama to the exact repair IDs and the established cast."""
+        target_ids = list(plan["targets"])
+        speaker_ids = [*plan["identifiers"].values(), None]
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "assignments": {
+                    "type": "array",
+                    "minItems": len(target_ids),
+                    "maxItems": len(target_ids),
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string", "enum": target_ids},
+                            "speaker": {"enum": speaker_ids},
+                            "kind": {"enum": ["speech", "thought", "citation", "unknown"]},
+                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                        },
+                        "required": ["id", "speaker", "kind", "confidence"],
+                    },
+                },
+            },
+            "required": ["assignments"],
+        }
+
+    def token_budget(self, plan):
+        """Bound repair output without reducing the input context used to decide."""
+        budget = min(2048, max(256, 72 * len(plan["targets"])))
+        self.audit["repair_token_budgets"].append(budget)
+        return budget
+
     def payload(self, batch, plan, scene_text):
         ids = plan["identifiers"]
         return {
@@ -112,8 +149,14 @@ class HybridRepairRouter:
 
     def replacements(self, answer, plan, threshold):
         """Validate repair rows and translate their local IDs to model IDs."""
-        if not isinstance(answer, dict) or answer.get("entities") not in ([], None):
-            raise ValueError("Hybrid repair must not create entities")
+        if not isinstance(answer, dict):
+            raise ValueError("Invalid hybrid repair response")
+        # Some models ignore the instruction and echo/propose entities. They are
+        # harmless here: assignments still have to use an existing R identifier.
+        # Ignore and count them instead of discarding otherwise valid repairs.
+        entities = answer.get("entities")
+        if isinstance(entities, list):
+            self.audit["ignored_entity_proposals"] += len(entities)
         assignments = answer.get("assignments")
         if not isinstance(assignments, list):
             raise ValueError("Invalid hybrid repair response")

@@ -8,11 +8,13 @@ class Provider(LLMProvider):
 
     def __init__(self, repair_confidence=.97):
         self.calls = []
+        self.repair_schemas = []
         self.repair_confidence = repair_confidence
 
     def infer(self, payload):
         self.calls.append(payload)
         if payload.get("task") == "repair_unresolved_continuation":
+            self.repair_schemas.append(self.response_schema)
             return {"entities": [], "assignments": [
                 {"id": turn["id"], "speaker": "R0", "kind": "speech",
                  "confidence": self.repair_confidence}
@@ -50,10 +52,16 @@ def test_hybrid_repairs_only_unresolved_continuation_window(tmp_path):
     assert len(repair) == 1
     assert {row["name"] for row in repair[0]["established_speakers"]} == {"Iara", "Nilo"}
     assert len(repair[0]["literal_anchors"]) == 2
+    schema = provider.repair_schemas[0]
+    assert "entities" not in schema["properties"]
+    assert schema["properties"]["assignments"]["maxItems"] == 2
+    assert set(schema["properties"]["assignments"]["items"]["properties"]["speaker"]["enum"]) == {
+        "R0", "R1", None}
     assert result["turns"][2]["status"] == "contextual"
     assert result["turns"][2]["review_issue"] == "repaired_by_hybrid_continuity"
     assert result["hybrid_router"]["accepted_repairs"] == 2
     assert result["review"]["total_llm_calls"] == 3
+    assert result["hybrid_router"]["repair_token_budgets"] == [256]
 
 
 def test_hybrid_rejects_repair_below_stricter_floor(tmp_path):
@@ -91,3 +99,31 @@ def test_hybrid_never_overwrites_literal_anchor_on_model_disagreement(tmp_path):
     turn = result["turns"][0]
     assert turn["status"] == "explicit"
     assert turn["speaker_entity_id"] is not None
+
+
+def test_hybrid_ignores_proposed_entities_but_never_accepts_their_ids(tmp_path):
+    provider = Provider()
+
+    original_infer = provider.infer
+
+    def infer(payload):
+        if payload.get("task") != "repair_unresolved_continuation":
+            return original_infer(payload)
+        provider.calls.append(payload)
+        return {"entities": [{"id": "N0", "mention": "Intruso"}], "assignments": [
+            {"id": payload["turns"][0]["id"], "speaker": "R0",
+             "kind": "speech", "confidence": .97},
+            {"id": payload["turns"][1]["id"], "speaker": "N0",
+             "kind": "speech", "confidence": .99},
+        ]}
+
+    provider.infer = infer
+    result = review_book(model_with_split_scene(), provider, Cache(tmp_path),
+                         protocol="hybrid", max_turns=2)
+
+    assert result["turns"][2]["speaker_entity_id"] is not None
+    assert result["turns"][3]["speaker_entity_id"] is None
+    assert result["hybrid_router"]["ignored_entity_proposals"] == 1
+    assert result["hybrid_router"]["accepted_repairs"] == 1
+    assert result["hybrid_router"]["rejected_repairs"] == 1
+    assert all(entity["name"] != "Intruso" for entity in result["entities"].values())

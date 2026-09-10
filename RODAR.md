@@ -6,6 +6,39 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — primeira medição híbrida e correção v1.1
+
+A v1 foi medida com cache Qwen novo e reprovou o pré-registro:
+
+| Desenvolvimento | Precisão | Cobertura | Corretos | Errados | Abstenções | Tempo | Chamadas |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Parte 01 | 93,30% | 98,12% | 195 | 14 | 2 | 456,7 s | 16 |
+| Parte 03 | 91,03% | 89,14% | 284 | 28 | 25 | 642,7 s | 22 |
+
+Na P3, a cobertura subiu só 0,28 ponto e a precisão 0,35 ponto sobre o baseline;
+o ganho ficou muito abaixo dos 3 pontos pré-registrados. P2 não foi executada,
+pois o defeito estrutural já estava reproduzido em P1 e P3.
+
+A causa direta apareceu no próprio audit: o Qwen criou/ecoou `entities` em uma
+reparação da P1 e em outra da P3. A v1 rejeitava a resposta inteira, inclusive
+assignments que apontavam apenas para IDs R permitidos. Isso bloqueou justamente
+a reparação da cena longa que motivou o híbrido.
+
+`hybrid-speaker-router-v1.1` muda somente o contrato da segunda leitura:
+
+- schema dinâmico contém apenas `assignments`, com enum exato de IDs de turno e
+  falantes R já estabelecidos;
+- entidade extra é contada e ignorada; nunca entra no catálogo e nunca pode ser
+  usada como falante;
+- `num_predict` da reparação passa a 72 tokens por alvo, entre 256 e 2048, em vez
+  de 4096; o contexto de entrada não foi reduzido;
+- testes cobrem entidade intrusa, ID intruso, schema fechado e orçamento.
+
+**Pré-registro da v1.1:** repetir primeiro a P3. A correção só avança se não houver
+erro de reparação, recuperar pelo menos 10 das 16 lacunas da cena 27, não aumentar
+vozes erradas e reduzir o tempo da P3 frente aos 642,7 s da v1. Depois disso P1
+mede regressão; P2 continua dispensável até esses critérios passarem.
+
 ### 9 de setembro de 2026 — Megazord conservador e auditoria por turno
 
 Três rodadas com memória local à cena foram comparadas ao baseline, turno por
@@ -32,7 +65,7 @@ e saldo por cena. Os relatórios locais das três comparações ficam em
 `output/hybrid-speaker-worktree/output/differential-p0X/` e são ignorados pelo
 Git. Detalhes em `docs/MEGAZORD-HIBRIDO.md`.
 
-**Pré-registro da próxima campanha Qwen (todas as partes são desenvolvimento):**
+**Pré-registro consumido pela campanha de 10/09 (todas as partes são desenvolvimento):**
 
 | Condição | Aceitação da v1 híbrida |
 |---|---|

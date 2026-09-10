@@ -256,6 +256,8 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                     plan = router.plan(batch, targets)
                     if plan:
                         repair_payload = router.payload(batch, plan, payload["scene_text"])
+                        repair_provider.response_schema = router.response_schema(plan)
+                        repair_provider.num_predict = router.token_budget(plan)
                         router.audit["repair_calls"] += 1
                         repaired = cached_infer(repair_provider, cache, repair_payload)
                         for key, replacement in router.replacements(repaired, plan, threshold).items():
