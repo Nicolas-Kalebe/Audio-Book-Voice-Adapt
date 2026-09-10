@@ -114,6 +114,35 @@ Não houve erro de reparação. A P3 recebeu três chamadas de continuidade, rec
 salvos, 2 estragados). A P1 não sofreu dano no diferencial (+2); a P2 não acionou
 o roteador e repetiu o baseline. A meta final, porém, segue reprovada pela P3.
 
+## v1.2 — a revisão de quem está fora do elenco (escrita, não medida)
+
+A v1.1 fechou a reparação de lacuna. O que sobra na P3 são 28 turnos **já
+atribuídos**, e o roteador não olha para eles.
+
+A v1.2 acrescenta um segundo tipo de alvo, por um critério observável e estreito:
+turno `contextual` cujo falante **não aparece no elenco estabelecido da própria
+cena**. O elenco é o mesmo `active` do gate — âncoras literais recentes mais
+hipóteses repetidas ao menos duas vezes.
+
+A escolha do critério importa mais que o mecanismo. "Revisar o que parece errado"
+não é observável sem gabarito e reabre a porta que a memória completa arrombou.
+"Revisar quem escolheu alguém que ninguém viu falando nesta cena, e sem âncora
+literal" é uma afirmação sobre a estrutura da cena, verificável em tempo de
+execução, e que se desliga sozinha onde não há elenco estabelecido.
+
+Continua valendo tudo que protegia a v1.1: âncora literal intocável, catálogo
+fechado no que já está estabelecido, piso de 0,95, e o roteador não revisa o que ele
+mesmo reparou. A diferença é o desfecho neutro: responder `null` **mantém** o
+primeiro passe, e isso é contado à parte (`revisao_mantida`) em vez de virar
+reparação rejeitada — uma revisão que quase sempre mantém está funcionando, não
+falhando.
+
+Trocar voz **não** soma em `assigned`. Só a lacuna preenchida move a cobertura;
+contar a troca faria o denominador da cobertura mentir.
+
+Entra como protocolo próprio (`hybrid-revisao`) para ser medida lado a lado com a
+v1.1. Pré-registro, critério de aprovação e comando no `RODAR.md`.
+
 ## Limites e próxima decisão
 
 A v1.1 não tenta consertar atribuições erradas de alta confiança. A memória completa

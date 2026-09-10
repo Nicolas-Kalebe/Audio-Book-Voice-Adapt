@@ -40,8 +40,19 @@ reparação. Medida em 10/09, a v1.1 obteve P1 **95,24% × 98,59%**, P2
 27 da P3, sem elevar vozes erradas, mas a P3 ainda reprova a meta de 95% × 95%; o
 protocolo continua experimental e não é o padrão. O comparador
 `scripts/compare_speaker_runs.py` registra por turno onde cada motor salva,
-estraga, abstém ou apenas troca um erro por outro. Projeto, resultados e pré-registro:
+estraga, abstém ou apenas troca um erro por outro — e, desde 10/09, **qual regra de
+consistência escreveu cada voz errada que sobrou**, o que separa "faltou mecanismo"
+de "regra existente errou". Projeto, resultados e pré-registro:
 [docs/MEGAZORD-HIBRIDO.md](docs/MEGAZORD-HIBRIDO.md).
+
+O protocolo `hybrid-revisao` (v1.2) é a v1.1 mais um segundo tipo de alvo, e está
+**escrito mas ainda não medido**. A v1.1 só repara lacuna; os erros que restam são
+turnos já atribuídos, que ela nunca olha. A v1.2 acrescenta um alvo estreito e
+observável: turno contextual cujo falante **não aparece no elenco estabelecido da
+própria cena**. Âncora literal continua intocável, a segunda leitura só escolhe do
+catálogo já estabelecido, e responder `null` mantém a atribuição original — manter é
+o desfecho esperado, não falha. Entra como protocolo próprio para poder ser medido
+lado a lado com a v1.1, sem trocar configuração no meio da campanha.
 
 A primeira rodada realmente externa, na Parte 02, ficou em **91,53% de precisão
 e 96,72% de cobertura**: cobertura aprovada, precisão reprovada. Depois de ler

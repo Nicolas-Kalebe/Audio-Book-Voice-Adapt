@@ -34,9 +34,11 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if not isinstance(book_first, dict):
         raise ConfigurationError("book_first deve ser um objeto de configuração")
     if book_first.get("enabled"):
-        if book_first.get("protocol", "evidence") not in {"compact", "evidence", "scene", "lightweight", "hybrid"}:
+        if book_first.get("protocol", "evidence") not in {
+                "compact", "evidence", "scene", "lightweight", "hybrid", "hybrid-revisao"}:
             raise ConfigurationError(
-                "Análise textual: protocol deve ser compact, evidence, scene, lightweight ou hybrid")
+                "Análise textual: protocol deve ser compact, evidence, scene, lightweight, "
+                "hybrid ou hybrid-revisao")
         if not isinstance(book_first.get('source_subjects', False), bool):
             raise ConfigurationError('source_subjects deve ser booleano')
         if book_first.get('source_subjects') and book_first.get('protocol') != 'compact':

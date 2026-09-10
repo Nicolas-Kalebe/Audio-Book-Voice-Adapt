@@ -6,6 +6,80 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — v1.2: a revisão de quem está fora do elenco (PRÉ-REGISTRO, não medida)
+
+**Escrita, testada em unidade, não executada.** Nenhum número deste repositório
+mudou. O que segue é o pré-registro que a campanha tem de cumprir para a v1.2 ser
+aceita ou descartada — escrito antes de rodar, de propósito.
+
+**O problema.** A v1.1 só repara **lacuna**: turno que o primeiro passe deixou sem
+voz. Na P3 ela fez isso bem (25/28 aceitas, 16/16 da cena 27, nenhum erro de
+reparação). Mas os **28 erros que restam são turnos já atribuídos**, e o roteador
+nunca olha para eles — por decisão explícita, porque sobrescrever atribuição
+contextual foi o que a memória completa fez, e ela destruiu acertos em P1 e P2.
+
+**O alvo novo.** Turno `contextual` cujo `speaker_entity_id` **não aparece no elenco
+estabelecido da própria cena** (o mesmo `active` que o gate já calcula: âncoras
+literais recentes mais hipóteses que se repetiram ao menos duas vezes). Não é
+"revisar o que parece errado" — é "revisar quem escolheu alguém que ninguém viu
+falando aqui, e sem âncora literal que o sustente".
+
+Três exclusões que não se negociam, e cada uma tem teste:
+
+- `explicit` fica de fora — âncora literal é fato do narrador, e é aí que começa a
+  assimetria que protege P1/P2;
+- o que o próprio roteador reparou fica de fora, senão ele revisa a si mesmo a cada
+  janela seguinte;
+- quem **está** no elenco fica de fora, mesmo que a atribuição esteja errada. Esse
+  caso continua sendo assunto do modo sombra, não desta versão.
+
+**O que acontece com a resposta.** Só troca com um R do catálogo e confiança ≥ 0,95.
+Responder `null` **mantém** a atribuição do primeiro passe — e isso é contado em
+`revisao_mantida`, não em `rejected_repairs`: manter é o desfecho esperado de uma
+revisão saudável, e somar os dois faria a v1.2 parecer quebrada justamente quando
+está sendo conservadora. A troca **não** soma em `assigned`: trocar voz não é
+preencher silêncio, e contá-la faria a cobertura mentir.
+
+**A conta que a v1.2 precisa fechar na P3** (350 dubláveis, hoje 327 atribuídos, 299
+corretos, 28 errados):
+
+- cobertura ≥ 95% exige **333 atribuídos** — a v1.2 sozinha não mexe nisso, porque só
+  troca voz; quem move a cobertura continua sendo a reparação de lacuna da v1.1;
+- precisão ≥ 95% com 327 atribuídos exige **311 corretos**, ou seja **12 dos 28 erros
+  convertidos**.
+
+**Critério de aprovação, definido antes de rodar:**
+
+1. **P1 e P2 não podem piorar.** É o filtro mais barato e o que reprovou a memória
+   completa (+24 na P3, −7 e −5 em P1/P2). Qualquer dano líquido em P1 ou P2 reprova
+   a v1.2, mesmo que a P3 melhore.
+2. **Saldo diferencial positivo na P3**, medido por `candidate_saves` menos
+   `candidate_harms` contra a v1.1 — não contra o baseline frio.
+3. **`revisao_trocada` tem de ser pequeno perto de `revisao_targets`.** Uma revisão
+   que troca quase tudo que olha não está sendo conservadora: está repetindo a
+   memória completa por outro caminho.
+4. Custo: as chamadas extras não podem estourar o tempo da v1.1 (372,5 s na P3).
+
+**Como medir (as duas rodadas, mesmo cache zerado):**
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+# baseline da comparação = a v1.1 já medida; candidato = v1.2
+& .venv\Scripts\python.exe scripts\compare_speaker_runs.py `
+  --gold benchmarks\part03_gold.yaml `
+  --baseline output\hybrid-p03-v11-20260910\analysis.json `
+  --candidate revisao=output\hybrid-p03-v12-<data>\analysis.json `
+  --output output\comparacao-p03-v12
+```
+
+O protocolo é `hybrid-revisao` em `book_first.protocol`. O `hybrid` continua sendo a
+v1.1, sem alteração nenhuma de comportamento — há teste garantindo que sem a opção
+nenhum turno atribuído vira alvo.
+
+**Se reprovar:** o alvo "fora do elenco" morre, e o que sobra é o modo sombra sobre
+as atribuições de alta confiança, como o MEGAZORD já previa. Não insistir por
+ajuste de limiar — o limiar não é o problema quando a premissa do alvo é a errada.
+
 ### 10 de setembro de 2026 — o diferencial passa a dizer QUAL regra escreveu a voz errada
 
 Mudança de ferramenta de diagnóstico; **o motor não muda e nenhuma métrica se

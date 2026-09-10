@@ -320,13 +320,18 @@ def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold
     """Review textual turns, including those with no ASR match, in bounded windows."""
     if source_subjects and protocol != 'compact':
         raise ValueError('source_subjects is supported only by compact')
-    if protocol in {"compact", "scene", "lightweight", "hybrid"}:
+    # `hybrid-revisao` e a v1.1 mais a revisao de quem esta fora do elenco. Entra
+    # como protocolo proprio, e nao como opcao do `hybrid`, para que uma campanha
+    # possa medir os dois lado a lado sem trocar configuracao no meio.
+    if protocol in {"compact", "scene", "lightweight", "hybrid", "hybrid-revisao"}:
         from .compact_speakers import review_compact
         return review_compact(model, provider, cache, paragraph_range, threshold=threshold,
                               max_turns=max_turns, max_chars=max_chars, progress=progress,
                               scene_mode=protocol == "scene", scene_max_chars=scene_max_chars, scene_repair=scene_repair,
                               lightweight=protocol == "lightweight", source_subjects=source_subjects,
-                              turn_consistency=turn_consistency, hybrid=protocol == "hybrid")
+                              turn_consistency=turn_consistency,
+                              hybrid=protocol in {"hybrid", "hybrid-revisao"},
+                              hybrid_revisao=protocol == "hybrid-revisao")
     if protocol != "evidence":
         raise ValueError(f"Unknown attribution protocol: {protocol}")
     started = time.monotonic()

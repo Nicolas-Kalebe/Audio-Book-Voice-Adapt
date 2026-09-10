@@ -11,6 +11,7 @@ from collections import Counter, defaultdict
 
 
 VERSION = "hybrid-speaker-router-v1.1"
+VERSION_REVISAO = "hybrid-speaker-router-v1.2"
 SYSTEM_SUFFIX = """
 
 Esta e uma revisao conservadora de continuidade. O primeiro passe nao conseguiu
@@ -19,22 +20,49 @@ nao crie entidades. A resposta contem somente assignments. literal_anchors sao f
 da narracao. recent_assignments sao hipoteses do primeiro passe e podem estar
 erradas. Preserve a abstencao (speaker null) se a continuidade nao bastar.
 """
+# O texto muda quando a janela leva turnos JA atribuidos: dizer que o primeiro
+# passe "nao conseguiu atribuir" seria falso, e instrucao falsa e a forma mais
+# barata de ensinar o modelo a ignorar a instrucao inteira.
+SYSTEM_SUFFIX_REVISAO = """
+
+Esta e uma leitura independente de continuidade. Alguns turnos enviados nao foram
+atribuidos pelo primeiro passe; outros foram, e voce nao sabe quais. Decida cada um
+apenas pelo texto e pelo catalogo. Use somente IDs R do catalogo
+established_speakers; nao crie entidades. A resposta contem somente assignments.
+literal_anchors sao fatos extraidos da narracao. recent_assignments sao hipoteses do
+primeiro passe e podem estar erradas. Responda speaker null quando o texto e a
+continuidade nao bastarem — null e a resposta correta para o turno que voce nao
+consegue decidir sozinho.
+"""
 
 
 class HybridRepairRouter:
     """Route only unresolved continuation windows to bounded scene memory."""
 
-    def __init__(self, model, *, history_limit=12, max_speakers=4):
+    def __init__(self, model, *, history_limit=12, max_speakers=4, revisar_fora_do_elenco=False):
         if history_limit < 1 or max_speakers < 2:
             raise ValueError("Hybrid router limits are invalid")
         self.model = model
         self.history_limit = history_limit
         self.max_speakers = max_speakers
+        # ── A REVISAO DE QUEM ESTA FORA DO ELENCO (v1.2) ──────────────────
+        #
+        # A v1.1 so olha LACUNA. O turno que o primeiro passe atribuiu errado
+        # nunca e revisto, por decisao explicita: sobrescrever atribuicao
+        # contextual foi o que a memoria completa fez, e ela destruiu acertos.
+        #
+        # Esta opcao amplia o alvo por um criterio observavel e estreito: turno
+        # cujo falante NAO aparece no elenco estabelecido da propria cena. Nao e
+        # "revisar o que parece errado" — e "revisar quem escolheu alguem que
+        # ninguem viu falando aqui, e sem ancora literal que o sustente".
+        #
+        # Desligada por padrao para permitir A/B contra a v1.1 ja medida.
+        self.revisar_fora_do_elenco = revisar_fora_do_elenco
         self.records = defaultdict(list)
         self.recorded_turns = defaultdict(set)
         self.windows_seen = Counter()
         self.audit = {
-            "version": VERSION,
+            "version": VERSION_REVISAO if revisar_fora_do_elenco else VERSION,
             "base_windows": 0,
             "routed_windows": 0,
             "repair_calls": 0,
@@ -43,6 +71,12 @@ class HybridRepairRouter:
             "rejected_repairs": 0,
             "ignored_entity_proposals": 0,
             "repair_token_budgets": [],
+            # A revisao e contada em separado da reparacao de lacuna: sao riscos
+            # diferentes, e somar as duas esconderia justamente o que se quer
+            # medir — quantas vozes ja atribuidas foram trocadas.
+            "revisao_targets": 0,
+            "revisao_trocada": 0,
+            "revisao_mantida": 0,
             "skipped": Counter(),
         }
 
@@ -59,7 +93,9 @@ class HybridRepairRouter:
             if not turn.get("speaker_entity_id")
             and turn.get("status") not in {"explicit", "non_speech"}
         }
-        if not unresolved:
+        # Sem revisao, janela sem lacuna nao tem o que fazer aqui — e sai antes
+        # de gastar a conta do elenco. Com revisao, ainda pode haver alvo.
+        if not unresolved and not self.revisar_fora_do_elenco:
             self.audit["skipped"]["nothing_unresolved"] += 1
             return None
 
@@ -77,6 +113,27 @@ class HybridRepairRouter:
             self.audit["skipped"]["cast_too_large"] += 1
             return None
 
+        # ── OS ALVOS DE REVISAO ────────────────────────────────────────────
+        # Turno JA atribuido, contextual, cujo falante nao aparece no elenco
+        # estabelecido desta cena. Duas exclusoes que nao se negociam:
+        #   · `explicit` fica de fora — ancora literal e fato do narrador, e a
+        #     assimetria que protege P1/P2 comeca aqui;
+        #   · o que este roteador ja reparou fica de fora, senao ele revisa a si
+        #     mesmo e entra em laco entre janelas.
+        revisao = {}
+        if self.revisar_fora_do_elenco:
+            revisao = {
+                key: turn for key, turn in targets.items()
+                if key not in unresolved
+                and turn.get("status") == "contextual"
+                and turn.get("speaker_entity_id")
+                and turn["speaker_entity_id"] not in active
+                and not turn.get("hybrid_repair")
+            }
+        if not unresolved and not revisao:
+            self.audit["skipped"]["nothing_unresolved"] += 1
+            return None
+
         ordered = []
         for row in recent:
             if row["identity"] in active and row["identity"] not in ordered:
@@ -84,7 +141,13 @@ class HybridRepairRouter:
         ids = {identity: f"R{index}" for index, identity in enumerate(ordered)}
         self.audit["routed_windows"] += 1
         self.audit["repair_targets"] += len(unresolved)
-        return {"targets": unresolved, "identifiers": ids, "history": recent}
+        self.audit["revisao_targets"] += len(revisao)
+        # A janela vai numa chamada so. O modelo nao sabe qual alvo e lacuna e
+        # qual e revisao: se soubesse, teria como tratar a revisao com o vies de
+        # confirmar o que ja estava la, que e o oposto de uma leitura independente.
+        alvos = {**unresolved, **revisao}
+        return {"targets": alvos, "identifiers": ids, "history": recent,
+                "kinds": {key: ("revisao" if key in revisao else "lacuna") for key in alvos}}
 
     @staticmethod
     def response_schema(plan):
@@ -161,12 +224,14 @@ class HybridRepairRouter:
         if not isinstance(assignments, list):
             raise ValueError("Invalid hybrid repair response")
         reverse = {local: identity for identity, local in plan["identifiers"].items()}
+        kinds = plan.get("kinds", {})
         accepted = {}
         for key in plan["targets"]:
+            eh_revisao = kinds.get(key) == "revisao"
             rows = [row for row in assignments
                     if isinstance(row, dict) and row.get("id") == key]
             if len(rows) != 1:
-                self.audit["rejected_repairs"] += 1
+                self._recusar(eh_revisao)
                 continue
             row = rows[0]
             confidence = row.get("confidence")
@@ -179,11 +244,29 @@ class HybridRepairRouter:
             )
             if valid:
                 accepted[key] = {"identity": reverse[row["speaker"]],
-                                 "confidence": float(confidence), "raw": row}
-                self.audit["accepted_repairs"] += 1
+                                 "confidence": float(confidence), "raw": row,
+                                 "kind": kinds.get(key, "lacuna")}
+                if eh_revisao:
+                    self.audit["revisao_trocada"] += 1
+                else:
+                    self.audit["accepted_repairs"] += 1
             else:
-                self.audit["rejected_repairs"] += 1
+                self._recusar(eh_revisao)
         return accepted
+
+    def _recusar(self, eh_revisao):
+        """Nao trocar e o desfecho NORMAL da revisao, nao uma falha.
+
+        Na lacuna, resposta invalida ou insegura significa que o turno continua
+        sem voz — e isso conta como reparo rejeitado. Na revisao significa que a
+        atribuicao do primeiro passe FICA, que e exatamente o que se quer quando a
+        segunda leitura nao tem certeza. Somar os dois no mesmo contador faria uma
+        revisao saudavel parecer um motor quebrado.
+        """
+        if eh_revisao:
+            self.audit["revisao_mantida"] += 1
+        else:
+            self.audit["rejected_repairs"] += 1
 
     def observe(self, batch, literal_before):
         """Store only literal facts and recurring candidates from the base pass."""
