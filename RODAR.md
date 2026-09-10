@@ -6,6 +6,38 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — o código da v1.2 sai do repositório
+
+O protocolo `hybrid-revisao` foi **removido**: constante de protocolos, ligação no
+`book_speakers`/`compact_speakers`, o modo do roteador e os testes da opção. O
+`hybrid` (v1.1) volta a ser exatamente o que era, e o replay congelado — que é
+contribuição boa e independente — fica.
+
+Mecanismo reprovado que continua ligável é armadilha. O próximo a passar por aqui
+liga "só para ver", ou mexe no limiar que a própria medição disse para não mexer.
+O experimento está no histórico (`8fe3851`) e a medição está registrada abaixo;
+isso basta para reconstruí-lo, e é mais do que basta para não repeti-lo.
+
+**A lição, que vale mais que o código removido.** A hipótese era: "falante fora do
+elenco estabelecido da cena é suspeito". O replay mostrou que ela é falsa, e a causa
+é estrutural, não de calibragem — quem some da janela de doze registros e volta a
+falar é o caso NORMAL de um personagem que ficou algum tempo calado. A revisão então
+marcava um acerto como alvo e, oferecendo só o `active` como catálogo, tornava
+impossível manter a resposta certa: a voz original não estava entre as opções. Por
+isso trocou a maioria do que olhou (21/26 na P3) em vez de quase nada.
+
+Confundir "não está no elenco recente" com "provavelmente errado" foi o erro. O
+alvo estava errado, não o limiar — e é por isso que ajustar confiança não o
+salvaria.
+
+**O que fica de método:** na campanha fria completa, a P1 aparecia com saldo −5; no
+replay congelado, ficou 0/0. Ou seja, aquele dano era **variação do primeiro passe
+entre execuções**, não efeito da regra. Comparação entre duas campanhas frias mede a
+experiência do protocolo inteiro, e serve para decidir o que entra em produção; para
+atribuir causa a um mecanismo, o replay com primeiro passe congelado passa a ser o
+instrumento — e vale reler com essa lente qualquer conclusão anterior tirada de duas
+rodadas frias.
+
 ### 10 de setembro de 2026 — replay congelado confirma a reprovação da v1.2
 
 O diagnóstico foi executado em saídas inéditas. Cada uma reutilizou todas as

@@ -50,11 +50,12 @@ consistência escreveu cada voz errada que sobrou**, o que separa "faltou mecani
 de "regra existente errou". Projeto, resultados e pré-registro:
 [docs/MEGAZORD-HIBRIDO.md](docs/MEGAZORD-HIBRIDO.md).
 
-O candidato v1.2 usa `--protocol hybrid-revisao`. A lista de protocolos da
-configuração e do benchmark agora vem da mesma constante, evitando que um modo
-aceito pelo motor seja rejeitado apenas pela interface de linha de comando.
+A lista de protocolos da configuração e do benchmark vem da mesma constante,
+evitando que um modo aceito pelo motor seja rejeitado apenas pela interface de
+linha de comando.
 
-O protocolo `hybrid-revisao` (v1.2) foi medido e **reprovou**. Ele acrescentava à
+O protocolo `hybrid-revisao` (v1.2) foi medido, **reprovou e foi removido do
+código** — está no histórico (`8fe3851`), não na lista de protocolos. Ele acrescentava à
 v1.1 uma revisão de turno contextual cujo falante não aparece no elenco estabelecido
 da cena; âncoras literais continuavam intocáveis e `null` mantinha a atribuição. A
 primeira campanha fria piorou P1/P2/P3. O replay posterior congelou cada resposta

@@ -42,7 +42,7 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
                    scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False,
-                   turn_consistency=True, hybrid=False, hybrid_revisao=False, base_cache=None):
+                   turn_consistency=True, hybrid=False, base_cache=None):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -73,11 +73,9 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     if hybrid:
         if scene_mode or lightweight or source_subjects:
             raise ValueError("hybrid cannot be combined with another attribution experiment")
-        from .hybrid_speakers import (HybridRepairRouter, SYSTEM_SUFFIX, SYSTEM_SUFFIX_REVISAO)
-        router = HybridRepairRouter(result, revisar_fora_do_elenco=hybrid_revisao)
-        # A versao sai do proprio roteador: quem le o `analysis.json` precisa
-        # saber qual dos dois comportamentos produziu aquele numero.
-        stats["method"] = result["attribution_protocol"] = router.audit["version"]
+        from .hybrid_speakers import HybridRepairRouter, SYSTEM_SUFFIX, VERSION as HYBRID_VERSION
+        router = HybridRepairRouter(result)
+        stats["method"] = result["attribution_protocol"] = HYBRID_VERSION
     if scene_mode:
         from .scene_context import SceneContext, VERSION as SCENE_VERSION, ATTRIBUTION_SUFFIX, repair_targets
         if provider is not None:
@@ -89,8 +87,7 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
         adapted.system_prompt, adapted.response_schema = SYSTEM, SCHEMA
         if router:
             repair_provider = copy.copy(provider)
-            repair_provider.system_prompt = SYSTEM + (
-                SYSTEM_SUFFIX_REVISAO if hybrid_revisao else SYSTEM_SUFFIX)
+            repair_provider.system_prompt = SYSTEM + SYSTEM_SUFFIX
             repair_provider.response_schema = SCHEMA
         if source_subjects:
             adapted.system_prompt += SUBJECT_SUFFIX
@@ -266,18 +263,11 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         repaired = cached_infer(repair_provider, cache, repair_payload)
                         for key, replacement in router.replacements(repaired, plan, threshold).items():
                             turn = targets[key]
-                            eh_revisao = replacement.get("kind") == "revisao"
-                            # A revisao TROCA uma voz que ja existia; a lacuna
-                            # PREENCHE. Só a segunda soma em `assigned`, senao o
-                            # total de atribuidos cresceria sem ninguem ter saido
-                            # do silencio — e a cobertura passaria a mentir.
                             turn.update(kind="speech", evidence=[], confidence=replacement["confidence"],
                                         speaker_entity_id=replacement["identity"], status="contextual",
-                                        review_issue=("revised_by_hybrid_outsider" if eh_revisao
-                                                      else "repaired_by_hybrid_continuity"),
+                                        review_issue="repaired_by_hybrid_continuity",
                                         hybrid_repair=replacement["raw"])
-                            if not eh_revisao:
-                                stats["assigned"] += 1
+                            stats["assigned"] += 1
             except ReplayMiss:
                 raise
             except Exception as exc:

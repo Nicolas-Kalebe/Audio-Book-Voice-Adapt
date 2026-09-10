@@ -54,4 +54,4 @@ def test_hybrid_book_protocol_is_accepted(tmp_path):
 
 
 def test_all_configured_book_protocols_are_available_to_command_line_tools():
-    assert "hybrid-revisao" in BOOK_PROTOCOLS
+    assert "hybrid" in BOOK_PROTOCOLS

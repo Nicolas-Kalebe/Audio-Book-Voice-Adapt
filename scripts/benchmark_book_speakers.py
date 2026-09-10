@@ -33,8 +33,8 @@ def main():
     parser.add_argument('--no-turn-consistency', action='store_true',
                         help='Desliga o pós-processamento de vocativo e sanduíche, para isolar seu efeito')
     args = parser.parse_args()
-    if args.frozen_base_cache and (args.without_llm or args.protocol not in {"compact", "hybrid", "hybrid-revisao"}):
-        parser.error("--frozen-base-cache exige LLM e --protocol compact/hybrid/hybrid-revisao")
+    if args.frozen_base_cache and (args.without_llm or args.protocol not in {"compact", "hybrid"}):
+        parser.error("--frozen-base-cache exige LLM e --protocol compact/hybrid")
     base_cache = FrozenCache(args.frozen_base_cache) if args.frozen_base_cache else None
     if args.source_subjects and args.protocol != 'compact':
         parser.error('--source-subjects exige --protocol compact')

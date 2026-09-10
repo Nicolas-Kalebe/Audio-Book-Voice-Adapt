@@ -114,7 +114,13 @@ Não houve erro de reparação. A P3 recebeu três chamadas de continuidade, rec
 salvos, 2 estragados). A P1 não sofreu dano no diferencial (+2); a P2 não acionou
 o roteador e repetiu o baseline. A meta final, porém, segue reprovada pela P3.
 
-## v1.2 — a revisão de quem está fora do elenco (escrita, não medida)
+## v1.2 — a revisão de quem está fora do elenco (MEDIDA, REPROVADA, REMOVIDA)
+
+> [!warning] Hipótese falsa, confirmada por replay congelado. Não reabrir.
+> O texto abaixo é o desenho original, mantido porque explica o raciocínio que a
+> medição derrubou. Resultado e causa vêm logo depois dele.
+
+### Desenho original
 
 A v1.1 fechou a reparação de lacuna. O que sobra na P3 são 28 turnos **já
 atribuídos**, e o roteador não olha para eles.
@@ -142,6 +148,43 @@ contar a troca faria o denominador da cobertura mentir.
 
 Entra como protocolo próprio (`hybrid-revisao`) para ser medida lado a lado com a
 v1.1. Pré-registro, critério de aprovação e comando no `RODAR.md`.
+
+### O que a medição mostrou
+
+Campanha fria completa e, depois, replay com o primeiro passe congelado. O replay é
+o que atribui causa: ele reutiliza cada resposta do primeiro passe da v1.1 (P1
+14/14, P2 12/12, P3 19/19, zero faltas) e manda ao modelo só as chamadas de
+reparo/revisão.
+
+| Desenvolvimento | v1.1 | replay v1.2 | Salvos / estragados | Saldo |
+|---|---:|---:|---:|---:|
+| Parte 01 | 95,24% × 98,59% | 95,24% × 98,59% | 0 / 0 | 0 |
+| Parte 02 | 95,53% × 97,81% | **93,75% × 96,17%** | 2 / 8 | −6 |
+| Parte 03 | 91,44% × 93,43% | **89,97% × 94,00%** | 8 / 11 | −3 |
+
+Dos danos isolados, 7 dos 8 em P2 e 10 dos 11 em P3 estavam marcados
+`revised_by_hybrid_outsider` — foram da própria revisão, não de efeito colateral.
+
+### Por que a hipótese era falsa
+
+O alvo pressupunha que "falante fora do elenco estabelecido" indica erro. Não
+indica: **quem sai da janela de doze registros e volta a falar é o caso normal de um
+personagem que ficou algum tempo calado.** A revisão marcava acerto como alvo e,
+oferecendo apenas o `active` como catálogo, tornava impossível manter a resposta
+certa — a voz original não estava entre as opções. Daí ter trocado a maioria do que
+olhou (21/26 na P3) em vez de quase nada.
+
+O erro foi confundir "não está no elenco recente" com "provavelmente errado". O
+**alvo** estava errado, não o limiar — por isso ajustar confiança não salvaria o
+mecanismo, e por isso ele foi removido do código em vez de desligado.
+
+### O que sobrou de aproveitável
+
+O replay congelado. Na campanha fria completa a P1 aparecia com saldo −5; no replay,
+0/0. Aquele dano era **variação do primeiro passe entre execuções**, não efeito da
+regra. Comparar duas campanhas frias mede a experiência do protocolo inteiro e serve
+para decidir o que vai a produção; para atribuir causa a um mecanismo, o replay
+passa a ser o instrumento.
 
 ## Limites e próxima decisão
 
