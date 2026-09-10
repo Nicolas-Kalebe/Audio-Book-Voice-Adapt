@@ -88,7 +88,7 @@ def test_a_parte_03_esta_marcada_como_holdout_consumido():
     assert gold["evaluation_protocol"]["status"] == "holdout_consumido_em_2026-09-08"
 
 
-def test_a_parte_04_esta_congelada_e_ainda_nao_foi_medida():
+def test_a_parte_04_esta_marcada_como_holdout_consumido():
     gold = load_gold(BENCH / "part04_gold.yaml")
-    assert gold["evaluation_protocol"]["independent_holdout"] is True
-    assert gold["evaluation_protocol"]["status"] == "frozen_unmeasured_holdout"
+    assert gold["evaluation_protocol"]["independent_holdout"] is False
+    assert gold["evaluation_protocol"]["status"] == "holdout_consumido_em_2026-09-10"

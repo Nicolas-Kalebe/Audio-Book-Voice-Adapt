@@ -2,13 +2,14 @@ version: 1
 name: Parte 04 - O Sangue dos Elfos
 language: pt-BR
 evaluation_protocol:
-  status: frozen_unmeasured_holdout
-  independent_holdout: true
+  status: holdout_consumido_em_2026-09-10
+  independent_holdout: false
   annotation_review: assistant_authored_not_independently_audited
-  frozen_at: 2026-09-10
+  frozen_at: "2026-09-10"
   note: >-
     Anotado lendo somente o EPUB no intervalo P1128-1488, antes de qualquer
-    rodada do motor ou consulta a uma saida de atribuicao da Parte 04. E um
+    rodada do motor ou consulta a uma saida de atribuicao da Parte 04. Foi
+    medida em 10/09/2026 e agora e desenvolvimento. Era um
     holdout novo do mesmo livro: mede transferencia para uma parte intocada,
     mas nao substitui a futura validacao em outro livro. Os rotulos ficam
     congelados neste commit. Falas sem identificacao textual suficiente foram

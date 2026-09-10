@@ -8,13 +8,16 @@ Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_U
 
 ## Estado atual — 10 de setembro de 2026
 
-**A Parte 04 agora é o holdout congelado e ainda não medido.** O gabarito foi
-escrito a partir do EPUB, sem consultar nenhuma atribuição do motor nessa parte:
-P1128–1488, 279 falas, das quais 250 são dubláveis e 29 pertencem a figurantes
-anônimos de uma única cena. O teto é 100% e a meta 95% × 95% cabe com folga de
-12 abstenções e 11 vozes erradas. Por ser outra parte do mesmo livro, este teste
-mede transferência para texto e cenas novos, não generalização entre livros.
-O primeiro resultado consultado consumirá o holdout.
+**A Parte 04 foi o holdout novo do mesmo livro e reprovou.** O primeiro passe
+frio do `hybrid` v1.1 foi recuperado por cache congelado (15/15 respostas exatas),
+pois o gravador do relatório falhou ao serializar um metadado de data. O placar é
+**79,42% de precisão e 97,20% de cobertura** nos 250 turnos dubláveis: 193
+corretos, 50 vozes trocadas, 5 abstenções e 2 falas não localizadas. Há cinco
+ocorrências de `Vilfrid Wenck`→`Wenck` a auditar como nomenclatura, mas mesmo
+aceitando-as a precisão seria apenas 81,48%. A falha é real: novos interlocutores
+de cenas densas foram confundidos com o elenco já conhecido e o híbrido não fez
+reparos porque o primeiro passe não deixou lacunas. A P4 agora é desenvolvimento;
+o produto ainda não está validado para uso geral.
 
 Auditoria textual dos 28 casos divergentes de P3: **25 erros do motor confirmados
 pelo parecer, 3 em dúvida, nenhuma correção de gabarito demonstrada**. Revisão por

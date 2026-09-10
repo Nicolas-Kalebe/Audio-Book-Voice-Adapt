@@ -6,7 +6,7 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
-### PARTE 04 CONGELADA — próxima rodada fria
+### PARTE 04 CONSUMIDA — resultado da rodada fria
 
 `benchmarks/part04_gold.yaml` foi criado lendo somente o EPUB, antes de qualquer
 resultado do motor nessa parte. Escopo P1128–1488: 279 falas, 250 dubláveis e 29
@@ -14,8 +14,21 @@ de figurantes anônimos de uma cena. O teto de localização é 250/250; a meta 
 com folga de 12 abstenções e 11 vozes erradas. É um holdout do mesmo livro, não
 uma validação entre livros.
 
-O **primeiro** protocolo a ser medido é o candidato atual `hybrid` v1.1. A pasta
-de saída deve ser inédita e o cache de respostas Qwen deve nascer vazio:
+O primeiro protocolo medido foi o candidato `hybrid` v1.1. O processo frio gravou
+as 15 respostas Qwen, mas parou ao serializar `frozen_at` como `date`; o replay
+seguinte leu **15/15** respostas do cache e produziu o placar sem refazer o
+primeiro passe. Portanto o tempo do replay (0,64 s) não é tempo de campanha.
+
+**Resultado:** 193 corretos, 50 vozes erradas, 5 abstenções e 2 falas não
+localizadas entre 250 dubláveis: **79,42% precisão × 97,20% cobertura**. A meta
+95% × 95% reprovou pela precisão. `Vilfrid Wenck`→`Wenck` ocorre cinco vezes e
+precisa de auditoria de nomenclatura própria; mesmo se todas forem identidade
+correta, o máximo sobe somente a 81,48%. Dos 50 erros, 45 vêm do primeiro passe,
+3 do sanduíche, 1 do vocativo e 1 da regra de terceira pessoa. O roteador híbrido
+não fez reparos: 0 alvos estavam sem falante, apesar das atribuições erradas.
+
+O comando abaixo fica como reprodução técnica; **não é outra rodada fria** e não
+deve ser usado para promover ou reprovar mecanismos novos:
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path src).Path
@@ -32,7 +45,7 @@ $env:PYTHONIOENCODING = 'utf-8'
   --output output\hybrid-p04-holdout-fria-20260910
 ```
 
-Faixas registradas **antes da execução**:
+Faixas que foram registradas **antes da execução**:
 
 | Resultado P4 | Decisão |
 |---|---|
@@ -41,9 +54,8 @@ Faixas registradas **antes da execução**:
 | precisão ≥95% e cobertura 90–95% | conservador demais; holdout reprovado na cobertura. |
 | qualquer métrica <90% | falha importante de transferência. |
 
-Depois da execução, mudar no gabarito `status` para consumido e
-`independent_holdout` para `false`, registrar os números aqui e no README no mesmo
-commit. Não ajustar rótulos olhando a saída; dúvidas vão para auditoria separada.
+O gabarito já está marcado como consumido. Não ajustar rótulos olhando a saída;
+dúvidas vão para auditoria separada.
 
 **Retorno da auditoria textual:** itens 1 e 2 executados. Dos 28 casos, a leitura do
 EPUB produziu 25 pareceres de erro do motor, nenhuma correção demonstrada do gabarito
@@ -146,6 +158,20 @@ P1463–1469 ficaram ambíguas e aceitam qualquer participante textualmente pres
 em vez de receber nome por alternância. O teste do teto confirmou 100% de
 localização possível e meta 95% × 95% alcançável. A primeira rodada fria está
 pré-registrada acima e deve usar `hybrid` v1.1.
+
+### 10 de setembro de 2026 — Parte 04 medida e holdout consumido
+
+Primeiro passe frio `hybrid` v1.1: 15 blocos Qwen, cache novo. O serializador do
+benchmark rejeitou o valor YAML de data e não escreveu `analysis.json`; o mesmo
+primeiro passe foi recuperado por replay congelado com 15/15 hashes, sem nova
+resposta-base do Qwen. Placar sobre os 250 dubláveis: 193 corretos, 50 errados,
+5 abstenções e 2 não localizados = **79,42% × 97,20%**. Reprovado na precisão.
+Há uma auditoria de nomenclatura pendente para cinco `Vilfrid Wenck`→`Wenck`, mas
+ela não pode mudar a decisão. O padrão a investigar é o primeiro passe atribuir
+com alta confiança falas de recém-chegados ao elenco anterior; o router v1.1 só
+repara lacunas e registrou zero alvos. Arquivos locais ignorados: a fonte fria
+`output/hybrid-p04-holdout-fria-20260910/cache/`, o placar recuperado
+`output/replay-p04-score-20260910/` e a fila `output/auditoria-p04-20260910/`.
 
 ### 10 de setembro de 2026 — a fila de auditoria dos erros (`scripts/auditar_erros.py`)
 
