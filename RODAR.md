@@ -282,6 +282,21 @@ estrutural, não de limiar.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — campanha fria de contratos na Parte 04
+
+| condição | corretas | erradas | abstenções | precisão | cobertura | tempo |
+|---|---:|---:|---:|---:|---:|---:|
+| baseline | 193 | 50 | 5 | 79,42% | 97,20% | 256 s |
+| catalog-schema | 169 | 40 | 39 | 80,86% | 83,60% | 348 s |
+| catalog-prompt | 177 | 43 | 28 | 80,45% | 88,00% | 288 s |
+| both (`hybrid-catalog`) | 158 | 39 | 51 | 80,20% | 78,80% | 256 s |
+| speaker-only | 198 | 46 | 4 | 81,15% | 97,60% | 240 s |
+
+`speaker-only` teve saldo líquido **+5** contra o baseline, mas ainda não atinge
+95% de precisão e não deve ser promovido. Os contratos de catálogo perderam
+cobertura. Auditoria: `output/contracts-p04-20260910-201844-audit.json`;
+diferencial: `output/contracts-p04-20260910-201844-comparison/`.
+
 ### 10 de setembro de 2026 — separar identidade e preparar ablações
 
 `attribution_contracts.py` acrescenta os modos de primeiro passe baseline,
