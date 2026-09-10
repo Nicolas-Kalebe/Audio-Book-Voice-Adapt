@@ -41,7 +41,7 @@ SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
 def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.90,
                    max_turns=24, max_chars=14000, progress=None, scene_mode=False,
                    scene_max_chars=36000, scene_repair=True, lightweight=False, source_subjects=False,
-                   turn_consistency=True):
+                   turn_consistency=True, hybrid=False):
     if not 0 <= threshold <= 1:
         raise ValueError("Textual acceptance threshold must be between zero and one")
     started = time.monotonic()
@@ -67,6 +67,14 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     if lightweight:
         stats["method"] = result["attribution_protocol"] = LIGHT_VERSION
     context = None
+    router = None
+    repair_provider = None
+    if hybrid:
+        if scene_mode or lightweight or source_subjects:
+            raise ValueError("hybrid cannot be combined with another attribution experiment")
+        from .hybrid_speakers import HybridRepairRouter, SYSTEM_SUFFIX, VERSION as HYBRID_VERSION
+        router = HybridRepairRouter(result)
+        stats["method"] = result["attribution_protocol"] = HYBRID_VERSION
     if scene_mode:
         from .scene_context import SceneContext, VERSION as SCENE_VERSION, ATTRIBUTION_SUFFIX, repair_targets
         if provider is not None:
@@ -76,6 +84,10 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
     if provider is not None:
         adapted = copy.copy(provider)
         adapted.system_prompt, adapted.response_schema = SYSTEM, SCHEMA
+        if router:
+            repair_provider = copy.copy(provider)
+            repair_provider.system_prompt = SYSTEM + SYSTEM_SUFFIX
+            repair_provider.response_schema = SCHEMA
         if source_subjects:
             adapted.system_prompt += SUBJECT_SUFFIX
         if lightweight:
@@ -103,7 +115,12 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
             allowed = {f"E{i}": e["id"] for i, e in enumerate(entities)}
             reverse = {value: key for key, value in allowed.items()}
             targets = {context.turn_ids[turn["id"]] if context else f"T{i}": turn for i, turn in enumerate(batch["turns"])}
-            payload = {"version": stats["method"], "book_id": result["book_id"], "scene_id": batch["scene_id"],
+            literal_before = {turn["id"]: turn["speaker_entity_id"] for turn in batch["turns"]
+                              if turn.get("speaker_entity_id") and turn.get("status") == "explicit"}
+            # Keep the first-view payload byte-for-byte compatible with compact;
+            # the hybrid protocol is an extra routed view, not a replacement.
+            payload = {"version": VERSION if router else stats["method"],
+                "book_id": result["book_id"], "scene_id": batch["scene_id"],
                 "scene_text": [{"paragraph": p, "text": result["blocks"][p]} for p in sorted(permitted)],
                 "entities": [{"id": reverse[e["id"]], "name": e["name"], "kind": e["kind"],
                               "aliases": e["aliases"]} for e in entities],
@@ -226,7 +243,7 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                         continue
                     if turn["status"] == "explicit":
                         if identity != turn["speaker_entity_id"] or kind != "speech":
-                            if context or lightweight:
+                            if context or lightweight or router:
                                 turn["review_issue"] = "llm_disagrees_with_literal_subject"
                             else:
                                 turn.update(status="conflict", speaker_entity_id=None, confidence=0.0)
@@ -235,8 +252,24 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
                                 speaker_entity_id=identity if kind == "speech" else None,
                                 status="contextual" if kind == "speech" else "non_speech")
                     stats["assigned"] += int(kind == "speech")
+                if router:
+                    plan = router.plan(batch, targets)
+                    if plan:
+                        repair_payload = router.payload(batch, plan, payload["scene_text"])
+                        router.audit["repair_calls"] += 1
+                        repaired = cached_infer(repair_provider, cache, repair_payload)
+                        for key, replacement in router.replacements(repaired, plan, threshold).items():
+                            turn = targets[key]
+                            turn.update(kind="speech", evidence=[], confidence=replacement["confidence"],
+                                        speaker_entity_id=replacement["identity"], status="contextual",
+                                        review_issue="repaired_by_hybrid_continuity",
+                                        hybrid_repair=replacement["raw"])
+                            stats["assigned"] += 1
             except Exception as exc:
                 stats["errors"].append({"scene_id": batch["scene_id"], "error": str(exc)})
+            finally:
+                if router:
+                    router.observe(batch, literal_before)
     if turn_consistency:
         # A coerencia precisa enxergar os mesmos aliases que a projecao final.
         # Sem isto, um vocativo por sobrenome pode apontar para a entidade curta
@@ -254,5 +287,9 @@ def review_compact(model, provider, cache, paragraph_range=None, *, threshold=.9
         stats["cast_rejections"] = context.audit["cast_rejections"]
         stats["errors"].extend({**error, "phase": "scene_cast"} for error in context.audit["errors"])
         stats["total_llm_calls"] = stats["batches_reviewed"] + stats["cast_calls"] + stats["repair_calls"]
+    if router:
+        result["hybrid_router"] = router.finish()
+        stats["hybrid_router"] = result["hybrid_router"]
+        stats["total_llm_calls"] = stats["batches_reviewed"] + result["hybrid_router"]["repair_calls"]
     result["review"] = stats
     return result

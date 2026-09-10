@@ -183,6 +183,7 @@ class Pipeline:
                     source_subjects=bool(options.get("source_subjects", False)),
                     scene_max_chars=int(options.get("scene_context_characters", 36000)),
                     scene_repair=bool(options.get("scene_repair", True)),
+                    turn_consistency=bool(options.get("turn_consistency", True)),
                     progress=lambda index, total: LOG.info(
                         "[BOOK] %s | atribuição textual %d/%d", path.name, index, total))
                 project_to_audio(reviewed, dialogues)

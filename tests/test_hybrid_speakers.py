@@ -1,0 +1,93 @@
+from audiobook_voice_enhancer.book_speakers import build_book, review_book
+from audiobook_voice_enhancer.cache import Cache
+from audiobook_voice_enhancer.llm import LLMProvider
+
+
+class Provider(LLMProvider):
+    model = "hybrid-fixture"
+
+    def __init__(self, repair_confidence=.97):
+        self.calls = []
+        self.repair_confidence = repair_confidence
+
+    def infer(self, payload):
+        self.calls.append(payload)
+        if payload.get("task") == "repair_unresolved_continuation":
+            return {"entities": [], "assignments": [
+                {"id": turn["id"], "speaker": "R0", "kind": "speech",
+                 "confidence": self.repair_confidence}
+                for turn in payload["turns"]
+            ]}
+        ids = {entity["name"]: entity["id"] for entity in payload["entities"]}
+        if payload["turns"][0]["fragments"][0]["paragraph"] < 2:
+            speakers = [ids["Iara"], ids["Nilo"]]
+        else:
+            speakers = [None] * len(payload["turns"])
+        return {"entities": [], "assignments": [
+            {"id": turn["id"], "speaker": speaker,
+             "kind": "speech" if speaker else "unknown", "confidence": .98}
+            for turn, speaker in zip(payload["turns"], speakers)
+        ]}
+
+
+def model_with_split_scene():
+    return build_book([
+        "— Primeiro — disse Iara.",
+        "— Segundo — disse Nilo.",
+        "— Terceiro.",
+        "— Quarto.",
+    ])
+
+
+def test_hybrid_repairs_only_unresolved_continuation_window(tmp_path):
+    provider = Provider()
+    result = review_book(model_with_split_scene(), provider, Cache(tmp_path),
+                         protocol="hybrid", max_turns=2)
+
+    repair = [call for call in provider.calls
+              if call.get("task") == "repair_unresolved_continuation"]
+    assert len(provider.calls) == 3
+    assert len(repair) == 1
+    assert {row["name"] for row in repair[0]["established_speakers"]} == {"Iara", "Nilo"}
+    assert len(repair[0]["literal_anchors"]) == 2
+    assert result["turns"][2]["status"] == "contextual"
+    assert result["turns"][2]["review_issue"] == "repaired_by_hybrid_continuity"
+    assert result["hybrid_router"]["accepted_repairs"] == 2
+    assert result["review"]["total_llm_calls"] == 3
+
+
+def test_hybrid_rejects_repair_below_stricter_floor(tmp_path):
+    provider = Provider(repair_confidence=.94)
+    result = review_book(model_with_split_scene(), provider, Cache(tmp_path),
+                         protocol="hybrid", max_turns=2, threshold=.90)
+
+    assert result["turns"][2]["speaker_entity_id"] is None
+    assert result["hybrid_router"]["accepted_repairs"] == 0
+    assert result["hybrid_router"]["rejected_repairs"] == 2
+
+
+def test_compact_baseline_does_not_invoke_hybrid_router(tmp_path):
+    provider = Provider()
+    result = review_book(model_with_split_scene(), provider, Cache(tmp_path),
+                         protocol="compact", max_turns=2)
+
+    assert len(provider.calls) == 2
+    assert "hybrid_router" not in result
+
+
+def test_hybrid_never_overwrites_literal_anchor_on_model_disagreement(tmp_path):
+    model = build_book(["— Primeiro — disse Iara."])
+
+    class Disagreeing(LLMProvider):
+        model = "fixture"
+
+        def infer(self, payload):
+            return {"entities": [], "assignments": [
+                {"id": payload["turns"][0]["id"], "speaker": None,
+                 "kind": "unknown", "confidence": .99}
+            ]}
+
+    result = review_book(model, Disagreeing(), Cache(tmp_path), protocol="hybrid")
+    turn = result["turns"][0]
+    assert turn["status"] == "explicit"
+    assert turn["speaker_entity_id"] is not None

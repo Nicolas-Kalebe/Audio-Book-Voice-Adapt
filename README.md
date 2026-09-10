@@ -6,21 +6,35 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-## Estado atual — 8 de setembro de 2026
+## Estado atual — 9 de setembro de 2026
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
 comando, e o que mandar de volta. O que mudou e por quê fica em
 [docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
 
-| | Onde está | Meta |
+| Indicador | Faixa confirmada em P1–P3 | Meta |
 |---|---:|---:|
-| Precisão sobre falas dubláveis | **93,17%** | 95% |
-| Cobertura sobre falas dubláveis | **96,24%** | 95% |
-| Detecção das falas | 253/255 (99,2%) | resolvido |
+| Precisão sobre falas dubláveis | **90,68%–95,53%** | 95% |
+| Cobertura sobre falas dubláveis | **88,86%–98,12%** | 95% |
 
-Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
-com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem
-exatamente a simulação offline.
+| Desenvolvimento | Precisão | Cobertura |
+|---|---:|---:|
+| Parte 01, baseline `compact` | **94,74%** | **98,12%** |
+| Parte 02, baseline `compact` | **95,53%** | **97,81%** |
+| Parte 03, baseline `compact` | **90,68%** | **88,86%** |
+
+As três partes são desenvolvimento: seus erros já foram consultados. O melhor
+resultado confirmado não é um único número agregado; a Parte 03 mostra que o
+motor atual ainda não generaliza entre regimes de cena.
+
+O protocolo experimental `hybrid` agora preserva o `compact` como primeira
+leitura, nunca derruba uma âncora literal e chama uma segunda leitura curta
+somente para lacunas em continuações de cena com 2–4 falantes já estabelecidos.
+Ele não substitui acertos do baseline e não consulta o gabarito durante a
+execução. Ainda está **sem medição Qwen** e, portanto, não é o padrão. O comparador
+`scripts/compare_speaker_runs.py` registra por turno onde cada motor salva,
+estraga, abstém ou apenas troca um erro por outro. Projeto e pré-registro:
+[docs/MEGAZORD-HIBRIDO.md](docs/MEGAZORD-HIBRIDO.md).
 
 A primeira rodada realmente externa, na Parte 02, ficou em **91,53% de precisão
 e 96,72% de cobertura**: cobertura aprovada, precisão reprovada. Depois de ler

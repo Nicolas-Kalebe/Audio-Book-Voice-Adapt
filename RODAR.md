@@ -6,6 +6,46 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 9 de setembro de 2026 — Megazord conservador e auditoria por turno
+
+Três rodadas com memória local à cena foram comparadas ao baseline, turno por
+turno. A memória completa não pode virar padrão: salvou 32 e estragou 8 acertos
+na Parte 03, mas teve saldo **-7** na Parte 01 e **-5** na Parte 02. Isso confirma
+que escolher um motor inteiro por média mistura ganhos e regressões.
+
+Entrou `--protocol hybrid` (`hybrid-speaker-router-v1`):
+
+- primeira leitura idêntica ao `compact-speakers-v1`;
+- âncora literal nunca é anulada por discordância do modelo;
+- segunda leitura só para turnos que continuaram sem falante;
+- gate observável: não é a primeira janela da cena, há 2–4 identidades
+  estabelecidas e uma identidade baseada apenas no modelo precisa aparecer ao
+  menos duas vezes no histórico recente;
+- a reparação não cria personagem, não troca uma atribuição já aceita e exige
+  confiança declarada ≥0,95;
+- histórico limitado a 12 decisões da mesma cena; nenhum nome ou regra do livro
+  de desenvolvimento foi codificado.
+
+Também entrou `scripts/compare_speaker_runs.py`. Ele produz CSV, JSON e Markdown
+com `candidate_saves`, `candidate_harms`, preenchimento errado, abstenção segura
+e saldo por cena. Os relatórios locais das três comparações ficam em
+`output/hybrid-speaker-worktree/output/differential-p0X/` e são ignorados pelo
+Git. Detalhes em `docs/MEGAZORD-HIBRIDO.md`.
+
+**Pré-registro da próxima campanha Qwen (todas as partes são desenvolvimento):**
+
+| Condição | Aceitação da v1 híbrida |
+|---|---|
+| Segurança | Vozes erradas não aumentam em nenhuma das três partes. |
+| Ganho alvo | Parte 03 recupera ao menos 10 das 16 lacunas da cena 27. |
+| Cobertura | Parte 03 sobe pelo menos 3 pontos percentuais. |
+| Regressão | P1 e P2 mantêm precisão a no máximo 0,5 ponto do baseline. |
+| Custo | Registrar chamadas extras e tempo; reparação não pode rodar em toda janela. |
+
+Antes da campanha, execute `scripts/gold_ceiling.py`. Use saída inédita e
+`--protocol hybrid`; depois compare com o baseline por meio do novo script. A
+meta final continua sendo **95% de precisão e 95% de cobertura**, simultaneamente.
+
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 
 **Resultado do pré-registro:** reprovado. A primeira execução fria, feita após o

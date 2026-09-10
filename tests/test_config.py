@@ -39,3 +39,15 @@ def test_convert_reference_must_exist_for_processing(tmp_path):
     path.write_text(json.dumps({"Vesemir": {"mode": "convert", "voice_reference": "missing.wav"}}), encoding="utf-8")
     with pytest.raises(ConfigurationError, match="was not found"):
         load_characters(path, project_root=tmp_path, require_references=True)
+
+
+def test_hybrid_book_protocol_is_accepted(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "speaker_confidence_threshold: 0.9\n"
+        "alignment_confidence_threshold: 0.8\n"
+        "voice_conversion:\n  worker_timeout_seconds: 600\n"
+        "book_first:\n  enabled: true\n  protocol: hybrid\n",
+        encoding="utf-8",
+    )
+    assert load_config(path)["book_first"]["protocol"] == "hybrid"
