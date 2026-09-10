@@ -70,15 +70,29 @@ Branch `feat/scene-local-memory`. Base direta: `main` em `1afb873`.
 - Se uma chamada falha, suas hipóteses não entram na memória; âncoras literais ainda
   podem servir à janela seguinte.
 
-## Pré-registro do próximo teste
+Campanha Qwen fria completa (zero falhas):
 
-Rodar P3 primeiro com cache de resposta vazio. Exigir simultaneamente:
+| Parte | Referência | Cena-local | Tempo novo |
+|---|---:|---:|---:|
+| P1 | 94,74% / 98,12% | 95,02% / 94,37% | 296,812 s |
+| P2 | 95,53% / 97,81% | 93,26% / 97,27% | 234,000 s |
+| P3 | 90,68% / 88,86% | 94,44% / 92,57% | 369,188 s |
 
-- precisão ≥90,68%;
-- cobertura >88,86%;
-- zero lote perdido;
-- tempo ≤482,011 s;
-- nenhuma cena com 20+ turnos perdendo mais de 5 acertos contra a referência.
+- P3: 306 certas, 18 erradas e 13 abstenções/350; todas as portas P3 passaram.
+  Cenas 26 e 28 preservaram 27/29 e 42/43; a cena 27 subiu de 21/41 para 37/41.
+- P1: 191 certas, 10 erradas e 10 abstenções/213. A precisão subiu, mas a cobertura
+  caiu abaixo de 95%.
+- P2: 166 certas, 12 erradas e 4 abstenções/183. A precisão caiu 2,27 pontos e
+  viola a tolerância de um ponto percentual.
+- Conclusão: não promover. A memória local é uma pista útil para P3, mas não
+  generaliza de modo seguro para P2. Investigar isolamento de hipóteses e cenas
+  curtas/multi-personagem antes de outra alteração de motor.
 
-Somente se P3 passar, executar P1/P2. A campanha não demonstra generalização; uma
-parte futura, congelada antes de qualquer inferência, ainda será necessária.
+## Próxima investigação sugerida
+
+O próximo candidato deve partir da `main`, não deste branch. Antes de qualquer
+nova campanha, analisar as diferenças P2 por cena e por decisão: quais hipóteses
+do histórico foram seguidas, se o participante estava presente no texto local e se
+a sequência original já era suficiente. Não tratar a melhora P3 como prova de
+generalização. Uma parte futura, congelada antes de qualquer inferência, ainda será
+necessária para qualquer alegação externa.

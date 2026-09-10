@@ -13,13 +13,18 @@ da `main`. Ele mantém IDs estáveis somente dentro de cada cena, sempre começa
 em E0/T0, preserva âncoras literais e carrega no máximo seis hipóteses recentes.
 Hipóteses antigas deixam também de manter personagens no catálogo. O texto da
 janela, o schema e a quantidade de chamadas ao Qwen continuam iguais ao baseline.
-A suíte local passa; a campanha Qwen ainda não foi executada.
+A suíte local passa, mas a campanha Qwen o **reprovou para promoção**. P3 melhorou
+para 94,44% / 92,57%, porém P1 ficou em 95,02% / 94,37% e P2 caiu para 93,26% /
+97,27%. A queda de 2,27 pontos de precisão em P2 viola a porta de regressão; P1
+também fica abaixo da cobertura final de 95%. O branch permanece como evidência,
+sem alteração da `main`.
 
 As duas tentativas anteriores estão preservadas, documentadas e reprovadas. Contexto
 ampliado: 96,23% / 68,29% em P3 e quatro chamadas perdidas. Memória com IDs globais:
 91,30% / 85,43%, sem falhas, mas com queda de 27/29 para 5/29 na cena 26. O segundo
 experimento confirmou que memória ajuda continuidade (cena 27: 21/41 para 36/41),
-mas IDs globais e catálogo acumulativo alteram demais a decisão do Qwen. Veja
+mas IDs globais e catálogo acumulativo alteram demais a decisão do Qwen. A versão
+local confirmou o ganho em P3, mas revelou regressão em P2. Veja
 [docs/EXPERIMENTOS-MEMORIA-COMPACTA.md](docs/EXPERIMENTOS-MEMORIA-COMPACTA.md).
 
 **Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um

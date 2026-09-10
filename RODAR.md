@@ -6,7 +6,7 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
-### 9 de setembro de 2026 — memória estritamente local à cena
+### 9 de setembro de 2026 — memória estritamente local à cena, reprovada
 
 Branch `feat/scene-local-memory`, criado diretamente da `main`. Esta é uma redução
 do experimento de memória, não outra arquitetura: o compacto mantém a janela, o
@@ -20,14 +20,23 @@ expiração de hipótese, ausência de expansão do texto e preservação de ân
 após timeout. A auditoria registra tamanho máximo do catálogo e dos IDs por cena.
 O prompt também explicita que `entities` recebe somente novas pessoas N; identidades
 E existentes aparecem apenas em `assignments`. Isso evita a repetição extensa de
-entidades observada no experimento anterior. Não há números Qwen para este candidato.
+entidades observada no experimento anterior.
 
-Próximo turno de testes: P3 primeiro, saída nova, 19 misses obrigatórios. A porta
-pré-registrada exige precisão ≥90,68%, cobertura >88,86%, zero lote perdido e
-tempo ≤482,011 s. Além disso, nenhuma cena de 20 ou mais turnos pode perder mais
-de cinco acertos contra a referência. Se passar, rodar P1/P2 e aceitar no máximo
-um ponto percentual de queda de precisão sobre 94,74%/95,53%. A meta final continua
-95% / 95% sobre dubláveis. Todas as partes agora são regressão de desenvolvimento.
+Campanha completa, todos os caches de resposta frios e sem falhas de chamada:
+
+| Parte | Referência | Cena-local | Resultado |
+|---|---:|---:|---|
+| P1 | 94,74% / 98,12% | 95,02% / 94,37% | precisão passou; cobertura final não |
+| P2 | 95,53% / 97,81% | 93,26% / 97,27% | **reprovada: -2,27 pp de precisão** |
+| P3 | 90,68% / 88,86% | 94,44% / 92,57% | ganhou +3,76 pp / +3,71 pp |
+
+Tempos P1/P2/P3: 296,812 s / 234,000 s / 369,188 s; referências: 260,578 s /
+195,141 s / 385,609 s. P3 passou todas as portas locais, inclusive nenhuma cena
+grande perdeu mais de cinco acertos. Isso confirma que continuidade local resolve
+parte do problema P3, mas não é uma mudança generalizável: P2 já usada no
+desenvolvimento revelou regressão de precisão. Este candidato **não deve ser
+promovido à main**. O próximo desenho deve preservar o baseline e isolar por que
+as hipóteses em janelas anteriores prejudicam cenas curtas/multi-personagem em P2.
 
 Relatório para revisão externa: [docs/EXPERIMENTOS-MEMORIA-COMPACTA.md](docs/EXPERIMENTOS-MEMORIA-COMPACTA.md).
 
