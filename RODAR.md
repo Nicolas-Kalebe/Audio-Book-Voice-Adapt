@@ -6,6 +6,52 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — a fila de auditoria dos erros (`scripts/auditar_erros.py`)
+
+Ferramenta de diagnóstico. Não toca no motor, não precisa de campanha nem de GPU:
+roda sobre um `analysis.json` que já existe.
+
+**O que faltava.** Os relatórios dizem QUANTOS erros existem. Nenhum dizia QUAIS, com
+o que havia escrito em volta — e sem isso a pergunta que decide tudo nunca foi feita
+turno a turno: **o motor errou, ou o rótulo do gabarito está errado?** O gabarito da
+P3 declara `annotation_review: assistant_authored_not_independently_audited`, e os 28
+erros dela nunca foram conferidos por uma pessoa contra o livro.
+
+Isso importa para a conta. São 350 dubláveis, 327 atribuídos, 299 corretos; a meta
+pede 12 erros convertidos. Se alguns dos 28 forem rótulo errado, a distância encolhe
+**sem tocar no motor** — e nenhum mecanismo novo precisa ser inventado para isso.
+
+**O que ela produz**, em `auditoria-erros.md`, `.json` e `.csv`:
+
+- erros e abstenções **separados** — trocar a voz e ficar sem voz são desfechos
+  diferentes, e só um é defeito;
+- resumo por cena, por regra que escreveu a voz (`sem_regra` = primeira leitura) e as
+  trocas mais frequentes (esperado → saiu);
+- um bloco por erro com os **turnos vizinhos**, cada um com o falante que o motor
+  atribuiu e o texto. É o que permite julgar sem abrir o EPUB na maioria dos casos;
+- uma linha de veredito para preencher: motor errou · gabarito errado · em dúvida.
+
+Figurante fica fora da fila, pela mesma razão que fica fora da métrica (decisão do
+proprietário, 08/09/2026): não decide o produto, não ocupa tempo de quem audita.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+& .venv\Scripts\python.exe scripts\auditar_erros.py `
+  --gold benchmarks\part03_gold.yaml `
+  --analysis output\hybrid-p03-v11-20260910\analysis.json `
+  --output output\auditoria-p03
+```
+
+**Ordem sugerida antes da próxima campanha**, e as duas primeiras não precisam de
+ninguém escrevendo código:
+
+1. rodar o diferencial da P3 com o cruzamento por `consistency_rule` — decide entre
+   apertar regra existente e escrever mecanismo novo;
+2. rodar esta auditoria e responder o veredito dos 28;
+3. anotar um holdout novo e congelá-lo. P1, P2 e P3 são todas desenvolvimento, e cada
+   iteração é decidida contra as mesmas três partes. Sem uma parte nunca vista,
+   nenhum resultado sustenta a frase "funciona em qualquer livro".
+
 ### 10 de setembro de 2026 — o código da v1.2 sai do repositório
 
 O protocolo `hybrid-revisao` foi **removido**: constante de protocolos, ligação no
