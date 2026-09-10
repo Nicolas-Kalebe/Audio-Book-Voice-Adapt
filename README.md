@@ -33,9 +33,12 @@ somente para lacunas em continuações de cena com 2–4 falantes já estabeleci
 Ele não substitui acertos do baseline e não consulta o gabarito durante a
 execução. A v1 foi medida e **reprovou**: P1 ficou em 93,30% × 98,12% e P3 em
 91,03% × 89,14%. Duas respostas de reparação foram descartadas porque o Qwen
-ecoou entidades apesar da instrução; a v1.1 agora ignora essas entidades sem
-permitir seus IDs, restringe o schema aos falantes estabelecidos e limita a
-saída da reparação. A v1.1 ainda não foi medida e não é o padrão. O comparador
+ecoou entidades apesar da instrução; a v1.1 ignora essas entidades sem permitir
+seus IDs, restringe o schema aos falantes estabelecidos e limita a saída da
+reparação. Medida em 10/09, a v1.1 obteve P1 **95,24% × 98,59%**, P2
+**95,53% × 97,81%** e P3 **91,44% × 93,43%**. Ela recuperou 16 lacunas da cena
+27 da P3, sem elevar vozes erradas, mas a P3 ainda reprova a meta de 95% × 95%; o
+protocolo continua experimental e não é o padrão. O comparador
 `scripts/compare_speaker_runs.py` registra por turno onde cada motor salva,
 estraga, abstém ou apenas troca um erro por outro. Projeto, resultados e pré-registro:
 [docs/MEGAZORD-HIBRIDO.md](docs/MEGAZORD-HIBRIDO.md).

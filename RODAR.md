@@ -6,6 +6,38 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 10 de setembro de 2026 — campanha v1.1: reparação validada, meta final ainda reprovada
+
+Saídas inéditas, cache Qwen zerado e `scripts/gold_ceiling.py` executado antes da
+campanha. A v1.1 eliminou os erros de reparação e passou todos os critérios
+operacionais do pré-registro anterior:
+
+| Desenvolvimento | Precisão | Cobertura | Corretos | Errados | Abstenções | Tempo | Chamadas |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Parte 01 | **95,24%** | **98,59%** | 200 | 10 | 1 | 281,8 s | 15 |
+| Parte 02 | **95,53%** | **97,81%** | 171 | 8 | 3 | 196,4 s | 12 |
+| Parte 03 | 91,44% | 93,43% | 299 | 28 | 10 | 372,5 s | 22 |
+
+Na P3, a v1.1 recuperou **16/16** lacunas da cena 27 e teve saldo de **+17**
+acertos contra o baseline (19 salvos, 2 estragados). A cobertura avançou 4,57
+pontos; a precisão, 0,76. Não houve erro de reparação, e o tempo caiu de 642,7 s
+na v1 para 372,5 s, abaixo dos 385,6 s do baseline registrado. Ainda assim, P3
+está abaixo dos 95% exigidos nos dois lados: o motor continua sem validação para
+uso geral.
+
+P1 também ultrapassou 95×95 e P2 repetiu exatamente o baseline porque nenhum
+turno dela foi elegível à reparação. Isto confirma que o gate não força memória
+onde ela não tem motivo estrutural para atuar; não prova generalização.
+
+Arquivos locais: `output/hybrid-p01-v11-20260910/`,
+`output/hybrid-p02-v11-20260910/`, `output/hybrid-p03-v11-20260910/` e os
+respectivos diferenciais em `output/hybrid-speaker-worktree/output/`.
+
+**Próxima decisão de implementação:** atacar as 28 vozes erradas ainda presentes
+na P3 sem mexer na reparação de lacunas já aprovada. Qualquer proposta deve usar
+o CSV diferencial por turno e preservar P1/P2; não iniciar outra campanha antes
+de um novo pré-registro.
+
 ### 10 de setembro de 2026 — primeira medição híbrida e correção v1.1
 
 A v1 foi medida com cache Qwen novo e reprovou o pré-registro:
@@ -34,7 +66,7 @@ a reparação da cena longa que motivou o híbrido.
   de 4096; o contexto de entrada não foi reduzido;
 - testes cobrem entidade intrusa, ID intruso, schema fechado e orçamento.
 
-**Pré-registro da v1.1:** repetir primeiro a P3. A correção só avança se não houver
+**Pré-registro consumido pela v1.1:** repetir primeiro a P3. A correção só avança se não houver
 erro de reparação, recuperar pelo menos 10 das 16 lacunas da cena 27, não aumentar
 vozes erradas e reduzir o tempo da P3 frente aos 642,7 s da v1. Depois disso P1
 mede regressão; P2 continua dispensável até esses critérios passarem.

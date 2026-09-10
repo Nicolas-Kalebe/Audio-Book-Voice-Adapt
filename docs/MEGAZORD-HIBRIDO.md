@@ -88,7 +88,7 @@ P3 isso bloqueou a continuação que concentrava as lacunas. A execução ainda
 mostrou custo alto: três chamadas extras acrescentaram trabalho suficiente para
 levar a atribuição textual a 642,7 segundos.
 
-## Correção v1.1
+## Correção v1.1 e campanha medida
 
 O schema da reparação agora é gerado por janela e permite somente:
 
@@ -102,13 +102,24 @@ ignorar a lista não abre caminho para criar personagens. O limite de geração 
 reparação caiu de 4096 para 72 tokens por alvo, limitado ao intervalo 256–2048.
 O texto usado para decidir não foi encurtado.
 
+| Desenvolvimento | Precisão | Cobertura | Tempo | Reparações aceitas |
+|---|---:|---:|---:|---:|
+| Parte 01 | 95,24% | 98,59% | 281,8 s | 1/1 |
+| Parte 02 | 95,53% | 97,81% | 196,4 s | 0/0 |
+| Parte 03 | 91,44% | 93,43% | 372,5 s | 25/28 |
+
+Não houve erro de reparação. A P3 recebeu três chamadas de continuidade, recuperou
+16 das 16 lacunas antes observadas na cena 27 e reduziu o tempo de 642,7 para
+372,5 segundos. O saldo diferencial contra o baseline P3 foi +17 acertos (19
+salvos, 2 estragados). A P1 não sofreu dano no diferencial (+2); a P2 não acionou
+o roteador e repetiu o baseline. A meta final, porém, segue reprovada pela P3.
+
 ## Limites e próxima decisão
 
 A v1.1 não tenta consertar atribuições erradas de alta confiança. A memória completa
 mostrou que isso poderia recuperar vários turnos da Parte 03, mas também destruir
-acertos em P1/P2. Só uma campanha Qwen nova dirá se o contrato corrigido recupera
-as lacunas da cena 27 e reduz o custo conforme o pré-registro de `RODAR.md`. Se
-passar, o próximo passo é estudar discordâncias
+acertos em P1/P2. A correção de lacunas passou; o próximo passo é estudar as
+atribuições erradas de alta confiança da P3 por meio das discordâncias
 entre as duas leituras em modo sombra; não é autorizar automaticamente a segunda.
 
 P1, P2 e P3 são desenvolvimento. Um trecho novo, congelado e auditado antes da
