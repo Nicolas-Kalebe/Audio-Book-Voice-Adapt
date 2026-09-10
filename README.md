@@ -8,6 +8,14 @@ Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_U
 
 ## Estado atual — 10 de setembro de 2026
 
+**A Parte 04 agora é o holdout congelado e ainda não medido.** O gabarito foi
+escrito a partir do EPUB, sem consultar nenhuma atribuição do motor nessa parte:
+P1128–1488, 279 falas, das quais 250 são dubláveis e 29 pertencem a figurantes
+anônimos de uma única cena. O teto é 100% e a meta 95% × 95% cabe com folga de
+12 abstenções e 11 vozes erradas. Por ser outra parte do mesmo livro, este teste
+mede transferência para texto e cenas novos, não generalização entre livros.
+O primeiro resultado consultado consumirá o holdout.
+
 Auditoria textual dos 28 casos divergentes de P3: **25 erros do motor confirmados
 pelo parecer, 3 em dúvida, nenhuma correção de gabarito demonstrada**. Revisão por
 assistente com consulta ao EPUB; não independente. Pontuação da v1.1 permanece
@@ -33,7 +41,7 @@ comando, e o que mandar de volta. O que mudou e por quê fica em
 | Parte 02, baseline `compact` | **95,53%** | **97,81%** |
 | Parte 03, baseline `compact` | **90,68%** | **88,86%** |
 
-As três partes são desenvolvimento: seus erros já foram consultados. O melhor
+As três partes já medidas são desenvolvimento: seus erros foram consultados. O melhor
 resultado confirmado não é um único número agregado; a Parte 03 mostra que o
 motor atual ainda não generaliza entre regimes de cena.
 

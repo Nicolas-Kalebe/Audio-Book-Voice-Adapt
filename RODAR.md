@@ -6,6 +6,45 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
+### PARTE 04 CONGELADA — próxima rodada fria
+
+`benchmarks/part04_gold.yaml` foi criado lendo somente o EPUB, antes de qualquer
+resultado do motor nessa parte. Escopo P1128–1488: 279 falas, 250 dubláveis e 29
+de figurantes anônimos de uma cena. O teto de localização é 250/250; a meta cabe
+com folga de 12 abstenções e 11 vozes erradas. É um holdout do mesmo livro, não
+uma validação entre livros.
+
+O **primeiro** protocolo a ser medido é o candidato atual `hybrid` v1.1. A pasta
+de saída deve ser inédita e o cache de respostas Qwen deve nascer vazio:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+$env:PYTHONIOENCODING = 'utf-8'
+& ..\..\.venv\Scripts\python.exe scripts\gold_ceiling.py `
+  --gold benchmarks\part04_gold.yaml
+& ..\..\.venv\Scripts\python.exe scripts\benchmark_book_speakers.py `
+  --book "..\..\books\O Sangue dos Elfos.epub" `
+  --transcription ..\..\cache\transcription\c2b047f35f0236e0c66f1de0d267514ee7ebc44bd806ab9eba33eb4de7724c27.json `
+  --alignment ..\..\cache\alignment\301c8f7367c763d121b900dbe058ed581d2a1f536b248e31ed03d8bd26429a0f.json `
+  --config config\config.yaml `
+  --gold benchmarks\part04_gold.yaml `
+  --protocol hybrid `
+  --output output\hybrid-p04-holdout-fria-20260910
+```
+
+Faixas registradas **antes da execução**:
+
+| Resultado P4 | Decisão |
+|---|---|
+| precisão ≥95% e cobertura ≥95% | v1.1 passa no holdout do mesmo livro; ainda requer outro livro. |
+| precisão 90–95% e cobertura ≥95% | ganho parcial; holdout reprovado na precisão. |
+| precisão ≥95% e cobertura 90–95% | conservador demais; holdout reprovado na cobertura. |
+| qualquer métrica <90% | falha importante de transferência. |
+
+Depois da execução, mudar no gabarito `status` para consumido e
+`independent_holdout` para `false`, registrar os números aqui e no README no mesmo
+commit. Não ajustar rótulos olhando a saída; dúvidas vão para auditoria separada.
+
 **Retorno da auditoria textual:** itens 1 e 2 executados. Dos 28 casos, a leitura do
 EPUB produziu 25 pareceres de erro do motor, nenhuma correção demonstrada do gabarito
 e 3 dúvidas (704-0, 723-0, 725-0). Revisão por assistente, não humana independente.
@@ -97,6 +136,16 @@ Não reabrir o alvo "fora do elenco": foi medido, reprovado e removido; a causa 
 estrutural, não de limiar.
 
 ## O que mudou, do mais novo para o mais velho
+
+### 10 de setembro de 2026 — gabarito da Parte 04 congelado
+
+`benchmarks/part04_gold.yaml`: P1128–1488, criado contra o EPUB sem executar nem
+consultar atribuições do motor da P4. São 279 falas, 250 dubláveis e 29 de
+figurantes; uma citação narrativa foi separada. Cinco falas da conversa coletiva
+P1463–1469 ficaram ambíguas e aceitam qualquer participante textualmente presente,
+em vez de receber nome por alternância. O teste do teto confirmou 100% de
+localização possível e meta 95% × 95% alcançável. A primeira rodada fria está
+pré-registrada acima e deve usar `hybrid` v1.1.
 
 ### 10 de setembro de 2026 — a fila de auditoria dos erros (`scripts/auditar_erros.py`)
 

@@ -20,7 +20,7 @@ from gold_ceiling import ceiling  # noqa: E402
 BENCH = Path(__file__).resolve().parents[1] / "benchmarks"
 GOLD = BENCH / "part01_gold.yaml"
 GABARITOS = [BENCH / "part01_gold.yaml", BENCH / "part02_gold.yaml",
-             BENCH / "part03_gold.yaml"]
+             BENCH / "part03_gold.yaml", BENCH / "part04_gold.yaml"]
 
 
 def test_the_ninety_five_percent_target_still_fits_in_the_gold():
@@ -61,7 +61,7 @@ def test_identity_key_keeps_different_descriptions_apart(first, second):
 
 @pytest.mark.parametrize("caminho", GABARITOS, ids=lambda p: p.stem)
 def test_todo_gabarito_carrega_e_cabe_na_meta(caminho):
-    """Vale para os dois: um gabarito so serve se a meta couber dentro dele."""
+    """Todo gabarito so serve se a meta couber dentro dele."""
     resultado = ceiling(load_gold(caminho))
     dublavel, detectados = resultado["dublavel_turns"], resultado["dublavel_detected"]
     assert dublavel > 0
@@ -86,3 +86,9 @@ def test_a_parte_03_esta_marcada_como_holdout_consumido():
     gold = load_gold(BENCH / "part03_gold.yaml")
     assert gold["evaluation_protocol"]["independent_holdout"] is False
     assert gold["evaluation_protocol"]["status"] == "holdout_consumido_em_2026-09-08"
+
+
+def test_a_parte_04_esta_congelada_e_ainda_nao_foi_medida():
+    gold = load_gold(BENCH / "part04_gold.yaml")
+    assert gold["evaluation_protocol"]["independent_holdout"] is True
+    assert gold["evaluation_protocol"]["status"] == "frozen_unmeasured_holdout"
