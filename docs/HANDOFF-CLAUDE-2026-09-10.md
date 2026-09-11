@@ -108,3 +108,29 @@ genérica com uma identidade global. Não implementar isso sem primeiro medir a
 proporção dos erros que ela realmente explica. Não reintroduzir memória de cena
 completa ou regras baseadas em padrões do gabarito: experimentos anteriores já
 regrediram fora da região que os inspirou.
+
+## Atualização de 11/09: pré-auditoria dos 46 erros do `speaker-only` na P4
+
+Foi executado `scripts/auditar_erros.py` sobre a saída fria
+`contracts-p04-20260910-201844-speaker-only`, sem chamar LLM, mudar o motor ou
+alterar o gabarito. O relatório local completo permanece ignorado por Git em
+`output/auditoria-p04-speaker-only/auditoria-erros.md`.
+
+| sinal observável | erros (de 46) |
+|---|---:|
+| sem verbo de fala no turno | 44 |
+| esperado não aparece por perto | 22 |
+| entidade citada no próprio turno | 16 |
+| predito não aparece por perto | 6 |
+| reescrita de coerência | 5 |
+| âncora literal divergente | 2 |
+| contexto local pobre | 1 |
+
+Os sinais podem coexistir; não são vereditos. A evidência não sustenta tratar
+vocativos/menções como causa dominante: eles aparecem em 16 casos, enquanto 22
+casos não têm o falante correto no contexto local. Além disso, 41 erros vieram
+do primeiro passe; só 5 foram escritos por `turn_consistency` (4 pelo sanduíche,
+1 pela resposta ao vocativo). A próxima etapa é revisar cada bloco como
+**motor errou**, **gabarito errado** ou **em dúvida**, e só então escolher uma
+mudança observável em runtime. Em particular, não implementar a camada de menções
+como resposta automática a esta contagem.
