@@ -6,7 +6,37 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
-### AGORA — classificar os 46 erros do `speaker-only` na P4
+### AGORA — rodar a auditoria de novo, com a taxa-base
+
+A pré-auditoria de 11/09 rodou (resultado no `HANDOFF-CLAUDE-2026-09-10.md`), mas a
+ferramenta tinha um defeito de leitura: contava o sinal **só nos erros**.
+
+`sem verbo de fala: 44 de 46` parece decisivo e pode não significar nada — se a
+maioria das falas do livro também não tem verbo de narração, o sinal descreve o
+livro, não o defeito. O mesmo vale para os outros: `esperado não aparece por perto`
+em 22 casos só aponta alguma coisa se for **raro** entre os acertos.
+
+A ferramenta agora conta o mesmo sinal nos turnos **certos** e mostra as duas
+colunas lado a lado, com um veredito por linha (**SIM** quando o sinal é ao menos
+duas vezes mais frequente no erro; *não — é o normal do livro* quando empata).
+
+Rodar de novo, mesmo comando de antes:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+& .venv\Scripts\python.exe scripts\auditar_erros.py `
+  --gold benchmarks\part04_gold.yaml `
+  --analysis output\contracts-p04-20260910-201844-speaker-only\analysis.json `
+  --output output\auditoria-p04-speaker-only
+```
+
+**O que volta:** a tabela com as duas colunas. Só os sinais marcados **SIM**
+merecem virar hipótese de mudança — e é bem possível que a lista encurte muito, ou
+fique vazia. Se ficar vazia, a conclusão é que nenhum sinal fácil explica os erros,
+e o caminho passa a ser a leitura humana bloco a bloco (motor errou · gabarito
+errado · em dúvida), sem atalho.
+
+### Contexto — a primeira leitura dos 46 erros (sem taxa-base)
 
 A campanha de contratos já rodou (`docs/HANDOFF-CLAUDE-2026-09-10.md`), e o próximo
 passo que ela mesma define é classificar os erros do `speaker-only` por evidência

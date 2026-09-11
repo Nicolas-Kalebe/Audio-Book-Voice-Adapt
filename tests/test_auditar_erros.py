@@ -155,3 +155,37 @@ def test_markdown_traz_a_tabela_que_decide_o_proximo_passo():
     assert "Sinais observáveis nos erros" in texto
     assert "reescrita_de_coerencia" in texto
     assert "Pré-classificação, não veredito" in texto
+
+
+# ── TAXA-BASE ────────────────────────────────────────────────────────────────
+#
+# Contagem de sinal no erro, sozinha, nao aponta causa. Na P4 o sinal
+# "sem verbo de fala" apareceu em 44 dos 46 erros — parece decisivo, e e
+# irrelevante se a maioria das falas do livro tambem nao tem verbo. So vale
+# investigar o sinal que se CONCENTRA no erro.
+
+
+def test_conta_o_mesmo_sinal_nos_turnos_certos():
+    relatorio = coletar(GOLD, analysis(["Ana", "Ana", "Ana", "Bia"]))
+    base = relatorio["taxa_base"]
+    # tres turnos certos (1, 3 e 4); o errado (2) nao entra na base.
+    assert base["total_certos"] == 3
+    # o livro inteiro do fixture e sem verbo de fala, entao o sinal e o normal.
+    assert base["por_sinal"]["sem_verbo_de_fala_no_turno"] == 3
+
+
+def test_markdown_desmascara_sinal_que_e_so_o_normal_do_livro():
+    relatorio = coletar(GOLD, analysis(["Ana", "Ana", "Ana", "Bia"]))
+    texto = render_markdown(relatorio)
+    assert "Nos acertos" in texto
+    assert "é o normal do livro" in texto
+    assert "A coluna que decide é a comparação" in texto
+
+
+def test_markdown_aponta_sinal_que_se_concentra_no_erro():
+    """Regra de coerencia so aparece no turno errado do fixture: isso e sinal."""
+    relatorio = coletar(GOLD, analysis(["Ana", "Ana", "Ana", "Bia"],
+                                       regras={2: "sanduiche_de_tres_turnos"}))
+    texto = render_markdown(relatorio)
+    linha = next(l for l in texto.splitlines() if "reescrita_de_coerencia" in l and "|" in l)
+    assert "**SIM**" in linha

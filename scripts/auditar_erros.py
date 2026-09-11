@@ -154,7 +154,42 @@ def coletar(gold, analysis, contexto=2):
         linhas[-1]["sinais"] = sinais_do_erro(
             linhas[-1], turno_por_paragrafo.get(item["paragraph"]), vizinhos, apelidos)
     linhas.sort(key=lambda linha: linha["paragrafo"])
+
+    # ── A TAXA-BASE: o mesmo sinal nos turnos que ACERTARAM ────────────────
+    #
+    # Contagem de sinal em erro, sozinha, não diz nada. "44 dos 46 erros não têm
+    # verbo de fala" parece decisivo — e é irrelevante se a maioria das falas do
+    # livro também não tem. Um sinal só aponta causa quando aparece MAIS no erro
+    # do que no acerto.
+    errados = {linha["id"] for linha in linhas}
+    certos = Counter()
+    total_certos = 0
+    for item_id, saida in saidas.items():
+        if item_id in errados or saida.get("class") == "figurante":
+            continue
+        if not saida.get("correct"):
+            continue
+        total_certos += 1
+        paragrafo = saida.get("paragraph")
+        indice = por_paragrafo.get(paragrafo)
+        vizinhos = []
+        if indice is not None:
+            comeco = max(0, indice - contexto)
+            for outro in turnos[comeco:indice + contexto + 1]:
+                p = min((parte["paragraph"] for parte in outro.get("fragments", [])), default=-1)
+                vizinhos.append({
+                    "paragrafo": p, "alvo": p == paragrafo,
+                    "falante": nomes.get(outro.get("speaker_entity_id"), outro.get("speaker_entity_id")),
+                })
+        referencia = {"regra_consistencia": saida.get("consistency_rule"),
+                      "status": saida.get("status"),
+                      "predito": saida.get("predicted"), "esperado": saida.get("expected")}
+        for sinal in sinais_do_erro(referencia, turno_por_paragrafo.get(paragrafo),
+                                    vizinhos, apelidos):
+            certos[sinal] += 1
+
     return {"gold": resultado.get("gold"), "linhas": linhas,
+            "taxa_base": {"total_certos": total_certos, "por_sinal": dict(certos)},
             "metricas": {chave: resultado.get(chave) for chave in (
                 "speaker_correct_turns", "speaker_wrong_turns", "speaker_abstained_turns",
                 "speaker_assigned_turns", "speaker_accuracy_when_assigned")}}
@@ -195,9 +230,12 @@ def render_markdown(relatorio, contexto=2):
         linhas.extend([
             "## Sinais observáveis nos erros", "",
             "Pré-classificação, não veredito. Cada sinal sai do texto e da vizinhança "
-            "— nenhum depende do livro. Um erro pode ter vários. É esta tabela que "
-            "diz qual categoria domina, e portanto o que a próxima mudança deve atacar.", "",
-            "| Sinal | Erros | O que costuma significar |", "|---|---:|---|"])
+            "— nenhum depende do livro. Um erro pode ter vários.", "",
+            "**A coluna que decide é a comparação.** Contagem no erro, sozinha, não "
+            "aponta causa: um sinal presente em 95% dos erros e em 93% dos acertos "
+            "descreve o livro, não o defeito. Só investigar o que se CONCENTRA no erro.", "",
+            "| Sinal | Nos erros | Nos acertos | Aponta? | O que costuma significar |",
+            "|---|---:|---:|---|---|"])
         significado = {
             "reescrita_de_coerencia": "uma regra de `turn_consistency` escreveu esta voz",
             "ancora_literal_divergente": "o turno tinha âncora explícita e ainda assim divergiu",
@@ -207,8 +245,25 @@ def render_markdown(relatorio, contexto=2):
             "predito_nao_aparece_por_perto": "o motor escolheu quem não estava falando ali",
             "esperado_nao_aparece_por_perto": "a resposta certa também não estava por perto",
         }
+        base = relatorio.get("taxa_base") or {"total_certos": 0, "por_sinal": {}}
+        total_certos = base["total_certos"]
         for sinal, total in por_sinal.most_common():
-            linhas.append(f"| `{sinal}` | {total} | {significado.get(sinal, '')} |")
+            nos_erros = total / len(erros) if erros else 0
+            certos = base["por_sinal"].get(sinal, 0)
+            nos_certos = certos / total_certos if total_certos else 0
+            # Um sinal que aparece tanto no erro quanto no acerto descreve o
+            # livro, não a causa do erro. Só vale investigar o que se concentra.
+            if not total_certos:
+                veredito = "sem base"
+            elif nos_erros >= 2 * max(nos_certos, .01):
+                veredito = "**SIM**"
+            elif nos_erros > nos_certos:
+                veredito = "fraco"
+            else:
+                veredito = "não — é o normal do livro"
+            linhas.append(
+                f"| `{sinal}` | {total} ({nos_erros:.0%}) | {certos} ({nos_certos:.0%}) "
+                f"| {veredito} | {significado.get(sinal, '')} |")
         sem_sinal = [linha for linha in erros if not linha.get("sinais")]
         if sem_sinal:
             linhas.append(f"| `nenhum_sinal` | {len(sem_sinal)} | "
