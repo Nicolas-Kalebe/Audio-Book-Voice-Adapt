@@ -6,9 +6,53 @@ como adivinhar o que mudou.
 
 ## FILA DE EXECUÇÃO — o que rodar agora
 
-### AGORA — isolar prompt/schema e testar atribuição só de identidade
+### AGORA — classificar os 46 erros do `speaker-only` na P4
 
-Implementação pronta; **campanha ainda não executada**. Ler primeiro
+A campanha de contratos já rodou (`docs/HANDOFF-CLAUDE-2026-09-10.md`), e o próximo
+passo que ela mesma define é classificar os erros do `speaker-only` por evidência
+disponível em runtime, antes de desenhar qualquer mecanismo.
+
+`scripts/auditar_erros.py` agora **pré-classifica** isso. Não decide nada: marca
+sinais observáveis em cada erro — nenhum deles depende do livro — e conta quantos
+erros caem em cada um. É essa contagem que diz qual categoria domina, e portanto o
+que a próxima mudança deve atacar.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+& .venv\Scripts\python.exe scripts\auditar_erros.py `
+  --gold benchmarks\part04_gold.yaml `
+  --analysis output\contracts-p04-20260910-201844-speaker-only\analysis.json `
+  --output output\auditoria-p04-speaker-only
+```
+
+Ler `auditoria-erros.md`, seção **"Sinais observáveis nos erros"**, e responder o
+veredito de cada bloco (motor errou · gabarito errado · em dúvida). Os sinais:
+
+| Sinal | Leitura |
+|---|---|
+| `entidade_citada_no_proprio_turno` | vocativo ou menção tomada por identidade |
+| `sem_verbo_de_fala_no_turno` | fala solta, sem narração que ancore |
+| `contexto_local_pobre` | quase não há vozes atribuídas em volta |
+| `predito_nao_aparece_por_perto` | o motor escolheu quem não estava falando ali |
+| `esperado_nao_aparece_por_perto` | a resposta certa também não estava por perto |
+| `reescrita_de_coerencia` | uma regra de `turn_consistency` escreveu a voz |
+| `ancora_literal_divergente` | havia âncora explícita e ainda assim divergiu |
+
+**O que volta:** a tabela de sinais preenchida e a contagem dos vereditos. Se
+`entidade_citada_no_proprio_turno` dominar, a hipótese da camada
+`fala → menção localizada → identidade` ganha base medida — e só aí vale implementar.
+Se `esperado_nao_aparece_por_perto` dominar, o problema é falta de contexto, e a
+camada de menção não resolveria.
+
+**Lembrar do que o holdout mostrou:** a v1.1 faz 95,24% na P1 e **79,42% na P4**. A
+meta não está a 3,6 pontos — está a ~16. Qualquer ganho medido só em parte de
+desenvolvimento não conta.
+
+### JÁ EXECUTADO — isolar prompt/schema e testar atribuição só de identidade
+
+Resultado em `docs/HANDOFF-CLAUDE-2026-09-10.md`: catálogo estrito reprovado nas três
+formas; `speaker-only` melhor (81,15% × 97,60%) mas abaixo da faixa de promoção. Ler
+primeiro
 [o parecer portátil para Claude](docs/REVISAO-CONTRATO-DE-ATRIBUICAO.md).
 O original `output/review-architecture/PARECER.md` continua preservado localmente.
 

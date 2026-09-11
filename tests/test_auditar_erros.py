@@ -87,3 +87,71 @@ def test_markdown_pergunta_o_veredito_de_cada_erro():
     assert "Trocas mais frequentes" in texto
     # O veredito humano e o ponto da ferramenta: ela nao decide nada sozinha.
     assert texto.count("Veredito") == 1
+
+
+# ── SINAIS OBSERVAVEIS ────────────────────────────────────────────────────────
+#
+# Pre-classificacao dos erros, para a auditoria virar conferencia em vez de
+# trabalho do zero. Nenhum sinal depende do livro: saem do texto do turno e da
+# vizinhanca. Eles NAO decidem nada — a tabela deles diz qual categoria domina, e
+# e isso que aponta o que a proxima mudanca deve atacar.
+
+from auditar_erros import sinais_do_erro
+
+
+def analysis_com_alias(atribuicoes, textos):
+    base = analysis(atribuicoes, textos=textos)
+    base["files"][0]["book_speaker_analysis"]["entities"] = [
+        {"id": "Ana", "name": "Ana", "aliases": ["Ana"]},
+        {"id": "Bia", "name": "Bia", "aliases": ["Bia"]},
+    ]
+    return base
+
+
+def test_sinal_marca_a_regra_de_coerencia_que_escreveu_a_voz():
+    relatorio = coletar(GOLD, analysis(["Ana", "Ana", "Ana", "Bia"],
+                                       regras={2: "sanduiche_de_tres_turnos"}))
+    erro = next(linha for linha in relatorio["linhas"] if linha["id"] == "2-0")
+    assert "reescrita_de_coerencia" in erro["sinais"]
+
+
+def test_sinal_aponta_nome_citado_dentro_da_propria_fala():
+    """Vocativo e mencao sao a armadilha classica: quem e chamado nao e quem fala."""
+    relatorio = coletar(GOLD, analysis_com_alias(
+        ["Ana", "Ana", "Ana", "Bia"],
+        {2: "— Voce esta certa, Ana, mas eu discordo."}))
+    erro = next(linha for linha in relatorio["linhas"] if linha["id"] == "2-0")
+    assert "entidade_citada_no_proprio_turno" in erro["sinais"]
+
+
+def test_sinal_aponta_fala_sem_verbo_de_narracao():
+    relatorio = coletar(GOLD, analysis_com_alias(
+        ["Ana", "Ana", "Ana", "Bia"], {2: "— Nao mesmo."}))
+    erro = next(linha for linha in relatorio["linhas"] if linha["id"] == "2-0")
+    assert "sem_verbo_de_fala_no_turno" in erro["sinais"]
+
+
+def test_sinal_nao_aparece_quando_ha_verbo_de_narracao():
+    relatorio = coletar(GOLD, analysis_com_alias(
+        ["Ana", "Ana", "Ana", "Bia"], {2: "— Nao mesmo — respondeu ela."}))
+    erro = next(linha for linha in relatorio["linhas"] if linha["id"] == "2-0")
+    assert "sem_verbo_de_fala_no_turno" not in erro["sinais"]
+
+
+def test_sinal_separa_quem_estava_por_perto_de_quem_nao_estava():
+    """Distingue "o motor chutou alguem de fora" de "a resposta certa nao estava la"
+    — sao dificuldades diferentes e pedem mudancas diferentes."""
+    relatorio = coletar(GOLD, analysis(["Ana", "Ana", "Ana", "Bia"]), contexto=1)
+    erro = next(linha for linha in relatorio["linhas"] if linha["id"] == "2-0")
+    # Ana falava em volta; Bia (a certa) nao.
+    assert "predito_nao_aparece_por_perto" not in erro["sinais"]
+    assert "esperado_nao_aparece_por_perto" in erro["sinais"]
+
+
+def test_markdown_traz_a_tabela_que_decide_o_proximo_passo():
+    relatorio = coletar(GOLD, analysis(["Ana", "Ana", "Ana", "Bia"],
+                                       regras={2: "sanduiche_de_tres_turnos"}))
+    texto = render_markdown(relatorio)
+    assert "Sinais observáveis nos erros" in texto
+    assert "reescrita_de_coerencia" in texto
+    assert "Pré-classificação, não veredito" in texto
