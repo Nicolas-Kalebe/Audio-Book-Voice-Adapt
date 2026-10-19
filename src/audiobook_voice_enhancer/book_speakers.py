@@ -201,7 +201,11 @@ def build_book(blocks: list[str], aliases: dict[str, str] | None = None,
     # Cargo -> nome, aprendido do proprio livro: "o feiticeiro Radcliffe" ensina
     # quem e "o feiticeiro". So resolve quando o substantivo aponta para UMA
     # pessoa em todo o livro; duas pessoas com a mesma profissao nao se fundem.
+    # E so dentro da cena em que o livro escreveu cargo e nome juntos: "o bruxo
+    # Fulano" uma unica vez no livro nao faz de todo "o bruxo" o Fulano, porque a
+    # profissao pode ser de varios que o livro nunca nomeou com ela.
     titles: dict[str, set[str]] = {}
+    titled_scenes: dict[tuple[str, str], set[int]] = {}
     before = re.compile(rf"(?P<name>{NAME})\s+(?i:{SPEECH_VERB})\s*:")
     named_mentions: list[tuple[str, dict]] = []
     for paragraph, block in enumerate(blocks):
@@ -219,15 +223,19 @@ def build_book(blocks: list[str], aliases: dict[str, str] | None = None,
                     head = _key(match.group(0)[:match.start("name") - match.start()]).split()
                     if head and head[-1] not in {"o", "a", "os", "as", "the"}:
                         titles.setdefault(head[-1], set()).add(identity)
+                        titled_scenes.setdefault((head[-1], identity), set()).add(scene_ids[paragraph])
     # Segunda passada: agora que os cargos estao aprendidos, a atribuicao sem
     # nome pode ser resolvida. Roda depois porque o nome pode aparecer adiante.
     for paragraph, block in enumerate(blocks):
         for start, end in _narration(block, parts_by_paragraph.get(paragraph, [])):
             for match in bare_title.finditer(block[start:end]):
-                owners = titles.get(_key(match.group("title")).split()[-1], set())
+                title = _key(match.group("title")).split()[-1]
+                owners = titles.get(title, set())
                 if len(owners) != 1:
                     continue
                 identity = next(iter(owners))
+                if scene_ids[paragraph] not in titled_scenes.get((title, identity), set()):
+                    continue
                 span = {"paragraph": paragraph, "start": start + match.start(), "end": start + match.end(),
                         "quote": match.group(0)}
                 model["entities"][identity]["mentions"].append(span)

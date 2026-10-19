@@ -150,3 +150,37 @@ def test_evidencia_de_estilo_pode_citar_fala_distante():
     turns, _ = aplicar(model, batch, local, [decisao("book-4", ids["Iara"], quote="Abra a porta", paragraph=1,
                                                      evidence="style")])
     assert nome(model, turns["book-4"]) == "Iara"
+
+
+def test_ponte_por_arquivo_grava_pedido_para_e_depois_consome_a_resposta(tmp_path):
+    import json
+
+    import pytest
+
+    from audiobook_voice_enhancer.llm import ExchangeProvider, PendingExchange
+
+    class SemCache:
+        def digest(self, *parts):
+            return "x"
+
+        def path(self, *parts):
+            class Nada:
+                def write_text(self, *a, **k):
+                    pass
+            return Nada()
+
+        def json(self, kind, key, fn):
+            return fn()
+
+    provider = ExchangeProvider(tmp_path, "claude-fable-5-1")
+    with pytest.raises(PendingExchange):
+        review_book(build_book(BLOCOS), provider, SemCache(), (0, 4), protocol="frontier")
+    pedido = next(tmp_path.glob("request-*.md"))
+    assert "# SYSTEM" in pedido.read_text(encoding="utf-8")
+    resposta = tmp_path / pedido.name.replace("request-", "response-").replace(".md", ".json")
+    resposta.write_text(json.dumps({"new_entities": [{"id": "N1", "kind": "named", "mention": "Bento",
+                                                      "paragraph": 3}],
+                                    "turns": [decisao("book-2", "N1")]}), encoding="utf-8")
+    result = review_book(build_book(BLOCOS), provider, SemCache(), (0, 4), protocol="frontier")
+    turn = next(turn for turn in result["turns"] if turn["id"] == "book-2")
+    assert result["entities"][turn["speaker_entity_id"]]["name"] == "Bento"

@@ -102,3 +102,20 @@ def test_dois_com_a_mesma_profissao_nao_resolvem_o_cargo_sozinho():
 def test_cargo_sem_nome_em_lugar_nenhum_nao_vira_ancora():
     model = build_book(["— Tome cuidado — retrucou o anão, passando a mão pelo machado."])
     assert falante("— Tome cuidado — retrucou o anão, passando a mão pelo machado.") is None
+
+
+def test_cargo_so_resolve_na_cena_em_que_o_livro_juntou_cargo_e_nome():
+    """"o bruxo Lambert" uma vez no livro nao faz de todo "o bruxo" o Lambert.
+
+    Medido no teste cego de 18/10/2026: `comentou o bruxo`, noutra cena, era outro
+    bruxo que o livro nunca chamou de "o bruxo Nome". Fora da cena, o cargo fica
+    sem ancora e vai para o modelo como fala sem pista.
+    """
+    model = build_book([
+        "— Vamos — disse o bruxo Lambert.",
+        "•",
+        "— Que métodos estranhos — comentou o bruxo calmamente.",
+    ])
+    turnos = sorted(model["turns"], key=lambda t: t["fragments"][0]["paragraph"])
+    assert model["entities"][turnos[0]["speaker_entity_id"]]["name"] == "Lambert"
+    assert turnos[1]["speaker_entity_id"] is None

@@ -14,7 +14,7 @@ from typing import Any
 
 from .book_speakers import _entity, _key, _span
 from .dialogue import NAME
-from .llm import _confidence, cached_infer
+from .llm import PendingExchange, _confidence, cached_infer
 
 VERSION = "frontier-speakers-v1"
 
@@ -249,6 +249,7 @@ def review_frontier(model: dict, provider, cache, paragraph_range=None, *, thres
     adapted = copy.copy(provider)
     adapted.system_prompt, adapted.response_schema = SYSTEM, SCHEMA
     selected = batches(result, paragraph_range, max_chars)
+    pending: list[str] = []
     for position, batch in enumerate(selected, 1):
         if progress:
             progress(position, len(selected))
@@ -257,8 +258,13 @@ def review_frontier(model: dict, provider, cache, paragraph_range=None, *, thres
         try:
             answer = cached_infer(adapted, cache, {"prompt": prompt})
             apply_answer(result, batch, local, answer, threshold=threshold, stats=stats)
+        except PendingExchange as exc:
+            pending.append(str(exc))
         except Exception as exc:
             stats["errors"].append({"scene_ids": batch["scene_ids"], "error": str(exc)})
+    if pending:
+        # Todos os pedidos já foram gravados; para aqui, antes de qualquer conversão.
+        raise PendingExchange(f"{len(pending)} lote(s) aguardando resposta: " + "; ".join(pending))
     stats["elapsed_seconds"] = round(time.monotonic() - started, 3)
     result["review"] = stats
     result["attribution_protocol"] = VERSION

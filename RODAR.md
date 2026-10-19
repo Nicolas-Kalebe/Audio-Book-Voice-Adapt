@@ -6,6 +6,22 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 18 de outubro de 2026 — cargo só resolve na própria cena; ponte com o Claude Code
+
+- **`TITLE_ONLY` escopado à cena.** `sorriu o feiticeiro` continua resolvendo
+  para Radcliffe porque o livro escreveu `o feiticeiro Radcliffe` na mesma cena;
+  `comentou o bruxo` deixa de virar Lambert por causa de um `o bruxo Lambert`
+  noutro capítulo. Âncoras explícitas contra os gabaritos: Parte 01 49 corretas,
+  Parte 02 38, Parte 03 43, **zero falsas — iguais a antes**; no livro inteiro,
+  379 → 377 âncoras (as duas que saíram eram cargo fora de cena). Teste em
+  `tests/test_ancora_com_titulo.py`.
+- **`llm.provider: exchange`** (`ExchangeProvider`): o app grava cada pedido em
+  `llm.exchange_dir` como `request-<hash>.md` e para **antes de converter**; um
+  agente externo — o Claude Code com o login do usuário, sem chave de API —
+  escreve `response-<hash>.json`; a execução seguinte consome a resposta pelo
+  mesmo caminho de validação do `frontier`. Lote sem resposta nunca vira áudio
+  convertido pela metade.
+
 ### 18 de outubro de 2026 — holdout dos Capítulos 6 e 7: precisão aprovada, cobertura reprovada
 
 Rodada única, configuração congelada no commit anterior (Fable 5.1, prompt e

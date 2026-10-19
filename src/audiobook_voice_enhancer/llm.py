@@ -162,10 +162,48 @@ class AnthropicProvider(LLMProvider):
         return result
 
 
+class PendingExchange(RuntimeError):
+    """Pedido gravado para um agente externo; o pipeline para antes de converter."""
+
+
+class ExchangeProvider(LLMProvider):
+    """Ponte por arquivos: o app grava o pedido, um agente externo (o Claude Code com
+    o login do usuário) escreve a resposta, e a próxima execução a consome.
+
+    Sem resposta, levanta PendingExchange em vez de seguir com turnos sem voz: um
+    lote não respondido não pode virar áudio convertido pela metade.
+    """
+
+    def __init__(self, exchange_dir: str | os.PathLike, model: str):
+        from pathlib import Path
+
+        self.directory, self.model, self.url = Path(exchange_dir), model, "exchange"
+
+    def infer(self, payload: dict[str, Any]) -> dict[str, Any]:
+        import hashlib
+
+        content = payload["prompt"] if set(payload) == {"prompt"} else json.dumps(payload, ensure_ascii=False)
+        schema = json.dumps(self.response_schema, ensure_ascii=False, indent=1)
+        digest = hashlib.sha256("\n".join((self.system_prompt, schema, content)).encode("utf-8")).hexdigest()[:16]
+        response = self.directory / f"response-{digest}.json"
+        if response.is_file():
+            result = json.loads(response.read_text(encoding="utf-8"))
+            if not isinstance(result, dict):
+                raise ValueError(f"{response.name} não é um objeto JSON")
+            return result
+        self.directory.mkdir(parents=True, exist_ok=True)
+        (self.directory / f"request-{digest}.md").write_text(
+            "# SYSTEM\n\n" + self.system_prompt + "\n\n# USER\n\n" + content
+            + "\n# FORMATO DE SAÍDA (JSON Schema)\n\n" + schema + "\n", encoding="utf-8")
+        raise PendingExchange(f"Aguardando {response}")
+
+
 def build_provider(config: dict[str, Any]) -> LLMProvider | None:
     if not config.get("enabled") or not config.get("model"):
         return None
     timeout = int(config.get("timeout_seconds", 300))
+    if config.get("provider") == "exchange":
+        return ExchangeProvider(config.get("exchange_dir", "output/exchange"), config["model"])
     if config.get("provider") == "anthropic":
         return AnthropicProvider(config["model"], config.get("api_key_env", "ANTHROPIC_API_KEY"),
                                  max(timeout, 900), config.get("effort", "high"),
