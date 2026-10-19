@@ -20,6 +20,10 @@ transcrição e conversão de voz continuam locais.
 | Cobertura sobre falas dubláveis | **96,78%** (722/746) | 95% |
 | Detecção das falas | 16 de 746 não localizadas no áudio | pendente |
 
+Onde cada fala começa e termina no áudio passou a vir de **alinhamento forçado**
+do texto do livro (`alignment.forced`, 19/10); o método antigo cortava falas no
+meio da frase. Detalhes no RODAR.
+
 Somado das Partes 01 (213 dubláveis), 02 (183) e 03 (350), com limite de
 confiança 0,70: **211, 179 e 332 corretas, nenhuma voz trocada errada**, 8
 abstenções e 16 falas que o localizador de áudio não encontrou. As três partes

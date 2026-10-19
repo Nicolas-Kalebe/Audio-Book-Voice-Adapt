@@ -220,9 +220,36 @@ class Pipeline:
                      llm_review["unresolved"], llm_review["elapsed_seconds"])
             refine_speaker_sequence(dialogues, self.speaker_aliases)
         mark_stage("speaker_attribution")
+        forced = bool(self.config.get("alignment", {}).get("forced", False) and book_blocks)
+        if forced:
+            from .forced_alignment import refine
+
+            def convertible(dialogue: dict[str, Any]) -> bool:
+                character = self.characters.get(dialogue.get("speaker") or "") or {}
+                return str(character.get("mode", "original")) in {"convert", "auto"}
+
+            inventory = getattr(self, "book_inventory", None) or dialogue_inventory(book_blocks)
+            forced_key = self.cache.digest("forced-alignment", trans_key, book_fingerprint, alignments,
+                                           sorted(str(d["id"]) for d in dialogues if convertible(d)))
+            timings = self.cache.json("forced_alignment", forced_key, lambda: {
+                "stats": refine(path, book_blocks, alignments, dialogues, inventory, info.duration, convertible),
+                "times": {str(d["id"]): [d["start"], d["end"], d.get("alignment_confidence"), d.get("timing_method")]
+                          for d in dialogues if convertible(d)}})
+            for dialogue in dialogues:
+                if str(dialogue["id"]) in timings["times"]:
+                    start, end, confidence, method = timings["times"][str(dialogue["id"])]
+                    dialogue.update(start=start, end=end, alignment_confidence=confidence, timing_method=method)
+            LOG.info("[ALIGN] alinhamento forçado: %s", timings["stats"])
+            mark_stage("forced_alignment")
         for dialogue in dialogues:
             self._eligibility(dialogue, bool(book_blocks))
         self._prevent_overlaps(dialogues)
+        if forced:
+            from .forced_alignment import whole_turn_or_nothing
+
+            vetoed = whole_turn_or_nothing(dialogues, float(self.config.get("minimum_segment_duration", 0.8)))
+            if vetoed:
+                warnings.append(f"{vetoed} trecho(s) mantidos na voz original para não trocar a voz no meio de uma fala")
         result: dict[str, Any] = {"input": str(path), "duration": info.duration, "sample_rate": info.sample_rate,
             "channels": info.channels, "codec": info.codec, "segments_analyzed": len(transcript.get("segments", [])),
             "dialogues": dialogues, "errors": [], "warnings": warnings, "final_duration": info.duration,

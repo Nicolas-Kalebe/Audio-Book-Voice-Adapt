@@ -6,6 +6,28 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 19 de outubro de 2026 — alinhamento forçado define onde cada fala começa e termina
+
+A primeira conversão completa (Parte 01, Fable + Seed-VC) soou ruim: falas
+voltando para a voz original no meio da frase. Não era atribuição. A busca
+aproximada da fala na transcrição (`map_phrase_to_words`) ancora no maior trecho
+idêntico — numa fala longa, qualquer palavra transcrita diferente põe o início
+no meio da frase — e dá nota baixa às falas longas, que então ficavam sem
+conversão enquanto o trecho anterior do mesmo turno era convertido.
+
+- **`alignment.forced: true`** (`forced_alignment.py`): o texto do livro é
+  alinhado ao áudio por CTC (MMS_FA do torchaudio, GPU, modelo de 1,2 GB baixado
+  na primeira vez), em janelas entre âncoras confiáveis do alinhamento antigo,
+  com um token curinga em cada ponta. Só as janelas com falas de personagens em
+  `convert` são alinhadas. Na cena da Yennefer, o método antigo começava falas
+  curtas até 4 s antes (convertendo narração) e longas até 14 s depois; o
+  proprietário comparou os cortes de ouvido e aprovou o forçado.
+- **Fala inteira ou nada:** se um trecho de um turno não pode ser convertido,
+  nenhum é; trecho curto demais não veta.
+- Parte 01: 73 de 76 falas a converter receberam tempo forçado (3 mantiveram o
+  antigo); **69 convertidas, contra 55** antes (Yennefer 63, Ciri 6); 1 trecho
+  vetado pela regra do turno.
+
 ### 18 de outubro de 2026 — cargo só resolve na própria cena; ponte com o Claude Code
 
 - **`TITLE_ONLY` escopado à cena.** `sorriu o feiticeiro` continua resolvendo

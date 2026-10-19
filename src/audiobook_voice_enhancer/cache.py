@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 
 class Cache:
-    STAGES = ("transcription", "alignment", "dialogue_detection", "speaker_analysis", "llm", "llm_diagnostics", "converted_audio", "checkpoints", "book_speakers")
+    STAGES = ("transcription", "alignment", "dialogue_detection", "speaker_analysis", "llm", "llm_diagnostics", "converted_audio", "checkpoints", "book_speakers", "forced_alignment")
 
     def __init__(self, root: Path):
         self.root = root
