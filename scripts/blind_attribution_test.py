@@ -88,11 +88,15 @@ def prepare(args: argparse.Namespace) -> int:
             if match.group(1).lower() not in FUNCTION_WORDS:
                 tokens.add(match.group(1))
     # Grafia variante do mesmo nome ("Fulanx" por "Fulano") tambem vazaria a identidade.
-    stems = {token[:5] for token in tokens if len(token) >= 5}
-    for word in set(re.findall(r"\b[A-ZÀ-Ý][^\W\d_]{4,}\b", window)):
-        if word[:5] in stems and word not in tokens and abs(len(word) - len(next(
-                token for token in tokens if token[:5] == word[:5]))) <= 1:
-            tokens.add(word)
+    # Tudo em ordem fixa: iterar um set muda a cada execucao do Python, e foi assim
+    # que um blocks.json regenerado saiu com pseudonimos diferentes da chave.
+    known = sorted(tokens)
+    variants = set()
+    for word in sorted(set(re.findall(r"\b[A-ZÀ-Ý][^\W\d_]{4,}\b", window))):
+        base = next((token for token in known if len(token) >= 5 and token[:5] == word[:5]), None)
+        if base and word not in tokens and abs(len(word) - len(base)) <= 1:
+            variants.add(word)
+    tokens |= variants
     # Palavra comum capitalizada em inicio de frase nao e nome: trocar "Primeiro"
     # por um pseudonimo inventaria um personagem.
     lowercase = set(re.findall(r"\b[a-zà-ÿ][^\W\d_]*\b", window))
@@ -103,6 +107,13 @@ def prepare(args: argparse.Namespace) -> int:
     pool = PSEUDONYMS[:]
     rng.shuffle(pool)
     mapping = dict(zip(tokens, pool + [f"Nome{index}" for index in range(len(tokens) - len(pool))]))
+    frozen_key = args.key_dir / "key.json"
+    if args.blocks_only:
+        # Regerar o pacote nunca pode reinventar pseudonimos: usa os da chave congelada.
+        frozen = json.loads(frozen_key.read_text(encoding="utf-8"))
+        if sorted(frozen["masked_gold"]) != sorted(turn["id"] for turn in masked):
+            raise SystemExit("As falas apagadas nao batem com a chave congelada")
+        mapping = {real: fake for fake, real in frozen["pseudonyms"].items()}
     pattern = re.compile(r"\b(" + "|".join(map(re.escape, mapping)) + r")\b")
 
     def disguise(value: str) -> str:

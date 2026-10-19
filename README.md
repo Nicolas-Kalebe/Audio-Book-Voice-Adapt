@@ -31,8 +31,10 @@ rodou contra o serviço, por falta de chave nesta máquina.
 A prova sem gabarito de anotador é o **teste cego** (`scripts/blind_attribution_test.py`):
 60% das atribuições explícitas de um capítulo são apagadas, todos os nomes viram
 pseudônimos, e só as apagadas são corrigidas. Nos Capítulos 4 e 5 (desenvolvimento):
-**64 certas, 1 errada, 8 abstenções em 73**. Os Capítulos 6 e 7 estão congelados
-como holdout; o pré-registro está no RODAR.
+**64 certas, 1 errada, 8 abstenções em 73**. No holdout pré-registrado dos
+Capítulos 6 e 7: **53 certas, 1 errada, 22 abstenções em 76** — precisão 98,15%
+aprovada, **cobertura 71,05% reprovada** (corte de 85%); 14 das abstenções vêm de
+uma única cena de conselho com cinco reis. Detalhes no RODAR.
 
 Histórico do Qwen 3 8B local, para comparação: 94,74% × 98,12% na Parte 01,
 95,53% × 97,81% na Parte 02 e, no primeiro holdout de verdade, **90,68% × 88,86%
@@ -42,8 +44,8 @@ O gabarito da Parte 01 foi auditado contra o livro em 08/09:
 [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md). O da Parte 03
 foi escrito por assistente e não tem auditoria humana; concordância de Claude
 com gabarito escrito por Claude é em parte circular, e é por isso que o teste
-cego existe. **O motor não está validado para uso geral** — falta o holdout e
-um segundo livro.
+cego existe. **O motor não está validado para uso geral** — a cobertura do holdout
+reprovou e falta um segundo livro.
 
 ### Duas regras de produto que mandam em tudo
 

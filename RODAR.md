@@ -6,6 +6,44 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 18 de outubro de 2026 — holdout dos Capítulos 6 e 7: precisão aprovada, cobertura reprovada
+
+Rodada única, configuração congelada no commit anterior (Fable 5.1, prompt e
+schema `frontier-speakers-v1`, limite 0,70). Auditoria das ferramentas: os dois
+subagentes só leram o próprio pedido e escreveram a resposta.
+
+| | Certas | Erradas | Abstenções | Precisão | Cobertura |
+|---|---:|---:|---:|---:|---:|
+| Cap. 6 (44 apagadas) | 23 | 1 | 20 | 95,83% | 54,55% |
+| Cap. 7 (32 apagadas) | 30 | 0 | 2 | 100% | 93,75% |
+| **Holdout** (76) | **53** | **1** | **22** | **98,15%** | **71,05%** |
+
+**Leitura pelo pré-registro:** nenhuma faixa casa. A precisão passa do corte de
+95%, a cobertura fica abaixo dos 85% exigidos. Não é aprovação, e não se
+rebatiza a rodada.
+
+O que os números escondem, registrado para a próxima decisão, sem mudar o placar:
+
+- O único erro é **Artaud** respondido como **Terranova** — prenome e sobrenome da
+  mesma pessoa, que o livro também escreve junto. `merge_partial_names` só une
+  prefixo, não sobrenome; por identidade seria 54 de 54.
+- **14 das 22 abstenções** são respostas `null` numa única cena de conselho com
+  cinco reis, em que o apagamento de 60% tirou quase todas as indicações. É a
+  saída segura funcionando onde o teste cego tirou a informação — mas é também a
+  cena em que a cobertura do produto real dependeria de as indicações estarem lá.
+- O Capítulo 6 é o lugar óbvio para medir cobertura real com o texto inteiro;
+  o Capítulo 7 confirma que, em diálogo comum, o protocolo transfere sem perda.
+
+**Defeito no instrumento, achado e consertado nesta rodada:** `--blocks-only`
+recalculava os pseudônimos e, por iterar um `set` cuja ordem muda a cada
+execução do Python, gerou para o Capítulo 7 um mapeamento diferente da chave. As
+respostas do modelo são sobre o texto que ele recebeu e não foram tocadas; o
+placar acima traduz os pseudônimos do texto recebido para os da chave por
+alinhamento palavra a palavra (26 nomes, bijeção, nenhum ambíguo; Capítulos 4–6
+sem nenhuma diferença). O script agora itera em ordem fixa e, com
+`--blocks-only`, usa os pseudônimos da chave congelada e aborta se as falas
+apagadas não baterem.
+
 ### 18 de outubro de 2026 — protocolo `frontier` com modelo de ponta, Qwen aposentado
 
 **Por quê.** Dado só o texto, Opus 5.5 e Fable 5.1 acertaram a Parte 03 sem uma
