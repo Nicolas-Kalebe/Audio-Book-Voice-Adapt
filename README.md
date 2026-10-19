@@ -6,58 +6,44 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
-## Estado atual — 8 de setembro de 2026
+## Estado atual — 18 de outubro de 2026
 
-**Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar, em um
-comando, e o que mandar de volta. O que mudou e por quê fica em
-[docs/RESULTADO-PART01.md](docs/RESULTADO-PART01.md).
+**Se você chegou agora, leia [RODAR.md](RODAR.md).** Ele tem o que rodar e o
+registro do que mudou. O Qwen local foi aposentado como motor de atribuição: o
+caminho recomendado é o protocolo `frontier`, com um modelo de ponta (Claude Fable
+5.1) lendo o capítulo inteiro, ligado em `book_first.protocol` (veja o RODAR). Só o texto do livro sai da máquina; áudio,
+transcrição e conversão de voz continuam locais.
 
 | | Onde está | Meta |
 |---|---:|---:|
-| Precisão sobre falas dubláveis | **93,17%** | 95% |
-| Cobertura sobre falas dubláveis | **96,24%** | 95% |
-| Detecção das falas | 253/255 (99,2%) | resolvido |
+| Precisão sobre falas dubláveis | **100%** (722/722) | 95% |
+| Cobertura sobre falas dubláveis | **96,78%** (722/746) | 95% |
+| Detecção das falas | 16 de 746 não localizadas no áudio | pendente |
 
-Medido em duas rodadas frias de 08/09 (`--protocol compact`, Qwen 3 8B local),
-com e sem as regras de coerência: **87,02% sem, 93,17% com**. As duas reproduzem
-exatamente a simulação offline.
+Somado das Partes 01 (213 dubláveis), 02 (183) e 03 (350), com limite de
+confiança 0,70: **211, 179 e 332 corretas, nenhuma voz trocada errada**, 8
+abstenções e 16 falas que o localizador de áudio não encontrou. As três partes
+são **desenvolvimento** — os gabaritos já foram lidos — e as respostas vieram do
+Fable executado por subagentes do Claude Code com o pedido exato que a API
+receberia (`scripts/frontier_offline.py`); o caminho pela API em si ainda não
+rodou contra o serviço, por falta de chave nesta máquina.
 
-A primeira rodada realmente externa, na Parte 02, ficou em **91,53% de precisão
-e 96,72% de cobertura**: cobertura aprovada, precisão reprovada. Depois de ler
-esses erros, `turn-consistency-v2` passou a tratar vocativos recíprocos, inversão
-local de fase, referência ao próprio personagem em terceira pessoa e monólogos
-compostos. Reaplicada offline sobre as respostas frias já existentes, a versão
-candidata marca **95,53% × 97,81% na Parte 02** e **93,20% × 96,71% na Parte 01**.
-Isso era uma estimativa de desenvolvimento. A rodada fria posterior confirmou a
-Parte 02 exatamente: **95,53% × 97,81%**. Na Parte 01, o pipeline completo foi
-melhor que a reaplicação offline e chegou a **94,74% × 98,12%** (198 corretos,
-11 erros e 2 abstenções sobre 213 dubláveis): falta uma atribuição correta — ou
-uma atribuição errada que possa ser abstida sem baixar a cobertura de 95% — para
-atingir a meta. A Parte 02 permanece desenvolvimento, pois seus erros foram
-consultados para criar a v2; estes resultados não demonstram generalização.
+A prova sem gabarito de anotador é o **teste cego** (`scripts/blind_attribution_test.py`):
+60% das atribuições explícitas de um capítulo são apagadas, todos os nomes viram
+pseudônimos, e só as apagadas são corrigidas. Nos Capítulos 4 e 5 (desenvolvimento):
+**64 certas, 1 errada, 8 abstenções em 73**. Os Capítulos 6 e 7 estão congelados
+como holdout; o pré-registro está no RODAR.
 
-> **Pendente de confirmação:** três consertos no parser de âncoras — cargo entre
-> o artigo e o nome, preposição com pronome (`respondeu por ela Geralt`) e cargo
-> sem nome resolvido pelo próprio livro (`o feiticeiro Radcliffe` ensina quem é
-> `o feiticeiro`) — levaram as âncoras corretas de 35 para **49**, sem nenhuma
-> falsa. Reaplicado sobre a rodada fria, dá **95,17% de precisão e 97,18% de
-> cobertura** — a meta. É estimativa: âncora nova muda o que o modelo recebe,
-> então os outros turnos podem se mexer. **A próxima rodada fria decide.**
+Histórico do Qwen 3 8B local, para comparação: 94,74% × 98,12% na Parte 01,
+95,53% × 97,81% na Parte 02 e, no primeiro holdout de verdade, **90,68% × 88,86%
+na Parte 03** — as regras ajustadas no desenvolvimento não generalizaram.
 
-O gabarito da Parte 01 foi auditado contra o livro em 08/09 e **não tem erro
-conhecido**: [docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md).
-
-**A Parte 02 não é mais holdout.** Seus 183 rótulos continuam congelados, mas os
-erros da primeira rodada foram usados para criar a versão 2. Ela agora é um
-segundo conjunto de desenvolvimento. A próxima validação honesta será uma parte
-nova, com gabarito congelado antes de qualquer resultado do motor.
-
-**A Parte 03 foi medida como holdout intocado e reprovou:** 90,68% de precisão e
-88,86% de cobertura sobre 350 falas dubláveis (282 corretas, 29 erradas e 26
-abstenções; outras 13 falas não foram localizadas no áudio). O gabarito P684–1126
-foi congelado antes da execução, mas, após a leitura do resultado, agora também é
-desenvolvimento. Ele foi escrito por assistente e ainda não tem auditoria humana
-independente. O motor não está validado para uso geral.
+O gabarito da Parte 01 foi auditado contra o livro em 08/09:
+[docs/AUDITORIA-DO-GABARITO.md](docs/AUDITORIA-DO-GABARITO.md). O da Parte 03
+foi escrito por assistente e não tem auditoria humana; concordância de Claude
+com gabarito escrito por Claude é em parte circular, e é por isso que o teste
+cego existe. **O motor não está validado para uso geral** — falta o holdout e
+um segundo livro.
 
 ### Duas regras de produto que mandam em tudo
 
@@ -112,7 +98,8 @@ história está em [docs/TETO-DO-GABARITO.md](docs/TETO-DO-GABARITO.md).
 - [GUIA_DE_USO.md](GUIA_DE_USO.md) — onde colocar cada arquivo.
 
 Os experimentos `scene`, `lightweight` e `source_subjects` regrediram e ficam só
-para reprodução. O padrão é `compact` com `turn_consistency`.
+para reprodução. Sem modelo de ponta, o melhor local é `compact` com
+`turn_consistency`; com ele, `frontier`.
 
 ## Requisitos
 

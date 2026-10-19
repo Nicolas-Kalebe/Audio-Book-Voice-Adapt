@@ -176,13 +176,17 @@ class Pipeline:
                 options = self.config.get("book_first", {})
                 reviewed = review_book(
                     model, self.llm, self.cache, scope,
-                    threshold=float(options.get("automatic_confidence", .90)),
+                    # A confiança do modelo de ponta tem outra escala: o limite dele é próprio,
+                    # escolhido no desenvolvimento e validado no holdout (RODAR.md).
+                    threshold=float(options.get("frontier_confidence", .70) if options.get("protocol") == "frontier"
+                                    else options.get("automatic_confidence", .90)),
                     max_turns=int(options.get("max_turns_per_window", 24)),
                     max_chars=int(options.get("max_context_characters", 14000)),
                     protocol=options.get("protocol", "evidence"),
                     source_subjects=bool(options.get("source_subjects", False)),
                     scene_max_chars=int(options.get("scene_context_characters", 36000)),
                     scene_repair=bool(options.get("scene_repair", True)),
+                    frontier_max_chars=int(options.get("frontier_context_characters", 150_000)),
                     progress=lambda index, total: LOG.info(
                         "[BOOK] %s | atribuição textual %d/%d", path.name, index, total))
                 project_to_audio(reviewed, dialogues)

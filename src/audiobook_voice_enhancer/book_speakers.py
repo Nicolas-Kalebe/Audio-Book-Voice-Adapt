@@ -316,10 +316,14 @@ def windows(model: dict, paragraph_range: tuple[int, int] | None, max_turns=24, 
 def review_book(model: dict, provider, cache, paragraph_range=None, *, threshold=.90,
                 max_turns=24, max_chars=14000, progress=None, protocol="evidence",
                 scene_max_chars=36000, scene_repair=True, source_subjects=False,
-                turn_consistency=True) -> dict:
+                turn_consistency=True, frontier_max_chars=150_000) -> dict:
     """Review textual turns, including those with no ASR match, in bounded windows."""
     if source_subjects and protocol != 'compact':
         raise ValueError('source_subjects is supported only by compact')
+    if protocol == "frontier":
+        from .frontier_speakers import review_frontier
+        return review_frontier(model, provider, cache, paragraph_range, threshold=threshold,
+                               max_chars=frontier_max_chars, progress=progress)
     if protocol in {"compact", "scene", "lightweight"}:
         from .compact_speakers import review_compact
         return review_compact(model, provider, cache, paragraph_range, threshold=threshold,

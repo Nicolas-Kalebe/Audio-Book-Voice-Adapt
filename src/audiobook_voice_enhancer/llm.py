@@ -116,10 +116,60 @@ class OpenAICompatibleProvider(LLMProvider):
         return result
 
 
+class AnthropicProvider(LLMProvider):
+    """Claude via SDK oficial. Só o texto do livro sai da máquina; áudio e vozes ficam locais.
+
+    Um payload {"prompt": str} vai como texto puro; qualquer outro, como JSON.
+    """
+
+    def __init__(self, model: str, api_key_env: str = "ANTHROPIC_API_KEY", timeout: int = 900,
+                 effort: str = "high", max_tokens: int = 64000):
+        import anthropic
+
+        key = os.getenv(api_key_env) or None
+        self.client = anthropic.Anthropic(api_key=key, timeout=timeout) if key else anthropic.Anthropic(timeout=timeout)
+        self.model, self.timeout, self.effort, self.max_tokens = model, timeout, effort, max_tokens
+        self.url = "anthropic"
+
+    def infer(self, payload: dict[str, Any]) -> dict[str, Any]:
+        content = payload["prompt"] if set(payload) == {"prompt"} else json.dumps(payload, ensure_ascii=False)
+        # O system prompt é fixo e vai em cache; o livro varia a cada janela.
+        with self.client.beta.messages.stream(
+            model=self.model, max_tokens=self.max_tokens,
+            system=[{"type": "text", "text": self.system_prompt, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": content}],
+            output_config={"effort": self.effort,
+                           "format": {"type": "json_schema", "schema": self.response_schema}},
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+        ) as stream:
+            message = stream.get_final_message()
+        usage = message.usage
+        self.last_diagnostics = {
+            "model": message.model, "stop_reason": message.stop_reason, "request_id": message._request_id,
+            "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+            "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", None),
+            "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", None)}
+        if message.stop_reason == "refusal":
+            details = getattr(message, "stop_details", None)
+            raise ValueError(f"Recusa do modelo: {getattr(details, 'category', None)}")
+        if message.stop_reason == "max_tokens":
+            raise ValueError(f"Resposta cortada em max_tokens={self.max_tokens}")
+        text = next((block.text for block in message.content if block.type == "text"), "")
+        self.last_diagnostics["raw_content"] = text
+        result = json.loads(text)
+        if not isinstance(result, dict):
+            raise ValueError("O LLM não devolveu um objeto JSON")
+        return result
+
+
 def build_provider(config: dict[str, Any]) -> LLMProvider | None:
     if not config.get("enabled") or not config.get("model"):
         return None
     timeout = int(config.get("timeout_seconds", 300))
+    if config.get("provider") == "anthropic":
+        return AnthropicProvider(config["model"], config.get("api_key_env", "ANTHROPIC_API_KEY"),
+                                 max(timeout, 900), config.get("effort", "high"),
+                                 int(config.get("max_tokens", 64000)))
     if config.get("provider") == "ollama":
         return OllamaProvider(config.get("base_url", "http://localhost:11434"), config["model"], timeout,
                               bool(config.get("reasoning", False)))

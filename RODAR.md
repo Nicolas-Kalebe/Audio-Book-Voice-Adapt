@@ -6,6 +6,70 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 18 de outubro de 2026 — protocolo `frontier` com modelo de ponta, Qwen aposentado
+
+**Por quê.** Dado só o texto, Opus 5.5 e Fable 5.1 acertaram a Parte 03 sem uma
+voz errada, onde o Qwen 3 8B tinha errado 29. Para descartar cola, um teste cego
+nos Capítulos 4 e 5 (nunca tocados por motor nenhum) apagou 60% das atribuições
+explícitas, trocou todos os nomes por pseudônimos e corrigiu só as apagadas; a
+auditoria das ferramentas dos subagentes mostrou que eles só leram o próprio
+pacote. O gargalo era o modelo local, não a tarefa.
+
+**O que entrou.**
+
+- `llm.AnthropicProvider`: SDK oficial, saída estruturada por JSON Schema,
+  system prompt em cache, fallback do servidor em caso de recusa. Configuração:
+  `llm.provider: anthropic`, `llm.model: claude-fable-5-1` (ou `claude-opus-5-5`),
+  `llm.effort`, e credencial por `ANTHROPIC_API_KEY` ou login `ant auth login`.
+  Dependência opcional: `pip install -e .[frontier]`.
+- `frontier_speakers.py` (`book_first.protocol: frontier`): cenas inteiras até
+  150 mil caracteres por chamada; catálogo de personagens com IDs; as âncoras do
+  parser vão como **pistas contestáveis**. Por turno o modelo devolve falante,
+  tipo de trecho (fala, pensamento, citação), tipo de evidência, um trecho
+  literal, confiança, segunda opção e se a pista é suspeita.
+- **O código decide, não o modelo:** a voz só troca se é fala, o falante está
+  no catálogo (ou foi declarado com menção literal no texto), o trecho citado
+  existe no lote e a confiança passa de `book_first.frontier_confidence`
+  (**0,70**, escolhido nos dados de desenvolvimento abaixo). Discordar de uma
+  âncora explícita vira abstenção, nunca troca.
+- `scripts/frontier_offline.py` exporta o pedido exato e aplica respostas
+  obtidas por fora; `scripts/frontier_ceiling.py` põe essas respostas no placar
+  do avaliador; `scripts/blind_attribution_test.py` monta e corrige o teste cego.
+
+**Desenvolvimento, limite 0,70** (respostas do Fable 5.1 por subagente, não pela API):
+
+| | Corretas | Vozes erradas | Abstenções | Não localizadas | Precisão | Cobertura |
+|---|---:|---:|---:|---:|---:|---:|
+| Parte 01 (213 dubláveis) | 211 | 0 | 0 | 2 | 100% | 99,06% |
+| Parte 02 (183) | 179 | 0 | 3 | 1 | 100% | 97,81% |
+| Parte 03 (350) | 332 | 0 | 5 | 13 | 100% | 94,86% |
+| Cego Cap. 4 (38 apagadas) | 33 | 0 | 5 | — | 100% | 86,84% |
+| Cego Cap. 5 (35 apagadas) | 31 | 1 | 3 | — | 96,88% | 91,43% |
+
+Na Parte 03 a cobertura só fica abaixo de 95% pelas 13 falas que o áudio não
+localizou; dos turnos detectados, 98,52% recebem voz. O teste cego é mais duro
+que o uso real (as falas corrigidas perderam a indicação do autor), e várias
+abstenções ali são de falas que, sem a indicação, não têm informação nenhuma.
+
+**Defeito achado no parser, não consertado:** `TITLE_ONLY` resolveu `comentou o
+bruxo` como Lambert porque o livro escreve "o bruxo Lambert" uma única vez; na
+cena era Geralt. É âncora falsa que entrava no Qwen. No `frontier` ela vira
+pista, e o modelo pode contestá-la.
+
+**Pré-registro do holdout — Capítulos 6 e 7, teste cego, rodada única.** Chaves
+congeladas em 18/10 antes de qualquer ajuste (sha256 `75e6f715…` e `00a71309…`,
+fora do Git), 76 falas apagadas. Configuração congelada neste commit: prompt e
+schema `frontier-speakers-v1`, limite 0,70, Fable 5.1.
+
+| Precisão nas apagadas | Leitura |
+|---|---|
+| **≥95%** e cobertura ≥85% | O protocolo generaliza dentro deste livro; falta um segundo livro. |
+| 90–95% | Ganho real, mas não fecha a meta; analisar sem rebatizar a rodada. |
+| <90% | O desenvolvimento superestimou; não anunciar. |
+
+A cobertura de corte é 85% e não 95% porque, no teste cego, parte das falas
+apagadas fica sem informação nenhuma — no Capítulo 4 isso já custou 13 pontos.
+
 ### 8 de setembro de 2026 — Parte 03 congelada antes da primeira medição
 
 **Resultado do pré-registro:** reprovado. A primeira execução fria, feita após o
