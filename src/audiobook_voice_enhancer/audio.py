@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -106,9 +107,6 @@ def reconstruct(source: Path, replacements: list[tuple[float, float, Path]], tar
             _run(["ffmpeg", "-y", "-v", "error", "-i", str(source), "-map", "0:a:0", "-map_metadata", "0",
                   *_encoder_args(target, bitrate), str(target)], "transcodificação")
         return
-    command = ["ffmpeg", "-y", "-v", "error", "-i", str(source)]
-    for _, _, replacement in replacements:
-        command.extend(["-i", str(replacement)])
     mute = ",".join(f"volume=enable='between(t,{start:.6f},{end:.6f})':volume=0" for start, end, _ in replacements)
     graph = [f"[0:a]{mute}[base]"]
     mix_inputs = ["[base]"]
@@ -117,8 +115,24 @@ def reconstruct(source: Path, replacements: list[tuple[float, float, Path]], tar
         graph.append(f"[{index}:a]adelay={delay}:all=1[r{index}]")
         mix_inputs.append(f"[r{index}]")
     graph.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:duration=first:normalize=0[out]")
-    command.extend(["-filter_complex", ";".join(graph), "-map", "[out]", "-map_metadata", "0", *_encoder_args(target, bitrate), str(target)])
-    _run(command, "reconstrução")
+    # O Windows limita a linha de comando a 32 mil caracteres; com ~190 falas os
+    # caminhos do cache e o grafo passam disso. O grafo vai num arquivo e as
+    # entradas ganham nomes curtos numa pasta temporária.
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="abva-") as work:
+        work_dir = Path(work)
+        command = ["ffmpeg", "-y", "-v", "error", "-i", str(Path(source).resolve())]
+        for index, (_, _, replacement) in enumerate(replacements, 1):
+            short = work_dir / f"{index}.wav"
+            try:
+                os.link(replacement, short)
+            except OSError:
+                shutil.copyfile(replacement, short)
+            command.extend(["-i", short.name])
+        (work_dir / "graph.txt").write_text(";".join(graph), encoding="utf-8")
+        command.extend(["-/filter_complex", "graph.txt", "-map", "[out]", "-map_metadata", "0",
+                        *_encoder_args(target, bitrate), str(Path(target).resolve())])
+        _run(command, "reconstrução", cwd=work_dir)
 
 
 def _encoder_args(target: Path, bitrate: str) -> list[str]:
@@ -131,9 +145,9 @@ def _encoder_args(target: Path, bitrate: str) -> list[str]:
     raise AudioToolError(f"Formato de saída não suportado: {suffix}")
 
 
-def _run(command: list[str], operation: str) -> None:
+def _run(command: list[str], operation: str, cwd: Path | None = None) -> None:
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     proc = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                          creationflags=flags)
+                          creationflags=flags, cwd=cwd)
     if proc.returncode:
         raise AudioToolError(f"Falha na {operation}: {proc.stderr.strip()}")

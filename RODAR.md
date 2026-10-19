@@ -27,6 +27,11 @@ conversão enquanto o trecho anterior do mesmo turno era convertido.
 - Parte 01: 73 de 76 falas a converter receberam tempo forçado (3 mantiveram o
   antigo); **69 convertidas, contra 55** antes (Yennefer 63, Ciri 6); 1 trecho
   vetado pela regra do turno.
+- **Reconstrução com centenas de falas:** a Parte 03 (187 falas convertidas:
+  Triss 107, Ciri 80) estourou o limite de 32 mil caracteres da linha de comando
+  do Windows (WinError 206). O grafo do FFmpeg agora vai em arquivo
+  (`-/filter_complex`) e as entradas ganham nomes curtos numa pasta temporária;
+  teste com 250 falas em `tests/test_audio.py`.
 
 ### 18 de outubro de 2026 — cargo só resolve na própria cena; ponte com o Claude Code
 
