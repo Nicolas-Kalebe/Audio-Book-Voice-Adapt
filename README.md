@@ -16,6 +16,26 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 > O projeto fica parado até existir conversão de voz local à altura; o histórico das decisões
 > está em [RODAR.md](RODAR.md).
 
+## Linha do tempo: o que foi tentado e não deu certo
+
+| Quando | Tentativa | Por que não serviu |
+|---|---|---|
+| 03/09 | Primeira versão: Whisper + regex de "disse Fulano" + Seed-VC | Só acertava falas com indicação explícita; o resto ficava sem voz ou errado. |
+| 04/09 | Revisão contextual com Qwen 3 8B local (Ollama) | Impreciso em diálogos sem marcação; trocava falantes com frequência. |
+| 06–07/09 | Motor "livro primeiro" com entidades e citações de evidência; motor por cena | Mais lento e menos preciso que o protocolo `compact` que o substituiu. |
+| 08/09 | Experimentos `scene`, `lightweight` e `source_subjects` | Regrediram contra o `compact`; ficaram só para reprodução. |
+| 08/09 | Placar 178/255 como linha de base | O avaliador estava quebrado (teto de 81,57%); cinco campanhas foram comparadas contra ele. |
+| 08/09 | Regras de coerência de turno (vocativo, "sanduíche", v2) | Subiram o desenvolvimento para 93–95%, mas os holdouts reprovaram: Parte 02 com 91,5% e Parte 03 com 90,7% × 88,9%. Eram ajuste ao livro, não generalização. |
+| 09/09 | Memória entre janelas, memória por cena, contexto de cena no `compact` | Mediram pior; registradas como rejeitadas. |
+| 10–11/09 | Roteador híbrido (v1.1/v1.2), contratos de catálogo, campanhas de revisão | Não fecharam a meta na Parte 04; a v1.2 foi revertida por hipótese falsa confirmada em replay. |
+| 18/10 | Protocolo `frontier` com Claude Fable 5.1 | **Funcionou** para atribuição (nenhuma voz errada nas Partes 01–03), mas o holdout cego reprovou na cobertura (71%). |
+| 19/10 | Corte das falas por busca aproximada na transcrição | Cortava no meio da frase. Substituído por alinhamento forçado, que **funcionou**. |
+| 19/10 | Seed-VC sem treino (22 kHz) com as referências de dublagem | Voz "muito IA", pouco natural. |
+| 20/10 | Seed-VC 44 kHz com controle de tom, 50 passos | Praticamente igual ao anterior. |
+| 20/10 | TTS com clonagem (Chatterbox, Qwen3-TTS) | Descartado sem teste: não soa natural para o proprietário. |
+| 20/10 | Variar tom e timbre do próprio narrador | Descartado: narrador masculino (~151 Hz); subir o bastante soaria artificial, pouco não diferencia. |
+| 20/10 | RVC (Applio) treinado com 52 min de leitora do LibriVox | Também artificial. Fim das tentativas: masculino → feminino/infantil não fica natural com ferramentas locais hoje. |
+
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
 ## Estado atual — 18 de outubro de 2026
