@@ -30,11 +30,12 @@ def test_a_porta_de_entrada_existe(nome):
     assert (RAIZ / nome).is_file()
 
 
-def test_o_readme_manda_o_leitor_para_o_rodar():
-    """Quem chega agora precisa achar o que rodar em uma linha, nao em 260."""
+def test_o_readme_avisa_o_abandono_logo_no_comeco():
+    """Projeto abandonado ate segunda ordem desde 20/10/2026 (ordem do proprietario):
+    quem abre o README tem de saber disso antes de qualquer outra coisa."""
     texto = ler("README.md")
-    assert "## Estado atual" in texto
-    assert "RODAR.md" in texto[:texto.index("## Requisitos")]
+    assert "abandonado" in texto[:300].lower()
+    assert "RODAR.md" in texto
 
 
 def test_o_rodar_registra_o_que_mudou():
@@ -53,20 +54,3 @@ def test_os_numeros_do_denominador_batem_com_o_gabarito():
             citados = {int(n) for n in re.findall(r"\b(\d{2,3})\b", texto)}
             if papel == "dublaveis" and "dublá" in texto.lower():
                 assert numero in citados, f"{nome} fala de dubláveis sem citar {numero}"
-
-
-def test_a_meta_citada_no_estado_atual_e_a_vigente():
-    """A meta e 95% dos dois lados desde 08/09/2026.
-
-    Le a tabela do "Estado atual" do README, que e o que alguem olha primeiro, e
-    cobra 95% na coluna de meta das duas linhas. Meta antiga citada como historico
-    e permitida; anunciada como vigente, nao.
-    """
-    texto = ler("README.md")
-    bloco = texto[texto.index("## Estado atual"):texto.index("### Duas regras")]
-    linhas = [linha for linha in bloco.splitlines()
-              if linha.startswith("|") and "dubl" in linha.lower()]
-    assert len(linhas) == 2, "a tabela do Estado atual perdeu as linhas de precisao/cobertura"
-    for linha in linhas:
-        assert linha.rstrip().rstrip("|").rstrip().endswith("95%"), \
-            f"meta desatualizada na tabela do README: {linha.strip()}"
