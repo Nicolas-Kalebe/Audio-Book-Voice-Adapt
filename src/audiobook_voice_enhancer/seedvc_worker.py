@@ -50,8 +50,10 @@ def serve(root: Path):
                 output.parent.mkdir(parents=True, exist_ok=True)
                 with tempfile.TemporaryDirectory(prefix=".seedvc-", dir=output.parent) as staging:
                     args = SimpleNamespace(source=request["source"], target=request["reference"],
-                        output=staging, diffusion_steps=25, length_adjust=1.0,
-                        inference_cfg_rate=0.7, f0_condition=False, auto_f0_adjust=False,
+                        output=staging, diffusion_steps=int(request.get("diffusion_steps", 25)), length_adjust=1.0,
+                        inference_cfg_rate=float(request.get("inference_cfg_rate", 0.7)),
+                        f0_condition=bool(request.get("f0_condition", False)),
+                        auto_f0_adjust=bool(request.get("auto_f0_adjust", False)),
                         semi_tone_shift=request["pitch_shift"], checkpoint=None, config=None, fp16=True)
                     module.main(args)
                     candidates = list(Path(staging).glob("*.wav"))

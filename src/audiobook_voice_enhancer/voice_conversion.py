@@ -32,9 +32,17 @@ class VoiceConverter:
 class SeedVCConverter(VoiceConverter):
     name = "seedvc"
 
-    def __init__(self, root: Path, *, persistent: bool = True, timeout: float = 600):
+    # Padrões de sempre: modelo de fala de 22 kHz, sem controle de tom.
+    DEFAULTS = {"diffusion_steps": 25, "inference_cfg_rate": 0.7, "f0_condition": False, "auto_f0_adjust": False}
+
+    def __init__(self, root: Path, *, persistent: bool = True, timeout: float = 600,
+                 settings: dict[str, Any] | None = None):
         self.root = root.resolve()
         self.persistent, self.timeout = persistent, timeout
+        self.settings = {**self.DEFAULTS, **{k: v for k, v in (settings or {}).items() if k in self.DEFAULTS}}
+        # O nome entra na chave do cache de áudio convertido: ajuste novo não reaproveita conversão velha.
+        if self.settings != self.DEFAULTS:
+            self.name = "seedvc[" + ",".join(f"{k}={v}" for k, v in sorted(self.settings.items())) + "]"
         self._process = None
         self._log = None
         self.timings: list[dict] = []
@@ -87,7 +95,8 @@ class SeedVCConverter(VoiceConverter):
             if cold:
                 self._start()
             request = {"source": str(source.resolve()), "reference": str(reference.resolve()),
-                       "output": str(output.resolve()), "pitch_shift": int(float(character.get("pitch_shift", 0)))}
+                       "output": str(output.resolve()), "pitch_shift": int(float(character.get("pitch_shift", 0))),
+                       **self.settings}
             self._process.stdin.write(json.dumps(request, ensure_ascii=True) + "\n")
             self._process.stdin.flush()
             response = self._responses.get(timeout=self.timeout)
@@ -131,9 +140,10 @@ class SeedVCConverter(VoiceConverter):
         private_python = self.root / ".venv" / "Scripts" / "python.exe"
         python = str(private_python) if private_python.is_file() else sys.executable
         command = [python, str(self.root / "inference.py"), "--source", str(source.resolve()), "--target",
-                   str(reference.resolve()), "--output", str(staging.resolve()), "--diffusion-steps", "25",
-                   "--length-adjust", "1.0", "--inference-cfg-rate", "0.7", "--f0-condition", "False",
-                   "--auto-f0-adjust", "False", "--semi-tone-shift", str(int(float(character.get("pitch_shift", 0)))), "--fp16", "True"]
+                   str(reference.resolve()), "--output", str(staging.resolve()), "--diffusion-steps",
+                   str(self.settings["diffusion_steps"]), "--length-adjust", "1.0", "--inference-cfg-rate",
+                   str(self.settings["inference_cfg_rate"]), "--f0-condition", str(bool(self.settings["f0_condition"])),
+                   "--auto-f0-adjust", str(bool(self.settings["auto_f0_adjust"])), "--semi-tone-shift", str(int(float(character.get("pitch_shift", 0)))), "--fp16", "True"]
         proc = subprocess.run(command, cwd=self.root, capture_output=True, text=True, encoding="utf-8",
                               errors="replace", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if proc.returncode:
@@ -175,7 +185,8 @@ def select_converter(config: dict[str, Any], root: Path) -> VoiceConverter:
     choices: dict[str, VoiceConverter] = {
         "seedvc": SeedVCConverter(root / vc.get("seedvc_path", "models/seed-vc"),
                                  persistent=bool(vc.get("persistent_worker", True)),
-                                 timeout=float(vc.get("worker_timeout_seconds", 600))),
+                                 timeout=float(vc.get("worker_timeout_seconds", 600)),
+                                 settings=vc.get("seedvc", {})),
         "openvoice": OpenVoiceConverter(root / vc.get("openvoice_path", "models/OpenVoice")),
         "rvc": RVCConverter(root / vc.get("rvc_path", "models/Retrieval-based-Voice-Conversion-WebUI")),
     }

@@ -6,6 +6,21 @@ como adivinhar o que mudou.
 
 ## O que mudou, do mais novo para o mais velho
 
+### 20 de outubro de 2026 — conversão de voz não alcançou naturalidade; projeto cancelado
+
+- **Seed-VC configurável** (`voice_conversion.seedvc`: `f0_condition`, `auto_f0_adjust`,
+  `diffusion_steps`, `inference_cfg_rate`); o padrão continua o de antes. O modelo de 44 kHz com
+  controle de tom, 50 passos, foi comparado de ouvido com o atual em 8 falas da Parte 03:
+  "praticamente não mudou".
+- **RVC (Applio 3.7.0) treinado** com 52 min de uma leitora do LibriVox em domínio público
+  (voz ~174–213 Hz), checkpoint do ciclo 25: também artificial. O treino não entrou no app.
+- Diagnóstico: o narrador é masculino (~151 Hz; ~110–135 Hz nas falas femininas) e a
+  literatura e os testes concordam que masculino → feminino/infantil soa sintético nas
+  ferramentas locais atuais; o Seed-VC foi arquivado pelo autor em 21/11/2025. TTS foi
+  rejeitado por não soar natural.
+- **Decisão do proprietário:** projeto cancelado por limitação técnica, pelo menos por enquanto.
+  Atribuição (`frontier`), alinhamento forçado e reconstrução ficam como estão.
+
 ### 19 de outubro de 2026 — alinhamento forçado define onde cada fala começa e termina
 
 A primeira conversão completa (Parte 01, Fable + Seed-VC) soou ruim: falas

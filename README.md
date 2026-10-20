@@ -4,6 +4,18 @@ Ferramenta local para detectar falas em audiobooks e aplicar **voice conversion 
 
 > Estado: pipeline funcional e conservador. A qualidade final depende dos modelos Seed-VC, das referências de voz, da fidelidade do texto do livro e do áudio de entrada. Leia [TECHNICAL_DECISIONS.md](TECHNICAL_DECISIONS.md) para escolhas e limitações.
 
+> ## Projeto cancelado — 20 de outubro de 2026
+>
+> **Saber quem fala e onde a fala está ficou resolvido; trocar a voz de forma natural, não.**
+> Com um modelo de ponta (Claude Fable 5.1) atribuindo as falas e alinhamento forçado do texto
+> do livro definindo o início e o fim de cada uma, as falas certas eram cortadas nos lugares
+> certos. O que impediu o produto foi a conversão de voz: o narrador é homem (~151 Hz) e
+> interpreta as personagens femininas e infantis, e nenhuma opção local testada soou natural —
+> Seed-VC sem treino (22 kHz e 44 kHz com controle de tom) e RVC treinado com 52 min de uma voz
+> feminina em domínio público soaram artificiais de ouvido. TTS foi descartado pelo mesmo motivo.
+> O projeto fica parado até existir conversão de voz local à altura; o histórico das decisões
+> está em [RODAR.md](RODAR.md).
+
 Para um roteiro direto, incluindo onde colocar cada arquivo, consulte [GUIA_DE_USO.md](GUIA_DE_USO.md).
 
 ## Estado atual — 18 de outubro de 2026
